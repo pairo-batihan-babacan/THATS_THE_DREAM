@@ -13,4 +13,4 @@ celery -A app.core.celery_app beat \
   --loglevel=info &
 
 # Start FastAPI (foreground — this is the process Render monitors)
-exec uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-8000}"
+exec uvicorn app.main:app --host 0.0.0.0 --port "$PORT"
