@@ -1,6 +1,5 @@
 #!/bin/bash
 # Render free tier: run Celery worker + API in the same container.
-set -e
 
 # Start Celery worker in background (handles both queues)
 celery -A app.core.celery_app worker \
