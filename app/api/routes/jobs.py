@@ -1,13 +1,15 @@
-import os
+import asyncio
+import io
 import json
 import redis.asyncio as aioredis
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import StreamingResponse
 from sqlmodel.ext.asyncio.session import AsyncSession
 from app.core.database import get_session
 from app.crud.job import get_job, update_job_status
 from app.models.job import JobStatus
 from app.core.config import settings
+from app.core import storage
 
 router = APIRouter(prefix="/api/jobs", tags=["Jobs"])
 
@@ -85,12 +87,17 @@ async def download_result(
     if not output_filename:
         raise HTTPException(404, "Output file not found")
 
-    file_path = os.path.join(settings.OUTPUT_DIR, output_filename)
-    if not os.path.exists(file_path):
-        raise HTTPException(404, "Output file has been deleted from the server")
+    try:
+        data = await asyncio.to_thread(
+            storage.download_file,
+            settings.SUPABASE_OUTPUTS_BUCKET,
+            output_filename,
+        )
+    except Exception:
+        raise HTTPException(404, "Output file has expired or been deleted")
 
-    return FileResponse(
-        file_path,
-        filename=output_filename,
+    return StreamingResponse(
+        io.BytesIO(data),
         media_type="application/octet-stream",
+        headers={"Content-Disposition": f'attachment; filename="{output_filename}"'},
     )

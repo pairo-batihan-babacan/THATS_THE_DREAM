@@ -37,13 +37,11 @@ class Settings(BaseSettings):
     # AI
     GROQ_API_KEY: str = ""
 
-    # Storage
-    USE_CLOUD_STORAGE: bool = False
-    R2_ACCOUNT_ID: str = ""
-    R2_ACCESS_KEY_ID: str = ""
-    R2_SECRET_ACCESS_KEY: str = ""
-    R2_BUCKET_NAME: str = "fileconvert-outputs"
-    R2_PUBLIC_URL: str = ""
+    # Supabase
+    SUPABASE_URL: str = ""
+    SUPABASE_SERVICE_ROLE_KEY: str = ""
+    SUPABASE_UPLOADS_BUCKET: str = "uploads"
+    SUPABASE_OUTPUTS_BUCKET: str = "outputs"
 
     # CORS
     ALLOWED_ORIGINS: List[str] = [
@@ -54,6 +52,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = True
+        extra = "ignore"
 
 
 settings = Settings()

@@ -1,127 +1,172 @@
 import os
-import glob
 from app.core.celery_app import celery_app
 from app.core.config import settings
-from app import services
 
 
-@celery_app.task(name="app.workers.pdf_tasks.compress_pdf_task")
-def compress_pdf_task(input_path: str, job_id: str, quality: str = "medium"):
-    from app.services.pdf_service import compress_pdf
-    _run_task(job_id, lambda: compress_pdf(input_path, job_id, quality), input_path)
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
 
-
-@celery_app.task(name="app.workers.pdf_tasks.pdf_to_word_task")
-def pdf_to_word_task(input_path: str, job_id: str):
-    from app.services.pdf_service import pdf_to_word
-    _run_task(job_id, lambda: pdf_to_word(input_path, job_id), input_path)
-
-
-@celery_app.task(name="app.workers.pdf_tasks.pdf_to_images_task")
-def pdf_to_images_task(input_path: str, job_id: str):
-    from app.services.pdf_service import pdf_to_images
-    _run_task(job_id, lambda: pdf_to_images(input_path, job_id), input_path)
-
-
-@celery_app.task(name="app.workers.pdf_tasks.images_to_pdf_task")
-def images_to_pdf_task(input_paths: list[str], job_id: str):
-    from app.services.pdf_service import images_to_pdf
-    _run_task(job_id, lambda: images_to_pdf(input_paths, job_id), input_paths[0] if input_paths else None)
-
-
-@celery_app.task(name="app.workers.pdf_tasks.merge_pdfs_task")
-def merge_pdfs_task(input_paths: list[str], job_id: str):
-    from app.services.pdf_service import merge_pdfs
-    _run_task(job_id, lambda: merge_pdfs(input_paths, job_id), input_paths[0] if input_paths else None)
-
-
-@celery_app.task(name="app.workers.pdf_tasks.split_pdf_task")
-def split_pdf_task(input_path: str, job_id: str, pages: str):
-    from app.services.pdf_service import split_pdf
-    _run_task(job_id, lambda: split_pdf(input_path, job_id, pages), input_path)
-
-
-@celery_app.task(name="app.workers.pdf_tasks.strip_pdf_metadata_task")
-def strip_pdf_metadata_task(input_path: str, job_id: str):
-    from app.services.pdf_service import strip_pdf_metadata
-    _run_task(job_id, lambda: strip_pdf_metadata(input_path, job_id), input_path)
-
-
-@celery_app.task(name="app.workers.pdf_tasks.word_to_pdf_task")
-def word_to_pdf_task(input_path: str, job_id: str):
-    from app.services.pdf_service import word_to_pdf
-    _run_task(job_id, lambda: word_to_pdf(input_path, job_id), input_path)
-
-
-@celery_app.task(name="app.workers.pdf_tasks.ppt_to_pdf_task")
-def ppt_to_pdf_task(input_path: str, job_id: str):
-    from app.services.pdf_service import ppt_to_pdf
-    _run_task(job_id, lambda: ppt_to_pdf(input_path, job_id), input_path)
-
-
-@celery_app.task(name="app.workers.pdf_tasks.excel_to_pdf_task")
-def excel_to_pdf_task(input_path: str, job_id: str):
-    from app.services.pdf_service import excel_to_pdf
-    _run_task(job_id, lambda: excel_to_pdf(input_path, job_id), input_path)
-
-
-@celery_app.task(name="app.workers.pdf_tasks.unlock_pdf_task")
-def unlock_pdf_task(input_path: str, job_id: str, password: str = ""):
-    from app.services.pdf_service import unlock_pdf
-    _run_task(job_id, lambda: unlock_pdf(input_path, job_id, password), input_path)
-
-
-@celery_app.task(name="app.workers.pdf_tasks.pdf_to_excel_task")
-def pdf_to_excel_task(input_path: str, job_id: str):
-    from app.services.pdf_service import pdf_to_excel
-    _run_task(job_id, lambda: pdf_to_excel(input_path, job_id), input_path)
-
-
-@celery_app.task(name="app.workers.pdf_tasks.cleanup_expired_files")
-def cleanup_expired_files():
-    """Delete upload and output files older than FILE_TTL_MINUTES."""
-    import time
-    ttl_seconds = settings.FILE_TTL_MINUTES * 60
-    now = time.time()
-    deleted = 0
-    for directory in [settings.UPLOAD_DIR, settings.OUTPUT_DIR]:
-        if not os.path.exists(directory):
-            continue
-        for filepath in glob.glob(os.path.join(directory, "*")):
-            if os.path.isfile(filepath):
-                age = now - os.path.getmtime(filepath)
-                if age > ttl_seconds:
-                    os.remove(filepath)
-                    deleted += 1
-    return {"deleted_files": deleted}
-
-
-def _run_task(job_id: str, conversion_fn, input_path):
+def _download_input(storage_path: str, job_id: str, index: int = 0) -> str:
     """
-    Wrapper that updates job status in Redis before and after conversion.
-    Uses Redis directly (no async DB in Celery workers).
+    Download a file from the uploads bucket to a local temp path.
+    Returns the local file path.
+    """
+    from app.core.storage import download_file
+
+    ext = os.path.splitext(storage_path)[1]
+    local_path = f"/tmp/{job_id}_input_{index}{ext}"
+    data = download_file(settings.SUPABASE_UPLOADS_BUCKET, storage_path)
+    with open(local_path, "wb") as f:
+        f.write(data)
+    return local_path
+
+
+def _run_task(job_id: str, conversion_fn, local_input_paths):
+    """
+    Wrapper that:
+    1. Updates job status in Redis.
+    2. Runs conversion_fn() which returns output_filename (written to OUTPUT_DIR).
+    3. Uploads the output file to Supabase Storage outputs bucket.
+    4. Cleans up local temp files.
+
+    local_input_paths: str or list[str] — local paths to delete after success.
     """
     import redis as redis_lib
     import json
+    from app.core.storage import upload_file, delete_file
 
     r = redis_lib.from_url(settings.REDIS_URL)
     status_key = f"job_status:{job_id}"
-
     r.set(status_key, json.dumps({"status": "processing"}), ex=3600)
 
     try:
         output_filename = conversion_fn()
+
+        # Upload output to Supabase Storage
+        local_output_path = os.path.join(settings.OUTPUT_DIR, output_filename)
+        with open(local_output_path, "rb") as f:
+            output_data = f.read()
+        upload_file(settings.SUPABASE_OUTPUTS_BUCKET, output_filename, output_data)
+
         r.set(
             status_key,
             json.dumps({"status": "done", "output_filename": output_filename}),
             ex=3600,
         )
-        # Clean up input file(s)
-        if input_path and os.path.exists(input_path):
-            os.remove(input_path)
+
+        # Clean up local input file(s)
+        inputs = local_input_paths if isinstance(local_input_paths, list) else [local_input_paths]
+        for p in inputs:
+            if p and os.path.exists(p):
+                os.remove(p)
+
+        # Clean up local output file
+        if os.path.exists(local_output_path):
+            os.remove(local_output_path)
+
     except Exception as e:
         r.set(
             status_key,
             json.dumps({"status": "failed", "error": str(e)}),
             ex=3600,
         )
+
+
+# ---------------------------------------------------------------------------
+# Tasks
+# ---------------------------------------------------------------------------
+
+@celery_app.task(name="app.workers.pdf_tasks.compress_pdf_task")
+def compress_pdf_task(storage_path: str, job_id: str, quality: str = "medium"):
+    from app.services.pdf_service import compress_pdf
+    local = _download_input(storage_path, job_id)
+    _run_task(job_id, lambda: compress_pdf(local, job_id, quality), local)
+
+
+@celery_app.task(name="app.workers.pdf_tasks.pdf_to_word_task")
+def pdf_to_word_task(storage_path: str, job_id: str):
+    from app.services.pdf_service import pdf_to_word
+    local = _download_input(storage_path, job_id)
+    _run_task(job_id, lambda: pdf_to_word(local, job_id), local)
+
+
+@celery_app.task(name="app.workers.pdf_tasks.pdf_to_images_task")
+def pdf_to_images_task(storage_path: str, job_id: str):
+    from app.services.pdf_service import pdf_to_images
+    local = _download_input(storage_path, job_id)
+    _run_task(job_id, lambda: pdf_to_images(local, job_id), local)
+
+
+@celery_app.task(name="app.workers.pdf_tasks.images_to_pdf_task")
+def images_to_pdf_task(storage_paths: list[str], job_id: str):
+    from app.services.pdf_service import images_to_pdf
+    local_paths = [_download_input(sp, job_id, i) for i, sp in enumerate(storage_paths)]
+    _run_task(job_id, lambda: images_to_pdf(local_paths, job_id), local_paths)
+
+
+@celery_app.task(name="app.workers.pdf_tasks.merge_pdfs_task")
+def merge_pdfs_task(storage_paths: list[str], job_id: str):
+    from app.services.pdf_service import merge_pdfs
+    local_paths = [_download_input(sp, job_id, i) for i, sp in enumerate(storage_paths)]
+    _run_task(job_id, lambda: merge_pdfs(local_paths, job_id), local_paths)
+
+
+@celery_app.task(name="app.workers.pdf_tasks.split_pdf_task")
+def split_pdf_task(storage_path: str, job_id: str, pages: str):
+    from app.services.pdf_service import split_pdf
+    local = _download_input(storage_path, job_id)
+    _run_task(job_id, lambda: split_pdf(local, job_id, pages), local)
+
+
+@celery_app.task(name="app.workers.pdf_tasks.strip_pdf_metadata_task")
+def strip_pdf_metadata_task(storage_path: str, job_id: str):
+    from app.services.pdf_service import strip_pdf_metadata
+    local = _download_input(storage_path, job_id)
+    _run_task(job_id, lambda: strip_pdf_metadata(local, job_id), local)
+
+
+@celery_app.task(name="app.workers.pdf_tasks.word_to_pdf_task")
+def word_to_pdf_task(storage_path: str, job_id: str):
+    from app.services.pdf_service import word_to_pdf
+    local = _download_input(storage_path, job_id)
+    _run_task(job_id, lambda: word_to_pdf(local, job_id), local)
+
+
+@celery_app.task(name="app.workers.pdf_tasks.ppt_to_pdf_task")
+def ppt_to_pdf_task(storage_path: str, job_id: str):
+    from app.services.pdf_service import ppt_to_pdf
+    local = _download_input(storage_path, job_id)
+    _run_task(job_id, lambda: ppt_to_pdf(local, job_id), local)
+
+
+@celery_app.task(name="app.workers.pdf_tasks.excel_to_pdf_task")
+def excel_to_pdf_task(storage_path: str, job_id: str):
+    from app.services.pdf_service import excel_to_pdf
+    local = _download_input(storage_path, job_id)
+    _run_task(job_id, lambda: excel_to_pdf(local, job_id), local)
+
+
+@celery_app.task(name="app.workers.pdf_tasks.unlock_pdf_task")
+def unlock_pdf_task(storage_path: str, job_id: str, password: str = ""):
+    from app.services.pdf_service import unlock_pdf
+    local = _download_input(storage_path, job_id)
+    _run_task(job_id, lambda: unlock_pdf(local, job_id, password), local)
+
+
+@celery_app.task(name="app.workers.pdf_tasks.pdf_to_excel_task")
+def pdf_to_excel_task(storage_path: str, job_id: str):
+    from app.services.pdf_service import pdf_to_excel
+    local = _download_input(storage_path, job_id)
+    _run_task(job_id, lambda: pdf_to_excel(local, job_id), local)
+
+
+@celery_app.task(name="app.workers.pdf_tasks.cleanup_expired_files")
+def cleanup_expired_files():
+    """Delete files older than FILE_TTL_MINUTES from both Supabase Storage buckets."""
+    from app.core.storage import delete_old_files
+
+    deleted = 0
+    deleted += delete_old_files(settings.SUPABASE_UPLOADS_BUCKET, settings.FILE_TTL_MINUTES)
+    deleted += delete_old_files(settings.SUPABASE_OUTPUTS_BUCKET, settings.FILE_TTL_MINUTES)
+    return {"deleted_files": deleted}

@@ -37,3 +37,4 @@ groq
 
 aiosqlite
 jinja2
+supabase

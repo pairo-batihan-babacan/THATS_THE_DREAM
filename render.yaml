@@ -1,0 +1,47 @@
+services:
+  - type: web
+    name: fileconvert-api
+    env: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    startCommand: bash start.sh
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        fromService:
+          name: fileconvert-redis
+          type: redis
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_UPLOADS_BUCKET
+        value: uploads
+      - key: SUPABASE_OUTPUTS_BUCKET
+        value: outputs
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: STRIPE_PRO_PRICE_ID
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: ALLOWED_ORIGINS
+        sync: false
+
+  - type: redis
+    name: fileconvert-redis
+    plan: free
+    maxmemoryPolicy: noeviction

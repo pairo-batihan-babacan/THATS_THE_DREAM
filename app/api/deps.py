@@ -1,10 +1,11 @@
 import os
 import re
 import uuid
+import asyncio
 import unicodedata
-import aiofiles
 from fastapi import UploadFile, HTTPException
 from app.core.config import settings
+from app.core import storage
 
 # Manual transliteration for characters that NFKD decomposition doesn't handle
 _TRANSLITERATION = str.maketrans(
@@ -16,18 +17,12 @@ _TRANSLITERATION = str.maketrans(
 def sanitize_filename(filename: str) -> str:
     """Make a filename safe for cross-container use (ASCII-only, no spaces/specials)."""
     name, ext = os.path.splitext(filename)
-    # Apply manual transliteration first (Turkish chars, etc.)
     name = name.translate(_TRANSLITERATION)
-    # NFKD normalize then drop remaining non-ASCII
     name = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode()
-    # Replace any non-alphanumeric character (spaces, #, etc.) with underscore
     name = re.sub(r"[^A-Za-z0-9_.-]", "_", name)
-    # Collapse consecutive underscores
     name = re.sub(r"_+", "_", name).strip("_")
-    # Fallback if name is now empty
     if not name:
         name = "upload"
-    # Sanitize extension too
     ext = ext.lower()
     ext = re.sub(r"[^a-z0-9.]", "", ext)
     return name + ext
@@ -39,6 +34,10 @@ def allowed_file(filename: str, allowed: list[str]) -> bool:
 
 
 async def save_upload_file(file: UploadFile) -> tuple[str, str]:
+    """
+    Read the uploaded file, enforce size limit, upload to Supabase Storage.
+    Returns (job_id, storage_path) where storage_path is the key inside the uploads bucket.
+    """
     contents = await file.read()
     size_mb = len(contents) / (1024 * 1024)
 
@@ -50,23 +49,25 @@ async def save_upload_file(file: UploadFile) -> tuple[str, str]:
 
     job_id = str(uuid.uuid4())
     original = os.path.basename(file.filename or "upload")
-    safe_name = f"{job_id}_{sanitize_filename(original)}"
-    save_path = os.path.join(settings.UPLOAD_DIR, safe_name)
+    storage_path = f"{job_id}_{sanitize_filename(original)}"
 
-    os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+    await asyncio.to_thread(
+        storage.upload_file,
+        settings.SUPABASE_UPLOADS_BUCKET,
+        storage_path,
+        contents,
+    )
 
-    async with aiofiles.open(save_path, "wb") as f:
-        await f.write(contents)
-
-    return job_id, save_path
+    return job_id, storage_path
 
 
 async def save_multiple_files(files: list[UploadFile]) -> tuple[str, list[str]]:
-    """Save multiple files, return a shared job_id and list of saved paths."""
+    """
+    Save multiple files to Supabase Storage under a shared job_id.
+    Returns (job_id, list_of_storage_paths).
+    """
     job_id = str(uuid.uuid4())
-    saved_paths = []
-
-    os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+    storage_paths = []
 
     for i, file in enumerate(files):
         contents = await file.read()
@@ -79,12 +80,15 @@ async def save_multiple_files(files: list[UploadFile]) -> tuple[str, list[str]]:
             )
 
         original = os.path.basename(file.filename or "upload")
-        safe_name = f"{job_id}_{i}_{sanitize_filename(original)}"
-        save_path = os.path.join(settings.UPLOAD_DIR, safe_name)
+        storage_path = f"{job_id}_{i}_{sanitize_filename(original)}"
 
-        async with aiofiles.open(save_path, "wb") as f:
-            await f.write(contents)
+        await asyncio.to_thread(
+            storage.upload_file,
+            settings.SUPABASE_UPLOADS_BUCKET,
+            storage_path,
+            contents,
+        )
 
-        saved_paths.append(save_path)
+        storage_paths.append(storage_path)
 
-    return job_id, saved_paths
+    return job_id, storage_paths
