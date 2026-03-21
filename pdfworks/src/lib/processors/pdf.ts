@@ -216,9 +216,21 @@ export async function extractPagesPdf(
 
 // ─── 7. Number Pages ──────────────────────────────────────────────────────────
 
-export async function numberPagesPdf(file: File, onProgress: ProgressFn): Promise<Blob> {
+export interface NumberPagesOpts {
+  position?: string   // 'TL'|'TC'|'TR'|'ML'|'MC'|'MR'|'BL'|'BC'|'BR'
+  startFrom?: number
+  fontSize?: number
+  format?: string     // 'number'|'page-n'|'n-of-total'|'page-n-of-total'
+}
+
+export async function numberPagesPdf(file: File, opts: NumberPagesOpts, onProgress: ProgressFn): Promise<Blob> {
   const buffer = await file.arrayBuffer()
-  const result = await callWorker('number', [buffer], {}, onProgress)
+  const result = await callWorker('number', [buffer], {
+    numberPosition:  opts.position,
+    numberStartFrom: opts.startFrom,
+    numberFontSize:  opts.fontSize,
+    numberFormat:    opts.format,
+  }, onProgress)
   return new Blob([result], { type: 'application/pdf' })
 }
 
@@ -236,13 +248,27 @@ export async function protectPdf(
 
 // ─── 9. Watermark PDF ─────────────────────────────────────────────────────────
 
+export interface WatermarkOpts {
+  text?: string
+  position?: string   // 'diagonal'|'center'|'top'|'bottom'|'top-left'|'top-right'|'bottom-left'|'bottom-right'
+  opacity?: number    // 0-100 percentage
+  rotation?: number   // degrees
+  colorHex?: string   // e.g. '#999999'
+}
+
 export async function watermarkPdf(
   file: File,
-  watermarkText: string,
+  opts: WatermarkOpts,
   onProgress: ProgressFn,
 ): Promise<Blob> {
   const buffer = await file.arrayBuffer()
-  const result = await callWorker('watermark', [buffer], { watermarkText }, onProgress)
+  const result = await callWorker('watermark', [buffer], {
+    watermarkText:     opts.text,
+    watermarkPosition: opts.position,
+    watermarkOpacity:  opts.opacity,
+    watermarkRotation: opts.rotation,
+    watermarkColorHex: opts.colorHex,
+  }, onProgress)
   return new Blob([result], { type: 'application/pdf' })
 }
 

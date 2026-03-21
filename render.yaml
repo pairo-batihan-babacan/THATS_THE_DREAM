@@ -45,18 +45,11 @@ services:
   # ── Next.js frontend ───────────────────────────────────────────────────────
   - type: web
     name: pdfworks-frontend
-    env: node
+    env: docker
     plan: free
-    rootDir: pdfworks
-    buildCommand: npm ci && npm run build
-    startCommand: npm start
-    envVars:
-      - key: NEXT_PUBLIC_API_URL
-        value: https://api.pdfworks.io
-      - key: NODE_ENV
-        value: production
-      - key: PORT
-        value: "10000"
+    dockerfilePath: ./pdfworks/Dockerfile
+    dockerContext: ./pdfworks
+    healthCheckPath: /
 
   # ── Redis ──────────────────────────────────────────────────────────────────
   - type: redis

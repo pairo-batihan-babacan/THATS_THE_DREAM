@@ -15,7 +15,15 @@ interface WorkerRequest {
     pageRange?: string
     rotation?: number
     watermarkText?: string
+    watermarkPosition?: string
+    watermarkOpacity?: number      // 0-100 percentage
+    watermarkRotation?: number     // degrees
+    watermarkColorHex?: string     // e.g. '#999999'
     password?: string
+    numberPosition?: string        // 'TL'|'TC'|'TR'|'ML'|'MC'|'MR'|'BL'|'BC'|'BR'
+    numberStartFrom?: number
+    numberFontSize?: number
+    numberFormat?: string          // 'number'|'page-n'|'n-of-total'|'page-n-of-total'
   }
 }
 
@@ -47,6 +55,15 @@ function parsePageNums(input: string, total: number): number[] {
   return Array.from(seen).sort((a, b) => a - b)
 }
 
+function hexToRgb01(hex: string): [number, number, number] {
+  const h = hex.replace('#', '')
+  return [
+    parseInt(h.slice(0, 2), 16) / 255,
+    parseInt(h.slice(2, 4), 16) / 255,
+    parseInt(h.slice(4, 6), 16) / 255,
+  ]
+}
+
 // ─── Entry point ─────────────────────────────────────────────────────────────
 
 ;(self as any).addEventListener('message', async (e: MessageEvent<WorkerRequest>) => {
@@ -66,15 +83,15 @@ async function dispatch(
   options: WorkerRequest['options'],
 ): Promise<ArrayBuffer> {
   switch (op) {
-    case 'merge':        return doMerge(id, buffers)
-    case 'split':        return doExtract(id, buffers[0], options.pageRange ?? '')
-    case 'extract':      return doExtract(id, buffers[0], options.pageRange ?? '')
-    case 'delete':       return doDelete(id, buffers[0], options.pageRange ?? '')
-    case 'rotate':       return doRotate(id, buffers[0], options.pageRange ?? '', options.rotation ?? 90)
-    case 'number':       return doNumber(id, buffers[0])
-    case 'protect':      return doProtect(id, buffers[0], options.password ?? '')
-    case 'watermark':    return doWatermark(id, buffers[0], options.watermarkText ?? 'CONFIDENTIAL')
-    case 'flatten':      return doFlatten(id, buffers[0])
+    case 'merge':     return doMerge(id, buffers)
+    case 'split':     return doExtract(id, buffers[0], options.pageRange ?? '')
+    case 'extract':   return doExtract(id, buffers[0], options.pageRange ?? '')
+    case 'delete':    return doDelete(id, buffers[0], options.pageRange ?? '')
+    case 'rotate':    return doRotate(id, buffers[0], options.pageRange ?? '', options.rotation ?? 90)
+    case 'number':    return doNumber(id, buffers[0], options)
+    case 'protect':   return doProtect(id, buffers[0], options.password ?? '')
+    case 'watermark': return doWatermark(id, buffers[0], options)
+    case 'flatten':   return doFlatten(id, buffers[0])
     default: throw new Error(`Unknown operation: ${op}`)
   }
 }
@@ -148,25 +165,57 @@ async function doRotate(
   return bytes.buffer as ArrayBuffer
 }
 
-async function doNumber(id: string, buffer: ArrayBuffer): Promise<ArrayBuffer> {
+async function doNumber(
+  id: string,
+  buffer: ArrayBuffer,
+  opts: WorkerRequest['options'],
+): Promise<ArrayBuffer> {
   progress(id, 5, 'Loading PDF…')
   const doc = await PDFDocument.load(buffer)
   const font = await doc.embedFont(StandardFonts.Helvetica)
   const total = doc.getPageCount()
+
+  const position  = opts.numberPosition  ?? 'BC'
+  const startFrom = opts.numberStartFrom ?? 1
+  const fontSize  = opts.numberFontSize  ?? 10
+  const format    = opts.numberFormat    ?? 'number'
+  const margin    = 18
+
   for (let i = 0; i < total; i++) {
     progress(id, 10 + (i / total) * 80, `Numbering page ${i + 1} of ${total}…`)
     const page = doc.getPage(i)
-    const { width } = page.getSize()
-    const text = String(i + 1)
-    const fontSize = 10
+    const { width, height } = page.getSize()
+
+    const pageNum = i + startFrom
+    let text: string
+    switch (format) {
+      case 'page-n':          text = `Page ${pageNum}`; break
+      case 'n-of-total':      text = `${pageNum}/${total + startFrom - 1}`; break
+      case 'page-n-of-total': text = `Page ${pageNum} of ${total + startFrom - 1}`; break
+      default:                text = String(pageNum)
+    }
+
     const textWidth = font.widthOfTextAtSize(text, fontSize)
+
+    // Horizontal position
+    let x: number
+    if (position.endsWith('L'))      x = margin
+    else if (position.endsWith('R')) x = width - textWidth - margin
+    else                             x = (width - textWidth) / 2
+
+    // Vertical position (PDF origin is bottom-left)
+    let y: number
+    if (position.startsWith('T'))      y = height - margin - fontSize
+    else if (position.startsWith('M')) y = (height - fontSize) / 2
+    else                               y = margin
+
     page.drawText(text, {
-      x: (width - textWidth) / 2,
-      y: 16,
+      x,
+      y,
       size: fontSize,
       font,
       color: rgb(0.35, 0.35, 0.35),
-      opacity: 0.75,
+      opacity: 0.85,
     })
   }
   progress(id, 93, 'Saving…')
@@ -194,26 +243,60 @@ async function doProtect(id: string, buffer: ArrayBuffer, password: string): Pro
   return bytes.buffer as ArrayBuffer
 }
 
-async function doWatermark(id: string, buffer: ArrayBuffer, text: string): Promise<ArrayBuffer> {
-  if (!text.trim()) throw new Error('Please enter watermark text.')
+async function doWatermark(
+  id: string,
+  buffer: ArrayBuffer,
+  opts: WorkerRequest['options'],
+): Promise<ArrayBuffer> {
+  const text = (opts.watermarkText ?? 'CONFIDENTIAL').trim()
+  if (!text) throw new Error('Please enter watermark text.')
   progress(id, 5, 'Loading PDF…')
   const doc = await PDFDocument.load(buffer)
   const font = await doc.embedFont(StandardFonts.HelveticaBold)
   const total = doc.getPageCount()
+
+  const position   = opts.watermarkPosition  ?? 'diagonal'
+  const opacity    = (opts.watermarkOpacity  ?? 22) / 100   // convert % to 0-1
+  const rotDeg     = opts.watermarkRotation  ?? 45
+  const [cr, cg, cb] = opts.watermarkColorHex
+    ? hexToRgb01(opts.watermarkColorHex)
+    : [0.6, 0.6, 0.6]
+
   for (let i = 0; i < total; i++) {
     progress(id, 10 + (i / total) * 80, `Watermarking page ${i + 1} of ${total}…`)
     const page = doc.getPage(i)
     const { width, height } = page.getSize()
-    const fontSize = Math.min(width, height) * 0.1
-    const textWidth = font.widthOfTextAtSize(text, fontSize)
+    const autoSize   = Math.min(width, height) * 0.1
+    const textWidth  = font.widthOfTextAtSize(text, autoSize)
+
+    let x: number, y: number, rot: number
+
+    switch (position) {
+      case 'center':
+        x = (width - textWidth) / 2; y = (height - autoSize) / 2; rot = rotDeg; break
+      case 'top':
+        x = (width - textWidth) / 2; y = height * 0.82; rot = rotDeg; break
+      case 'bottom':
+        x = (width - textWidth) / 2; y = height * 0.08; rot = rotDeg; break
+      case 'top-left':
+        x = width * 0.05; y = height * 0.82; rot = rotDeg; break
+      case 'top-right':
+        x = width * 0.55; y = height * 0.82; rot = rotDeg; break
+      case 'bottom-left':
+        x = width * 0.05; y = height * 0.08; rot = rotDeg; break
+      case 'bottom-right':
+        x = width * 0.55; y = height * 0.08; rot = rotDeg; break
+      default: // diagonal
+        x = (width - textWidth) / 2; y = (height - autoSize) / 2; rot = 45; break
+    }
+
     page.drawText(text, {
-      x: (width - textWidth) / 2,
-      y: (height - fontSize) / 2,
-      size: fontSize,
+      x, y,
+      size: autoSize,
       font,
-      color: rgb(0.6, 0.6, 0.6),
-      opacity: 0.22,
-      rotate: degrees(45),
+      color: rgb(cr, cg, cb),
+      opacity,
+      rotate: degrees(rot),
     })
   }
   progress(id, 93, 'Saving…')

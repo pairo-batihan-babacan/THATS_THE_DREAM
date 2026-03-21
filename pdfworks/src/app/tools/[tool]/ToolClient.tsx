@@ -144,6 +144,12 @@ const REAL_TOOLS = new Set([
   'image-compress', 'image-resize', 'image-convert', 'strip-exif',
 ])
 
+// Tools where showing before→after file size is meaningful (compression / resize / format change)
+const SIZE_CHANGE_TOOLS = new Set([
+  'compress-pdf', 'image-compress', 'compress-audio', 'compress-video',
+  'image-resize', 'image-convert', 'png-to-jpg', 'heic-to-jpg',
+])
+
 // Tools that call the FastAPI backend (async job queue)
 const SERVER_TOOLS = new Set([
   'word-to-pdf', 'ppt-to-pdf', 'excel-to-pdf',
@@ -1452,7 +1458,7 @@ function FileToolInterface({
         }
         case 'number-pages': {
           const { numberPagesPdf } = await import('@/lib/processors/pdf')
-          blob = await numberPagesPdf(files[0], onProgress)
+          blob = await numberPagesPdf(files[0], {}, onProgress)
           break
         }
         case 'protect-pdf': {
@@ -1462,7 +1468,7 @@ function FileToolInterface({
         }
         case 'watermark-pdf': {
           const { watermarkPdf } = await import('@/lib/processors/pdf')
-          blob = await watermarkPdf(files[0], options.watermarkText, onProgress)
+          blob = await watermarkPdf(files[0], { text: options.watermarkText }, onProgress)
           break
         }
         case 'flatten-pdf': {
@@ -1793,7 +1799,7 @@ function FileToolInterface({
                 </motion.div>
                 <h2 className="text-gray-900 dark:text-white font-black text-xl mb-2">Done!</h2>
                 <p className="text-gray-400 text-sm mb-1">Your file is ready — processed entirely in your browser.</p>
-                {outputBlob && files[0] && (
+                {outputBlob && files[0] && SIZE_CHANGE_TOOLS.has(tool.id) && (
                   <p className="text-xs text-gray-600 mb-6 flex items-center justify-center gap-1.5">
                     <span>{formatBytes(files[0].size)}</span>
                     <span className="text-gray-700">→</span>
@@ -3014,6 +3020,1127 @@ function AISummarizerInterface({
   )
 }
 
+// ─── Page Canvas Interface (rotate / delete / extract / split) ────────────────
+// Shared canvas that shows all PDF pages as thumbnails with per-tool interactions.
+
+type CanvasMode = 'rotate' | 'delete' | 'keep'
+
+interface CanvasPage {
+  originalIndex: number
+  thumb: string
+  rotation: number   // user-added rotation 0/90/180/270
+  marked: boolean    // delete mode: will be deleted; keep mode: will be kept
+}
+
+function PageCanvasInterface({
+  tool,
+  category,
+  relatedTools,
+}: {
+  tool: Tool
+  category: ToolCategory | undefined
+  relatedTools: Tool[]
+}) {
+  const rgb = hexToRgb(tool.color)
+  const mode: CanvasMode =
+    tool.id === 'rotate-pdf'    ? 'rotate' :
+    tool.id === 'delete-pages'  ? 'delete' : 'keep'
+
+  const [file,          setFile]          = useState<File | null>(null)
+  const [pages,         setPages]         = useState<CanvasPage[]>([])
+  const [stage,         setStage]         = useState<'idle' | 'loading' | 'ready' | 'processing' | 'done' | 'error'>('idle')
+  const [loadProgress,  setLoadProgress]  = useState({ done: 0, total: 0 })
+  const [progress,      setProgress]      = useState(0)
+  const [outputBlob,    setOutputBlob]    = useState<Blob | null>(null)
+  const [outputUrl,     setOutputUrl]     = useState('')
+  const [errorMsg,      setErrorMsg]      = useState('')
+
+  const onDrop = useCallback(async (accepted: File[]) => {
+    const f = accepted[0]
+    if (!f) return
+    setFile(f)
+    setStage('loading')
+    setLoadProgress({ done: 0, total: 0 })
+    try {
+      const raw = await loadAllPageThumbs(f, (done, total) => setLoadProgress({ done, total }))
+      setPages(raw.map(p => ({
+        originalIndex: p.originalIndex,
+        thumb: p.thumb,
+        rotation: 0,
+        marked: mode === 'keep',  // keep mode: all selected by default
+      })))
+      setStage('ready')
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Failed to load PDF.')
+      setStage('error')
+    }
+  }, [mode])
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: PDF_ACCEPT,
+    maxFiles: 1,
+    disabled: stage !== 'idle',
+  })
+
+  const reset = useCallback(() => {
+    if (outputUrl) URL.revokeObjectURL(outputUrl)
+    setFile(null); setPages([]); setStage('idle')
+    setOutputBlob(null); setOutputUrl(''); setErrorMsg('')
+    setLoadProgress({ done: 0, total: 0 }); setProgress(0)
+  }, [outputUrl])
+
+  const rotatePage = (idx: number, dir: 1 | -1) =>
+    setPages(prev => prev.map((p, i) =>
+      i === idx ? { ...p, rotation: (p.rotation + dir * 90 + 360) % 360 } : p
+    ))
+
+  const toggleMark = (idx: number) =>
+    setPages(prev => prev.map((p, i) => i === idx ? { ...p, marked: !p.marked } : p))
+
+  const selectAll   = () => setPages(prev => prev.map(p => ({ ...p, marked: true })))
+  const deselectAll = () => setPages(prev => prev.map(p => ({ ...p, marked: false })))
+
+  const markedCount = pages.filter(p => p.marked).length
+  const rotatedCount = pages.filter(p => p.rotation !== 0).length
+  const totalCount  = pages.length
+
+  const actionDisabled = () => {
+    if (mode === 'rotate') return rotatedCount === 0
+    if (mode === 'delete') return markedCount === 0 || markedCount >= totalCount
+    return markedCount === 0
+  }
+
+
+  const applyChanges = useCallback(async () => {
+    if (!file || pages.length === 0) return
+    setStage('processing')
+    setProgress(0)
+
+    try {
+      let blob: Blob
+
+      if (mode === 'rotate') {
+        const { PDFDocument: PdfDoc, degrees: pdfDeg } = await import('pdf-lib')
+        const srcBytes = await file.arrayBuffer()
+        const srcDoc = await PdfDoc.load(srcBytes)
+        for (let i = 0; i < pages.length; i++) {
+          setProgress(10 + (i / pages.length) * 80)
+          if (pages[i].rotation !== 0) {
+            const page = srcDoc.getPage(i)
+            const existing = page.getRotation().angle
+            page.setRotation(pdfDeg((existing + pages[i].rotation) % 360))
+          }
+        }
+        setProgress(93)
+        const bytes = await srcDoc.save()
+        blob = new Blob([bytes.buffer as ArrayBuffer], { type: 'application/pdf' })
+      } else if (mode === 'delete') {
+        const toDelete = pages.filter(p => p.marked).map(p => p.originalIndex + 1)
+        const { deletePagesPdf } = await import('@/lib/processors/pdf')
+        blob = await deletePagesPdf(file, toDelete.join(','), (pct) => setProgress(pct))
+      } else {
+        const toKeep = pages.filter(p => p.marked).map(p => p.originalIndex + 1)
+        const { extractPagesPdf } = await import('@/lib/processors/pdf')
+        blob = await extractPagesPdf(file, toKeep.join(','), (pct) => setProgress(pct))
+      }
+
+      const url = URL.createObjectURL(blob)
+      setOutputBlob(blob); setOutputUrl(url); setProgress(100)
+      setTimeout(() => setStage('done'), 300)
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Processing failed.')
+      setStage('error')
+    }
+  }, [file, pages, mode])
+
+  const suffix = mode === 'rotate' ? '_rotated' : mode === 'delete' ? '_cleaned' : '_extracted'
+  const outputName = file ? `${file.name.replace(/\.pdf$/i, '')}${suffix}.pdf` : 'output.pdf'
+
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+      <Breadcrumb tool={tool} category={category} />
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
+          className="flex items-center gap-4 mb-8"
+        >
+          <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ background: `rgba(${rgb}, 0.15)`, color: tool.color }}>
+            <ToolIcon name={tool.icon} className="w-6 h-6" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">{tool.name}</h1>
+            <p className="text-gray-500 dark:text-gray-400 text-sm">{tool.description}</p>
+          </div>
+        </motion.div>
+
+        <AnimatePresence mode="wait">
+
+          {/* ── IDLE ── */}
+          {stage === 'idle' && (
+            <motion.div key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <div
+                {...getRootProps()}
+                className={`border-2 border-dashed rounded-2xl p-20 text-center cursor-pointer transition-colors ${
+                  isDragActive
+                    ? 'border-purple-400 bg-purple-50/5'
+                    : 'border-gray-300 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-600'
+                }`}
+              >
+                <input {...getInputProps()} />
+                <div className="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex items-center justify-center mx-auto mb-4">
+                  <Upload className={`w-7 h-7 transition-colors ${isDragActive ? 'text-purple-400' : 'text-gray-400'}`} />
+                </div>
+                <p className="text-gray-700 dark:text-gray-200 font-semibold text-lg mb-1">
+                  {isDragActive ? 'Drop it!' : 'Drop your PDF here'}
+                </p>
+                <p className="text-gray-400 text-sm">or click to select · processed locally in your browser</p>
+              </div>
+              {relatedTools.length > 0 && <RelatedTools tools={relatedTools} />}
+            </motion.div>
+          )}
+
+          {/* ── LOADING ── */}
+          {stage === 'loading' && (
+            <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-14 text-center">
+              <Loader2 className="w-10 h-10 animate-spin mx-auto mb-4" style={{ color: tool.color }} />
+              <p className="text-gray-700 dark:text-gray-200 font-semibold mb-1">Loading pages…</p>
+              {loadProgress.total > 0 && (
+                <p className="text-gray-400 text-sm mb-4">{loadProgress.done} / {loadProgress.total}</p>
+              )}
+              <div className="w-48 h-1.5 bg-gray-200 dark:bg-gray-800 rounded-full mx-auto overflow-hidden">
+                <div className="h-full rounded-full transition-all"
+                  style={{
+                    width: loadProgress.total > 0 ? `${Math.round((loadProgress.done / loadProgress.total) * 100)}%` : '10%',
+                    background: tool.color,
+                  }} />
+              </div>
+            </motion.div>
+          )}
+
+          {/* ── READY ── */}
+          {stage === 'ready' && pages.length > 0 && (
+            <motion.div key="ready" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+
+              {/* Toolbar */}
+              <div className="flex items-center justify-between mb-4 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl px-4 py-3 gap-3 flex-wrap">
+                <div className="flex items-center gap-3 min-w-0">
+                  <FileText className="w-4 h-4 flex-shrink-0" style={{ color: tool.color }} />
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate max-w-xs">{file?.name}</span>
+                  <span className="text-xs text-gray-400 flex-shrink-0">{totalCount} pages</span>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {mode !== 'rotate' && (
+                    <>
+                      <button onClick={selectAll}
+                        className="text-xs text-gray-400 hover:text-gray-200 transition-colors px-2 py-1 rounded hover:bg-gray-800">
+                        All
+                      </button>
+                      <button onClick={deselectAll}
+                        className="text-xs text-gray-400 hover:text-gray-200 transition-colors px-2 py-1 rounded hover:bg-gray-800">
+                        None
+                      </button>
+                    </>
+                  )}
+                  <button onClick={reset} className="text-xs text-gray-400 hover:text-gray-300 flex items-center gap-1 transition-colors px-2 py-1 rounded hover:bg-gray-800">
+                    <X className="w-3.5 h-3.5" /> Change file
+                  </button>
+                </div>
+              </div>
+
+              {/* Hint */}
+              <p className="text-xs text-gray-400 dark:text-gray-500 mb-4 text-center">
+                {mode === 'rotate' && 'Use the arrows below each page to set its rotation — changes are applied together'}
+                {mode === 'delete' && 'Click pages to mark them for deletion · red = will be removed'}
+                {mode === 'keep'   && 'Click pages to toggle selection · blue = will be kept in the output'}
+              </p>
+
+              {/* Page grid */}
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3 mb-28">
+                {pages.map((p, i) => (
+                  <div
+                    key={`${p.originalIndex}-${i}`}
+                    onClick={() => mode !== 'rotate' && toggleMark(i)}
+                    className={`group relative bg-white dark:bg-gray-900 border-2 rounded-xl overflow-hidden transition-all select-none ${
+                      mode !== 'rotate' ? 'cursor-pointer' : 'cursor-default'
+                    } ${
+                      mode === 'delete' && p.marked
+                        ? 'border-red-500'
+                        : mode === 'keep' && p.marked
+                        ? 'border-blue-500'
+                        : mode === 'keep' && !p.marked
+                        ? 'border-gray-300 dark:border-gray-700 opacity-40'
+                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-500'
+                    }`}
+                  >
+                    {/* Thumbnail */}
+                    <div className="relative bg-gray-50 dark:bg-gray-800 aspect-[3/4] overflow-hidden flex items-center justify-center">
+                      <img
+                        src={p.thumb}
+                        alt={`Page ${i + 1}`}
+                        style={{ transform: `rotate(${p.rotation}deg)`, maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                        className="transition-transform duration-200"
+                        draggable={false}
+                      />
+                      {/* Page number badge */}
+                      <div className="absolute top-1.5 left-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-gray-900/80 dark:bg-gray-950/90 text-white text-[9px] font-bold flex items-center justify-center">
+                        {i + 1}
+                      </div>
+                      {/* Delete overlay */}
+                      {mode === 'delete' && p.marked && (
+                        <div className="absolute inset-0 bg-red-500/15 flex items-center justify-center">
+                          <div className="w-8 h-8 rounded-full bg-red-500/90 flex items-center justify-center">
+                            <X className="w-4 h-4 text-white" />
+                          </div>
+                        </div>
+                      )}
+                      {/* Keep checkmark */}
+                      {mode === 'keep' && p.marked && (
+                        <div className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center">
+                          <CheckCircle className="w-3.5 h-3.5 text-white" />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Rotate controls */}
+                    {mode === 'rotate' ? (
+                      <div className="flex items-center justify-center gap-0.5 py-1.5 px-1 bg-white dark:bg-gray-900">
+                        <button onClick={(e) => { e.stopPropagation(); rotatePage(i, -1) }}
+                          title="Rotate left 90°"
+                          className="p-1 rounded text-gray-400 hover:text-gray-200 hover:bg-gray-800 transition-colors">
+                          <RotateCcw className="w-3 h-3" />
+                        </button>
+                        <span className={`text-[10px] w-8 text-center tabular-nums font-medium ${p.rotation !== 0 ? 'text-purple-400' : 'text-gray-400'}`}>
+                          {p.rotation}°
+                        </span>
+                        <button onClick={(e) => { e.stopPropagation(); rotatePage(i, 1) }}
+                          title="Rotate right 90°"
+                          className="p-1 rounded text-gray-400 hover:text-gray-200 hover:bg-gray-800 transition-colors">
+                          <RotateCw className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="px-1.5 py-1 text-center bg-white dark:bg-gray-900">
+                        <span className="text-[9px] text-gray-400">p.{i + 1}</span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Sticky action bar */}
+              <div className="fixed bottom-6 left-0 right-0 flex justify-center z-30 pointer-events-none">
+                <motion.div
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="pointer-events-auto bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-xl px-6 py-4 flex items-center gap-6"
+                >
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                      {mode === 'rotate' && `${rotatedCount} page${rotatedCount !== 1 ? 's' : ''} rotated`}
+                      {mode === 'delete' && `${markedCount} of ${totalCount} pages marked for deletion`}
+                      {mode === 'keep'   && `${markedCount} of ${totalCount} pages selected`}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      {mode === 'rotate' && 'Rotate pages individually'}
+                      {mode === 'delete' && `${totalCount - markedCount} will remain`}
+                      {mode === 'keep'   && 'Unselected pages are discarded'}
+                    </p>
+                  </div>
+                  <button
+                    onClick={applyChanges}
+                    disabled={actionDisabled()}
+                    className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-white text-sm font-bold transition-opacity hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+                    style={{ background: tool.color, boxShadow: `0 4px 16px rgba(${rgb}, 0.35)` }}
+                  >
+                    <Zap className="w-4 h-4" />
+                    {mode === 'rotate' ? 'Apply Rotations' : mode === 'delete' ? `Delete ${markedCount}` : `Extract ${markedCount}`}
+                  </button>
+                </motion.div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* ── PROCESSING ── */}
+          {stage === 'processing' && (
+            <motion.div key="processing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-14 text-center">
+              <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5"
+                style={{ background: `rgba(${rgb}, 0.12)` }}>
+                <Loader2 className="w-8 h-8 animate-spin" style={{ color: tool.color }} />
+              </div>
+              <p className="text-gray-700 dark:text-gray-200 font-semibold mb-4">Processing…</p>
+              <div className="max-w-xs mx-auto h-2 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
+                <motion.div className="h-full rounded-full" style={{ background: tool.color }}
+                  animate={{ width: `${progress}%` }} transition={{ duration: 0.3, ease: 'easeOut' }} />
+              </div>
+            </motion.div>
+          )}
+
+          {/* ── DONE ── */}
+          {stage === 'done' && outputBlob && (
+            <motion.div key="done" initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
+              className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-14 text-center">
+              <motion.div
+                initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5"
+                style={{ background: `rgba(${rgb}, 0.12)` }}>
+                <svg viewBox="0 0 36 36" fill="none" stroke={tool.color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="w-9 h-9">
+                  <motion.path d="M6 18l8 8L30 10" initial={{ pathLength: 0, opacity: 0 }}
+                    animate={{ pathLength: 1, opacity: 1 }} transition={{ duration: 0.5, ease: 'easeOut' as const, delay: 0.2 }} />
+                </svg>
+              </motion.div>
+              <h2 className="text-gray-900 dark:text-white font-black text-xl mb-2">Done!</h2>
+              <p className="text-gray-400 text-sm mb-6">{formatBytes(outputBlob.size)}</p>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                <a href={outputUrl} download={outputName}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl text-white font-bold text-sm hover:opacity-90 transition-all"
+                  style={{ background: tool.color, boxShadow: `0 4px 24px rgba(${rgb}, 0.3)` }}>
+                  <Download className="w-4 h-4" /> Download
+                </a>
+                <button onClick={reset}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl border border-gray-700 text-gray-400 hover:text-white hover:border-gray-600 text-sm font-semibold transition-colors">
+                  <RotateCcw className="w-4 h-4" /> Process another
+                </button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* ── ERROR ── */}
+          {stage === 'error' && (
+            <motion.div key="error" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="bg-white dark:bg-gray-900 border border-red-200 dark:border-red-900/40 rounded-2xl p-14 text-center">
+              <div className="w-14 h-14 rounded-full bg-red-50 dark:bg-red-900/20 flex items-center justify-center mx-auto mb-4">
+                <AlertCircle className="w-7 h-7 text-red-500" />
+              </div>
+              <h3 className="text-gray-900 dark:text-white font-bold text-lg mb-2">Something went wrong</h3>
+              <p className="text-red-400 text-sm mb-6 max-w-sm mx-auto">{errorMsg}</p>
+              <button onClick={reset}
+                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white text-sm font-semibold transition-colors">
+                <RotateCcw className="w-4 h-4" /> Try again
+              </button>
+            </motion.div>
+          )}
+
+        </AnimatePresence>
+      </div>
+    </div>
+  )
+}
+
+// ─── Number Pages Interface ───────────────────────────────────────────────────
+// Position picker + format controls + live first-page preview.
+
+const NUM_POSITIONS = [
+  ['TL', 'TC', 'TR'],
+  ['ML', 'MC', 'MR'],
+  ['BL', 'BC', 'BR'],
+] as const
+
+const NUM_FORMATS = [
+  { id: 'number',          label: '1, 2, 3…' },
+  { id: 'page-n',          label: 'Page 1…' },
+  { id: 'n-of-total',      label: '1 / N…' },
+  { id: 'page-n-of-total', label: 'Page 1 of N…' },
+]
+
+function numberPreviewStyle(
+  position: string,
+  thumbW: number,
+  thumbH: number,
+): React.CSSProperties {
+  const mPct = 4
+  const base: React.CSSProperties = {
+    position: 'absolute',
+    fontSize: `${Math.max(8, Math.round(thumbH * 0.04))}px`,
+    fontFamily: 'Helvetica, Arial, sans-serif',
+    color: 'rgba(80,80,80,0.9)',
+    background: 'rgba(255,255,255,0.7)',
+    borderRadius: '2px',
+    padding: '1px 3px',
+    lineHeight: 1.2,
+    whiteSpace: 'nowrap',
+  }
+  // Vertical
+  if (position.startsWith('T'))      { base.top    = `${mPct}%` }
+  else if (position.startsWith('M')) { base.top = '50%'; base.transform = 'translateY(-50%)' }
+  else                               { base.bottom = `${mPct}%` }
+  // Horizontal
+  if (position.endsWith('L'))      { base.left = `${mPct}%` }
+  else if (position.endsWith('R')) { base.right = `${mPct}%` }
+  else {
+    base.left = '50%'
+    base.transform = base.transform
+      ? `${base.transform} translateX(-50%)`
+      : 'translateX(-50%)'
+  }
+  return base
+}
+
+function NumberPagesInterface({
+  tool,
+  category,
+  relatedTools,
+}: {
+  tool: Tool
+  category: ToolCategory | undefined
+  relatedTools: Tool[]
+}) {
+  const rgb = hexToRgb(tool.color)
+  const [file,         setFile]        = useState<File | null>(null)
+  const [thumb,        setThumb]       = useState('')
+  const [pageCount,    setPageCount]   = useState(0)
+  const [thumbSize,    setThumbSize]   = useState({ w: 0, h: 0 })
+  const [stage,        setStage]       = useState<'idle' | 'loading' | 'ready' | 'processing' | 'done' | 'error'>('idle')
+  const [progress,     setProgress]    = useState(0)
+  const [statusMsg,    setStatusMsg]   = useState('')
+  const [outputBlob,   setOutputBlob]  = useState<Blob | null>(null)
+  const [outputUrl,    setOutputUrl]   = useState('')
+  const [errorMsg,     setErrorMsg]    = useState('')
+
+  // Options
+  const [position,  setPosition]  = useState('BC')
+  const [startFrom, setStartFrom] = useState(1)
+  const [fontSize,  setFontSize]  = useState(10)
+  const [format,    setFormat]    = useState('number')
+
+  const onDrop = useCallback(async (accepted: File[]) => {
+    const f = accepted[0]
+    if (!f) return
+    setFile(f); setStage('loading')
+    try {
+      const { thumb: t, pages } = await generatePdfThumb(f)
+      setThumb(t); setPageCount(pages)
+      // measure rendered thumbnail to position overlay accurately
+      const img = new Image()
+      img.onload = () => setThumbSize({ w: img.naturalWidth, h: img.naturalHeight })
+      img.src = t
+      setStage('ready')
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Failed to load PDF.')
+      setStage('error')
+    }
+  }, [])
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop, accept: PDF_ACCEPT, maxFiles: 1, disabled: stage !== 'idle',
+  })
+
+  const reset = useCallback(() => {
+    if (outputUrl) URL.revokeObjectURL(outputUrl)
+    setFile(null); setThumb(''); setPageCount(0); setThumbSize({ w: 0, h: 0 })
+    setStage('idle'); setOutputBlob(null); setOutputUrl(''); setErrorMsg('')
+    setProgress(0); setStatusMsg('')
+  }, [outputUrl])
+
+  const process = useCallback(async () => {
+    if (!file) return
+    setStage('processing'); setProgress(0); setStatusMsg('')
+    try {
+      const { numberPagesPdf } = await import('@/lib/processors/pdf')
+      const blob = await numberPagesPdf(file, { position, startFrom, fontSize, format },
+        (pct, msg) => { setProgress(pct); setStatusMsg(msg) })
+      const url = URL.createObjectURL(blob)
+      setOutputBlob(blob); setOutputUrl(url); setProgress(100)
+      setTimeout(() => setStage('done'), 300)
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Processing failed.')
+      setStage('error')
+    }
+  }, [file, position, startFrom, fontSize, format])
+
+  const sampleText =
+    format === 'page-n'          ? 'Page 1' :
+    format === 'n-of-total'      ? `1/${pageCount || '?'}` :
+    format === 'page-n-of-total' ? `Page 1 of ${pageCount || '?'}` : '1'
+
+  const outputName = file ? `${file.name.replace(/\.pdf$/i, '')}_numbered.pdf` : 'numbered.pdf'
+
+  const posLabel = (pos: string) =>
+    (pos.startsWith('T') ? 'Top' : pos.startsWith('M') ? 'Middle' : 'Bottom') + ' ' +
+    (pos.endsWith('L') ? 'Left' : pos.endsWith('R') ? 'Right' : 'Center')
+
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+      <Breadcrumb tool={tool} category={category} />
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-4 mb-8">
+          <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ background: `rgba(${rgb}, 0.15)`, color: tool.color }}>
+            <ToolIcon name={tool.icon} className="w-6 h-6" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">{tool.name}</h1>
+            <p className="text-gray-500 dark:text-gray-400 text-sm">{tool.description}</p>
+          </div>
+        </motion.div>
+
+        <AnimatePresence mode="wait">
+
+          {stage === 'idle' && (
+            <motion.div key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <div {...getRootProps()} className={`border-2 border-dashed rounded-2xl p-20 text-center cursor-pointer transition-colors ${
+                isDragActive ? 'border-purple-400' : 'border-gray-300 dark:border-gray-700 hover:border-gray-500 dark:hover:border-gray-500'}`}>
+                <input {...getInputProps()} />
+                <div className="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-4">
+                  <Upload className="w-7 h-7 text-gray-400" />
+                </div>
+                <p className="text-gray-700 dark:text-gray-200 font-semibold text-lg mb-1">Drop your PDF here</p>
+                <p className="text-gray-400 text-sm">or click to select</p>
+              </div>
+              {relatedTools.length > 0 && <RelatedTools tools={relatedTools} />}
+            </motion.div>
+          )}
+
+          {stage === 'loading' && (
+            <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-14 text-center">
+              <Loader2 className="w-10 h-10 animate-spin mx-auto mb-4" style={{ color: tool.color }} />
+              <p className="text-gray-700 dark:text-gray-200 font-semibold">Loading PDF…</p>
+            </motion.div>
+          )}
+
+          {stage === 'ready' && (
+            <motion.div key="ready" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <div className="grid lg:grid-cols-2 gap-6 mb-6">
+
+                {/* ── Options panel ── */}
+                <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 space-y-6">
+                  {/* File label */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <FileText className="w-4 h-4 flex-shrink-0" style={{ color: tool.color }} />
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">{file?.name}</span>
+                      {pageCount > 0 && <span className="text-xs text-gray-400 flex-shrink-0">{pageCount}p</span>}
+                    </div>
+                    <button onClick={reset} className="text-xs text-gray-400 hover:text-gray-300 flex items-center gap-1 transition-colors ml-2 flex-shrink-0">
+                      <X className="w-3 h-3" /> Change
+                    </button>
+                  </div>
+
+                  {/* Position grid */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wide">
+                      Position — <span className="text-gray-300 normal-case tracking-normal">{posLabel(position)}</span>
+                    </label>
+                    <div className="inline-grid grid-cols-3 gap-1 p-1.5 bg-gray-100 dark:bg-gray-800 rounded-xl">
+                      {NUM_POSITIONS.flat().map(pos => (
+                        <button
+                          key={pos}
+                          onClick={() => setPosition(pos)}
+                          title={posLabel(pos)}
+                          className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
+                            position === pos
+                              ? 'bg-white dark:bg-gray-700 shadow-sm'
+                              : 'hover:bg-gray-200 dark:hover:bg-gray-700'
+                          }`}
+                        >
+                          <div className="w-2 h-2 rounded-full"
+                            style={{ background: position === pos ? tool.color : 'rgb(156,163,175)' }} />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Format */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wide">Format</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {NUM_FORMATS.map(f => (
+                        <button key={f.id} onClick={() => setFormat(f.id)}
+                          className={`py-2 px-3 rounded-lg text-xs font-medium border transition-all ${
+                            format === f.id
+                              ? 'border-transparent text-white'
+                              : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-400'
+                          }`}
+                          style={format === f.id ? { background: tool.color } : {}}>
+                          {f.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Start from */}
+                  <div className="flex items-center gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wide">Start from</label>
+                      <input type="number" min={1} value={startFrom}
+                        onChange={e => setStartFrom(Math.max(1, parseInt(e.target.value) || 1))}
+                        className="w-20 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-purple-500 transition-colors" />
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
+                        Font size — <span className="text-gray-300 normal-case tracking-normal">{fontSize}pt</span>
+                      </label>
+                      <input type="range" min={7} max={20} step={1} value={fontSize}
+                        onChange={e => setFontSize(parseInt(e.target.value))}
+                        className="w-full" style={{ accentColor: tool.color }} />
+                      <div className="flex justify-between text-[10px] text-gray-400 mt-0.5"><span>7pt</span><span>20pt</span></div>
+                    </div>
+                  </div>
+
+                  <button onClick={process}
+                    className="w-full py-3 rounded-xl text-white text-sm font-bold transition-opacity hover:opacity-90"
+                    style={{ background: tool.color, boxShadow: `0 4px 16px rgba(${rgb}, 0.3)` }}>
+                    Number {pageCount} Pages
+                  </button>
+                </div>
+
+                {/* ── Preview panel ── */}
+                <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6">
+                  <p className="text-xs font-medium text-gray-400 mb-4 flex items-center gap-1.5 uppercase tracking-wide">
+                    <Eye className="w-3.5 h-3.5" /> Live preview
+                  </p>
+                  {thumb ? (
+                    <div className="relative mx-auto shadow-lg rounded-lg overflow-hidden"
+                      style={{ maxWidth: '260px' }}>
+                      <img src={thumb} alt="First page" className="w-full block" />
+                      <div style={numberPreviewStyle(position, thumbSize.w, thumbSize.h)}>
+                        {sampleText}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="aspect-[3/4] max-w-[260px] mx-auto bg-gray-100 dark:bg-gray-800 rounded flex items-center justify-center">
+                      <Loader2 className="w-6 h-6 text-gray-400 animate-spin" />
+                    </div>
+                  )}
+                  <p className="text-xs text-gray-400 mt-3 text-center">Position indicator on first page</p>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {stage === 'processing' && (
+            <motion.div key="processing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-14 text-center">
+              <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5"
+                style={{ background: `rgba(${rgb}, 0.12)` }}>
+                <Loader2 className="w-8 h-8 animate-spin" style={{ color: tool.color }} />
+              </div>
+              <p className="text-gray-700 dark:text-gray-200 font-semibold mb-2">Adding page numbers…</p>
+              <p className="text-gray-400 text-sm mb-6 min-h-[20px]">{statusMsg}</p>
+              <div className="max-w-xs mx-auto h-2 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
+                <motion.div className="h-full rounded-full" style={{ background: tool.color }}
+                  animate={{ width: `${progress}%` }} transition={{ duration: 0.3, ease: 'easeOut' }} />
+              </div>
+            </motion.div>
+          )}
+
+          {stage === 'done' && outputBlob && (
+            <motion.div key="done" initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
+              className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-14 text-center">
+              <motion.div initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5"
+                style={{ background: `rgba(${rgb}, 0.12)` }}>
+                <svg viewBox="0 0 36 36" fill="none" stroke={tool.color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="w-9 h-9">
+                  <motion.path d="M6 18l8 8L30 10" initial={{ pathLength: 0, opacity: 0 }}
+                    animate={{ pathLength: 1, opacity: 1 }} transition={{ duration: 0.5, ease: 'easeOut' as const, delay: 0.2 }} />
+                </svg>
+              </motion.div>
+              <h2 className="text-gray-900 dark:text-white font-black text-xl mb-6">Done!</h2>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                <a href={outputUrl} download={outputName}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl text-white font-bold text-sm hover:opacity-90 transition-all"
+                  style={{ background: tool.color, boxShadow: `0 4px 24px rgba(${rgb}, 0.3)` }}>
+                  <Download className="w-4 h-4" /> Download
+                </a>
+                <button onClick={reset}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl border border-gray-700 text-gray-400 hover:text-white text-sm font-semibold transition-colors">
+                  <RotateCcw className="w-4 h-4" /> Process another
+                </button>
+              </div>
+            </motion.div>
+          )}
+
+          {stage === 'error' && (
+            <motion.div key="error" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="bg-white dark:bg-gray-900 border border-red-200 dark:border-red-900/40 rounded-2xl p-14 text-center">
+              <div className="w-14 h-14 rounded-full bg-red-50 dark:bg-red-900/20 flex items-center justify-center mx-auto mb-4">
+                <AlertCircle className="w-7 h-7 text-red-500" />
+              </div>
+              <h3 className="text-gray-900 dark:text-white font-bold text-lg mb-2">Something went wrong</h3>
+              <p className="text-red-400 text-sm mb-6">{errorMsg}</p>
+              <button onClick={reset}
+                className="px-6 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 text-sm font-semibold text-gray-600 dark:text-gray-400 hover:text-white inline-flex items-center gap-2 transition-colors">
+                <RotateCcw className="w-4 h-4" /> Try again
+              </button>
+            </motion.div>
+          )}
+
+        </AnimatePresence>
+      </div>
+    </div>
+  )
+}
+
+// ─── Watermark Interface ──────────────────────────────────────────────────────
+// Rich options (text / position / opacity / rotation / color) + live preview.
+
+const WM_POSITIONS = [
+  { id: 'diagonal',     label: 'Diagonal',    hint: '45° center (default)' },
+  { id: 'center',       label: 'Center',      hint: 'Centered, horizontal' },
+  { id: 'top',          label: 'Top',         hint: 'Top, horizontally centered' },
+  { id: 'bottom',       label: 'Bottom',      hint: 'Bottom, horizontally centered' },
+  { id: 'top-left',     label: 'Top Left',    hint: 'Top-left corner' },
+  { id: 'top-right',    label: 'Top Right',   hint: 'Top-right corner' },
+  { id: 'bottom-left',  label: 'Bottom Left', hint: 'Bottom-left corner' },
+  { id: 'bottom-right', label: 'Bottom Right',hint: 'Bottom-right corner' },
+]
+
+const WM_COLORS = [
+  { hex: '#999999', label: 'Gray' },
+  { hex: '#333333', label: 'Dark' },
+  { hex: '#cc2222', label: 'Red' },
+  { hex: '#1155cc', label: 'Blue' },
+  { hex: '#227722', label: 'Green' },
+]
+
+function wmPreviewStyle(position: string, rotation: number, opacity: number, color: string): React.CSSProperties {
+  const base: React.CSSProperties = {
+    position: 'absolute',
+    fontSize: '13px',
+    fontFamily: 'Helvetica, Arial, sans-serif',
+    fontWeight: 'bold',
+    color,
+    opacity: opacity / 100,
+    pointerEvents: 'none',
+    whiteSpace: 'nowrap',
+    letterSpacing: '0.04em',
+  }
+  const rot = position === 'diagonal' ? 45 : rotation
+  const transform = `translate(-50%, -50%) rotate(${rot}deg)`
+
+  switch (position) {
+    case 'center':       return { ...base, top: '50%', left: '50%', transform }
+    case 'top':          return { ...base, top: '15%', left: '50%', transform }
+    case 'bottom':       return { ...base, top: '85%', left: '50%', transform }
+    case 'top-left':     return { ...base, top: '20%', left: '25%', transform }
+    case 'top-right':    return { ...base, top: '20%', left: '75%', transform }
+    case 'bottom-left':  return { ...base, top: '80%', left: '25%', transform }
+    case 'bottom-right': return { ...base, top: '80%', left: '75%', transform }
+    default:             return { ...base, top: '50%', left: '50%', transform } // diagonal
+  }
+}
+
+function WatermarkInterface({
+  tool,
+  category,
+  relatedTools,
+}: {
+  tool: Tool
+  category: ToolCategory | undefined
+  relatedTools: Tool[]
+}) {
+  const rgb = hexToRgb(tool.color)
+  const [file,        setFile]      = useState<File | null>(null)
+  const [thumb,       setThumb]     = useState('')
+  const [pageCount,   setPageCount] = useState(0)
+  const [stage,       setStage]     = useState<'idle' | 'loading' | 'ready' | 'processing' | 'done' | 'error'>('idle')
+  const [progress,    setProgress]  = useState(0)
+  const [statusMsg,   setStatusMsg] = useState('')
+  const [outputBlob,  setOutputBlob] = useState<Blob | null>(null)
+  const [outputUrl,   setOutputUrl]  = useState('')
+  const [errorMsg,    setErrorMsg]   = useState('')
+
+  // Watermark options
+  const [wmText,     setWmText]     = useState('CONFIDENTIAL')
+  const [wmPosition, setWmPosition] = useState('diagonal')
+  const [wmOpacity,  setWmOpacity]  = useState(22)   // %
+  const [wmRotation, setWmRotation] = useState(45)
+  const [wmColor,    setWmColor]    = useState('#999999')
+
+  const onDrop = useCallback(async (accepted: File[]) => {
+    const f = accepted[0]
+    if (!f) return
+    setFile(f); setStage('loading')
+    try {
+      const { thumb: t, pages } = await generatePdfThumb(f)
+      setThumb(t); setPageCount(pages); setStage('ready')
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Failed to load PDF.')
+      setStage('error')
+    }
+  }, [])
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop, accept: PDF_ACCEPT, maxFiles: 1, disabled: stage !== 'idle',
+  })
+
+  const reset = useCallback(() => {
+    if (outputUrl) URL.revokeObjectURL(outputUrl)
+    setFile(null); setThumb(''); setPageCount(0)
+    setStage('idle'); setOutputBlob(null); setOutputUrl(''); setErrorMsg('')
+    setProgress(0); setStatusMsg('')
+  }, [outputUrl])
+
+  const process = useCallback(async () => {
+    if (!file || !wmText.trim()) return
+    setStage('processing'); setProgress(0); setStatusMsg('')
+    try {
+      const { watermarkPdf } = await import('@/lib/processors/pdf')
+      const effectiveRotation = wmPosition === 'diagonal' ? 45 : wmRotation
+      const blob = await watermarkPdf(
+        file,
+        { text: wmText, position: wmPosition, opacity: wmOpacity, rotation: effectiveRotation, colorHex: wmColor },
+        (pct, msg) => { setProgress(pct); setStatusMsg(msg) },
+      )
+      const url = URL.createObjectURL(blob)
+      setOutputBlob(blob); setOutputUrl(url); setProgress(100)
+      setTimeout(() => setStage('done'), 300)
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Processing failed.')
+      setStage('error')
+    }
+  }, [file, wmText, wmPosition, wmOpacity, wmRotation, wmColor])
+
+  const outputName = file ? `${file.name.replace(/\.pdf$/i, '')}_watermarked.pdf` : 'watermarked.pdf'
+
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+      <Breadcrumb tool={tool} category={category} />
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-4 mb-8">
+          <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ background: `rgba(${rgb}, 0.15)`, color: tool.color }}>
+            <ToolIcon name={tool.icon} className="w-6 h-6" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">{tool.name}</h1>
+            <p className="text-gray-500 dark:text-gray-400 text-sm">{tool.description}</p>
+          </div>
+        </motion.div>
+
+        <AnimatePresence mode="wait">
+
+          {stage === 'idle' && (
+            <motion.div key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <div {...getRootProps()} className={`border-2 border-dashed rounded-2xl p-20 text-center cursor-pointer transition-colors ${
+                isDragActive ? 'border-purple-400' : 'border-gray-300 dark:border-gray-700 hover:border-gray-500 dark:hover:border-gray-500'}`}>
+                <input {...getInputProps()} />
+                <div className="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-4">
+                  <Upload className="w-7 h-7 text-gray-400" />
+                </div>
+                <p className="text-gray-700 dark:text-gray-200 font-semibold text-lg mb-1">Drop your PDF here</p>
+                <p className="text-gray-400 text-sm">or click to select</p>
+              </div>
+              {relatedTools.length > 0 && <RelatedTools tools={relatedTools} />}
+            </motion.div>
+          )}
+
+          {stage === 'loading' && (
+            <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-14 text-center">
+              <Loader2 className="w-10 h-10 animate-spin mx-auto mb-4" style={{ color: tool.color }} />
+              <p className="text-gray-700 dark:text-gray-200 font-semibold">Loading PDF…</p>
+            </motion.div>
+          )}
+
+          {stage === 'ready' && (
+            <motion.div key="ready" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <div className="grid lg:grid-cols-2 gap-6 mb-6">
+
+                {/* ── Options panel ── */}
+                <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 space-y-5">
+                  {/* File label */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <FileText className="w-4 h-4 flex-shrink-0" style={{ color: tool.color }} />
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">{file?.name}</span>
+                      {pageCount > 0 && <span className="text-xs text-gray-400 flex-shrink-0">{pageCount}p</span>}
+                    </div>
+                    <button onClick={reset} className="text-xs text-gray-400 hover:text-gray-300 flex items-center gap-1 transition-colors ml-2 flex-shrink-0">
+                      <X className="w-3 h-3" /> Change
+                    </button>
+                  </div>
+
+                  {/* Watermark text */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wide">Watermark text</label>
+                    <input
+                      type="text"
+                      value={wmText}
+                      onChange={e => setWmText(e.target.value)}
+                      placeholder="CONFIDENTIAL"
+                      className="w-full bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-purple-500 transition-colors"
+                    />
+                  </div>
+
+                  {/* Position */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wide">Position</label>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {WM_POSITIONS.map(p => (
+                        <button key={p.id} onClick={() => setWmPosition(p.id)}
+                          title={p.hint}
+                          className={`py-1.5 px-3 rounded-lg text-xs font-medium border text-left transition-all ${
+                            wmPosition === p.id
+                              ? 'border-transparent text-white'
+                              : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-400'
+                          }`}
+                          style={wmPosition === p.id ? { background: tool.color } : {}}>
+                          {p.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Rotation (hidden when diagonal, since diagonal forces 45°) */}
+                  {wmPosition !== 'diagonal' && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wide">Rotation</label>
+                      <div className="flex gap-2">
+                        {[0, 45, -45, 90].map(deg => (
+                          <button key={deg} onClick={() => setWmRotation(deg)}
+                            className={`flex-1 py-2 rounded-lg text-xs font-semibold border transition-all ${
+                              wmRotation === deg
+                                ? 'border-transparent text-white'
+                                : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-400'
+                            }`}
+                            style={wmRotation === deg ? { background: tool.color } : {}}>
+                            {deg}°
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Opacity */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
+                      Opacity — <span className="text-gray-300 normal-case tracking-normal">{wmOpacity}%</span>
+                    </label>
+                    <input type="range" min={5} max={80} step={1} value={wmOpacity}
+                      onChange={e => setWmOpacity(parseInt(e.target.value))}
+                      className="w-full" style={{ accentColor: tool.color }} />
+                    <div className="flex justify-between text-[10px] text-gray-400 mt-0.5"><span>Subtle (5%)</span><span>Bold (80%)</span></div>
+                  </div>
+
+                  {/* Color */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wide">Color</label>
+                    <div className="flex gap-2 flex-wrap">
+                      {WM_COLORS.map(c => (
+                        <button key={c.hex} onClick={() => setWmColor(c.hex)} title={c.label}
+                          className={`w-8 h-8 rounded-full border-2 transition-all ${
+                            wmColor === c.hex ? 'border-white scale-110 shadow-lg' : 'border-transparent opacity-70 hover:opacity-100'
+                          }`}
+                          style={{ background: c.hex }} />
+                      ))}
+                      {/* Custom color */}
+                      <label title="Custom color"
+                        className="w-8 h-8 rounded-full border-2 border-dashed border-gray-400 flex items-center justify-center cursor-pointer hover:border-gray-300 transition-colors overflow-hidden">
+                        <input type="color" value={wmColor} onChange={e => setWmColor(e.target.value)}
+                          className="opacity-0 absolute w-0 h-0" />
+                        <span className="text-[9px] text-gray-400 font-bold">+</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <button onClick={process} disabled={!wmText.trim()}
+                    className="w-full py-3 rounded-xl text-white text-sm font-bold transition-opacity hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+                    style={{ background: tool.color, boxShadow: `0 4px 16px rgba(${rgb}, 0.3)` }}>
+                    Apply to {pageCount} Page{pageCount !== 1 ? 's' : ''}
+                  </button>
+                </div>
+
+                {/* ── Preview panel ── */}
+                <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6">
+                  <p className="text-xs font-medium text-gray-400 mb-4 flex items-center gap-1.5 uppercase tracking-wide">
+                    <Eye className="w-3.5 h-3.5" /> Live preview
+                  </p>
+                  {thumb ? (
+                    <div className="relative mx-auto shadow-lg rounded-lg overflow-hidden" style={{ maxWidth: '260px' }}>
+                      <img src={thumb} alt="First page" className="w-full block" />
+                      {wmText.trim() && (
+                        <div style={wmPreviewStyle(wmPosition, wmRotation, wmOpacity, wmColor)}>
+                          {wmText}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="aspect-[3/4] max-w-[260px] mx-auto bg-gray-100 dark:bg-gray-800 rounded flex items-center justify-center">
+                      <Loader2 className="w-6 h-6 text-gray-400 animate-spin" />
+                    </div>
+                  )}
+                  <p className="text-xs text-gray-400 mt-3 text-center">Applied to all {pageCount} pages</p>
+                </div>
+
+              </div>
+            </motion.div>
+          )}
+
+          {stage === 'processing' && (
+            <motion.div key="processing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-14 text-center">
+              <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5"
+                style={{ background: `rgba(${rgb}, 0.12)` }}>
+                <Loader2 className="w-8 h-8 animate-spin" style={{ color: tool.color }} />
+              </div>
+              <p className="text-gray-700 dark:text-gray-200 font-semibold mb-2">Applying watermark…</p>
+              <p className="text-gray-400 text-sm mb-6 min-h-[20px]">{statusMsg}</p>
+              <div className="max-w-xs mx-auto h-2 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
+                <motion.div className="h-full rounded-full" style={{ background: tool.color }}
+                  animate={{ width: `${progress}%` }} transition={{ duration: 0.3, ease: 'easeOut' }} />
+              </div>
+            </motion.div>
+          )}
+
+          {stage === 'done' && outputBlob && (
+            <motion.div key="done" initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
+              className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-14 text-center">
+              <motion.div initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5"
+                style={{ background: `rgba(${rgb}, 0.12)` }}>
+                <svg viewBox="0 0 36 36" fill="none" stroke={tool.color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="w-9 h-9">
+                  <motion.path d="M6 18l8 8L30 10" initial={{ pathLength: 0, opacity: 0 }}
+                    animate={{ pathLength: 1, opacity: 1 }} transition={{ duration: 0.5, ease: 'easeOut' as const, delay: 0.2 }} />
+                </svg>
+              </motion.div>
+              <h2 className="text-gray-900 dark:text-white font-black text-xl mb-6">Done!</h2>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                <a href={outputUrl} download={outputName}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl text-white font-bold text-sm hover:opacity-90 transition-all"
+                  style={{ background: tool.color, boxShadow: `0 4px 24px rgba(${rgb}, 0.3)` }}>
+                  <Download className="w-4 h-4" /> Download
+                </a>
+                <button onClick={reset}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl border border-gray-700 text-gray-400 hover:text-white text-sm font-semibold transition-colors">
+                  <RotateCcw className="w-4 h-4" /> Process another
+                </button>
+              </div>
+            </motion.div>
+          )}
+
+          {stage === 'error' && (
+            <motion.div key="error" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="bg-white dark:bg-gray-900 border border-red-200 dark:border-red-900/40 rounded-2xl p-14 text-center">
+              <div className="w-14 h-14 rounded-full bg-red-50 dark:bg-red-900/20 flex items-center justify-center mx-auto mb-4">
+                <AlertCircle className="w-7 h-7 text-red-500" />
+              </div>
+              <h3 className="text-gray-900 dark:text-white font-bold text-lg mb-2">Something went wrong</h3>
+              <p className="text-red-400 text-sm mb-6">{errorMsg}</p>
+              <button onClick={reset}
+                className="px-6 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 text-sm font-semibold text-gray-600 dark:text-gray-400 hover:text-white inline-flex items-center gap-2 transition-colors">
+                <RotateCcw className="w-4 h-4" /> Try again
+              </button>
+            </motion.div>
+          )}
+
+        </AnimatePresence>
+      </div>
+    </div>
+  )
+}
+
 // ─── Default export ───────────────────────────────────────────────────────────
 
 export default function ToolClient({
@@ -3031,5 +4158,10 @@ export default function ToolClient({
   if (tool.id === 'markdown-editor') return <MarkdownEditorTool tool={tool} category={category} relatedTools={relatedTools} />
   if (tool.id === 'merge-pdf') return <MergePdfInterface tool={tool} category={category} relatedTools={relatedTools} />
   if (tool.id === 'organize-pdf') return <OrganizePdfInterface tool={tool} category={category} relatedTools={relatedTools} />
+  // Canvas-based single-file tools
+  if (['rotate-pdf', 'delete-pages', 'extract-pages', 'split-pdf'].includes(tool.id))
+    return <PageCanvasInterface tool={tool} category={category} relatedTools={relatedTools} />
+  if (tool.id === 'number-pages')  return <NumberPagesInterface tool={tool} category={category} relatedTools={relatedTools} />
+  if (tool.id === 'watermark-pdf') return <WatermarkInterface   tool={tool} category={category} relatedTools={relatedTools} />
   return <FileToolInterface tool={tool} category={category} relatedTools={relatedTools} />
 }
