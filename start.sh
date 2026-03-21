@@ -1,15 +1,15 @@
 #!/bin/bash
-# Render free tier: run Celery worker + API in the same container.
+# Render free tier: API + Celery in one container.
+# Celery failures are fully isolated — they cannot crash uvicorn.
 
-# Start Celery worker in background (handles both queues)
-celery -A app.core.celery_app worker \
+# Give Redis a moment to be reachable before Celery connects
+(sleep 5 && celery -A app.core.celery_app worker \
   --loglevel=info \
   -Q default,heavy \
-  --concurrency=2 &
+  --concurrency=2 || true) &
 
-# Start Celery beat scheduler in background
-celery -A app.core.celery_app beat \
-  --loglevel=info &
+(sleep 10 && celery -A app.core.celery_app beat \
+  --loglevel=info || true) &
 
-# Start FastAPI (foreground — this is the process Render monitors)
+# FastAPI — foreground process Render monitors
 exec uvicorn app.main:app --host 0.0.0.0 --port "$PORT"
