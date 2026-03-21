@@ -22,8 +22,10 @@ app.add_middleware(
     allow_methods=["*"],
 )
 
-# Static files
-app.mount("/static", StaticFiles(directory="frontend/static"), name="static")
+# Static files (only mount if the directory exists — safe for both local and Render)
+import os as _os
+if _os.path.isdir("frontend/static"):
+    app.mount("/static", StaticFiles(directory="frontend/static"), name="static")
 
 # API routes
 app.include_router(pdf.router)
