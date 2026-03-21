@@ -1,4 +1,5 @@
 services:
+  # ── FastAPI backend ────────────────────────────────────────────────────────
   - type: web
     name: fileconvert-api
     env: docker
@@ -39,8 +40,25 @@ services:
       - key: GROQ_API_KEY
         sync: false
       - key: ALLOWED_ORIGINS
-        sync: false
+        value: '["https://pdfworks.io","https://www.pdfworks.io"]'
 
+  # ── Next.js frontend ───────────────────────────────────────────────────────
+  - type: web
+    name: pdfworks-frontend
+    env: node
+    plan: free
+    rootDir: pdfworks
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NEXT_PUBLIC_API_URL
+        value: https://api.pdfworks.io
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "10000"
+
+  # ── Redis ──────────────────────────────────────────────────────────────────
   - type: redis
     name: fileconvert-redis
     plan: free
