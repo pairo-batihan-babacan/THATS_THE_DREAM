@@ -31,7 +31,6 @@ export const metadata: Metadata = {
     type: 'website',
     url: 'https://pdfworks.io',
     siteName: 'PDFworks.io',
-    images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'PDFworks.io' }],
   },
   twitter: {
     card: 'summary_large_image',
@@ -39,7 +38,6 @@ export const metadata: Metadata = {
     description:
       'Powerful file tools that respect your privacy. Convert, compress, and edit PDFs, images, audio, and video — completely free.',
     site: '@pdfworksio',
-    images: ['/og-image.png'],
   },
   robots: { index: true, follow: true },
   alternates: { canonical: 'https://pdfworks.io' },
