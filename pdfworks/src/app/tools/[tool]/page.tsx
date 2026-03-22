@@ -28,6 +28,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     description,
     keywords: [...keywords, 'pdfworks', 'no signup', 'free online'],
     alternates: { canonical: url },
+    ...(tool.comingSoon ? { robots: { index: false, follow: false } } : {}),
     openGraph: {
       title,
       description,
