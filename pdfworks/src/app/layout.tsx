@@ -41,6 +41,10 @@ export const metadata: Metadata = {
   },
   robots: { index: true, follow: true },
   alternates: { canonical: 'https://pdfworks.io' },
+
+  verification: {
+    google: '2npBw1OeXJcL8cX_pnWpWhZhdOh8NRHM4qDPHd79sU0',
+  },
 }
 
 export const viewport: Viewport = {
