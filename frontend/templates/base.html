@@ -23,6 +23,9 @@
         <a href="/video">Video</a>
         <a href="/document">Document</a>
       </div>
+      <button class="nav-hamburger" id="navToggle" aria-label="Toggle navigation" aria-expanded="false">
+        <span class="hamburger-icon">&#9776;</span>
+      </button>
       <button class="theme-toggle" id="themeToggle" title="Toggle theme" aria-label="Toggle theme">
         <span class="theme-icon-dark">☀</span>
         <span class="theme-icon-light">☽</span>
@@ -52,5 +55,25 @@
   </footer>
 
   <script src="/static/js/app.js"></script>
+  <script>
+    (function () {
+      var toggle = document.getElementById('navToggle');
+      var links  = document.querySelector('.nav-links');
+      if (!toggle || !links) return;
+      toggle.addEventListener('click', function () {
+        var open = links.classList.toggle('open');
+        toggle.setAttribute('aria-expanded', open);
+        toggle.querySelector('.hamburger-icon').textContent = open ? '\u00D7' : '\u2630';
+      });
+      // Close menu when a nav link is clicked
+      links.addEventListener('click', function (e) {
+        if (e.target.tagName === 'A') {
+          links.classList.remove('open');
+          toggle.setAttribute('aria-expanded', 'false');
+          toggle.querySelector('.hamburger-icon').textContent = '\u2630';
+        }
+      });
+    })();
+  </script>
 </body>
 </html>
