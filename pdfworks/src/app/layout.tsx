@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
-import Script from 'next/script' // <-- Added import for Next.js Script
 import './globals.css'
 import { ThemeProvider } from '@/components/ThemeProvider'
 import Navbar from '@/components/Navbar'
@@ -45,6 +44,10 @@ export const metadata: Metadata = {
 
   verification: {
     google: '2npBw1OeXJcL8cX_pnWpWhZhdOh8NRHM4qDPHd79sU0',
+  },
+  // Added this as a bulletproof backup for the AdSense bot
+  other: {
+    'google-adsense-account': 'ca-pub-9871526890369173',
   },
 }
 
@@ -91,13 +94,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        {/* Added Google AdSense Verification Script */}
-        <Script
+        {/* Raw script tag forces it into the initial HTML so the bot can't miss it */}
+        <script
           async
           src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9871526890369173"
           crossOrigin="anonymous"
-          strategy="afterInteractive"
-        />
+        ></script>
       </head>
       <body className={`${inter.className} antialiased min-h-screen flex flex-col`}>
         <script
