@@ -1,6 +1,0 @@
-User-Agent: *
-Allow: /
-Disallow: /api/
-
-Host: https://pdfworks.io
-Sitemap: https://pdfworks.io/sitemap.xml
