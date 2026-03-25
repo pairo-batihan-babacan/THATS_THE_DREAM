@@ -23,7 +23,7 @@ function ToolCard({ tool }: { tool: (typeof tools)[number] }) {
   return (
     <Link
       href={tool.comingSoon ? '#' : tool.route}
-      className={`block group ${tool.comingSoon ? 'cursor-default' : 'cursor-pointer'}`}
+      className={`block h-full group ${tool.comingSoon ? 'cursor-default' : 'cursor-pointer'}`}
       onClick={tool.comingSoon ? (e) => e.preventDefault() : undefined}
     >
       <div
@@ -254,6 +254,7 @@ export default function AllToolsPage() {
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.94 }}
                 transition={{ duration: 0.18 }}
+                className="h-full"
               >
                 <ToolCard tool={tool} />
               </motion.div>

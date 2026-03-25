@@ -453,7 +453,7 @@ function PopularToolsSection() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: '-40px' }}
                 transition={{ duration: 0.4, delay: i * 0.06 }}
-                className="flex-shrink-0 w-60 md:w-auto snap-start"
+                className="flex-shrink-0 w-60 md:w-auto snap-start h-full"
               >
                 <Link href={tool.route} className="block group h-full">
                   <div className="relative bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 overflow-hidden h-full transition-all duration-200 group-hover:border-gray-400 dark:group-hover:border-gray-600 group-hover:-translate-y-1.5 group-hover:shadow-xl group-hover:shadow-gray-200/60 dark:group-hover:shadow-black/50 shadow-sm dark:shadow-none">
