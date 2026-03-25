@@ -16,7 +16,7 @@ app = FastAPI(title="FileConvert", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["https://pdfworks.io"],
     allow_credentials=False,
     allow_headers=["*"],
     allow_methods=["*"],
