@@ -186,6 +186,7 @@ const SERVER_TOOLS = new Set([
   'heic-to-jpg', 'png-to-jpg',
   'audio-convert', 'compress-audio', 'extract-audio',
   'video-convert', 'compress-video',
+  'translate-pdf',
 ])
 
 // Map tool IDs to their backend endpoint and output file extension
@@ -209,6 +210,7 @@ const SERVER_TOOL_ENDPOINTS: Record<string, string> = {
   'extract-audio':    '/api/audio/extract-from-video',
   'video-convert':    '/api/video/convert',
   'compress-video':   '/api/video/compress',
+  'translate-pdf':    '/api/ai/translate-pdf',
 }
 
 function getServerOutputExt(toolId: string, outputFormat: string): string {
@@ -246,6 +248,10 @@ async function runServerTool(
     case 'unlock-pdf':
       fd.append('file', files[0])
       fd.append('password', options.password)
+      break
+    case 'translate-pdf':
+      fd.append('file', files[0])
+      fd.append('target_language', options.targetLanguage || 'Spanish')
       break
     case 'heic-to-jpg':
     case 'png-to-jpg':
@@ -4505,6 +4511,7 @@ export default function ToolClient({
 }) {
   if (tool.comingSoon) return <ComingSoonPage tool={tool} category={category} />
   if (tool.id === 'ai-summarizer') return <AISummarizerInterface tool={tool} category={category} relatedTools={relatedTools} />
+  if (tool.id === 'translate-pdf') return <FileToolInterface tool={tool} category={category} relatedTools={relatedTools} />
   if (tool.category === 'ai') return <AIToolInterface tool={tool} category={category} relatedTools={relatedTools} />
   if (tool.id === 'markdown-editor') return <MarkdownEditorTool tool={tool} category={category} relatedTools={relatedTools} />
   if (tool.id === 'merge-pdf') return <MergePdfInterface tool={tool} category={category} relatedTools={relatedTools} />

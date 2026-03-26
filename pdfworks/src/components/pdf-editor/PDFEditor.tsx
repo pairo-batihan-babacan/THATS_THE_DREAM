@@ -35,8 +35,8 @@ type ActiveTool = 'select'|'text'|'draw'|'highlight'|'rect'|'ellipse'|'image'|'r
 
 interface Pt { x: number; y: number }
 
-interface PNConfig { enabled:boolean; pos:'bc'|'bl'|'br'|'tc'|'tl'|'tr'; size:number; color:string; showTotal:boolean; start:number }
-interface WMConfig { enabled:boolean; text:string; opacity:number; color:string; size:number; rotation:number }
+interface PNConfig { enabled:boolean; x:number; y:number; size:number; color:string; showTotal:boolean; start:number }
+interface WMConfig { enabled:boolean; text:string; opacity:number; color:string; size:number; rotation:number; x:number; y:number }
 interface PageInfo { w:number; h:number; thumb:string }
 interface Snapshot { elements:AnyEl[]; pageOrder:number[] }
 
@@ -65,8 +65,8 @@ type Action =
 
 const INIT: EdState = {
   fileName:'', originalBytes:null, pageOrder:[], elements:[], backgrounds:{}, cropBoxes:{},
-  pageNumbers:{ enabled:false, pos:'bc', size:12, color:'#000000', showTotal:false, start:1 },
-  watermark:{ enabled:false, text:'CONFIDENTIAL', opacity:0.2, color:'#FF0000', size:72, rotation:-45 },
+  pageNumbers:{ enabled:false, x:0.5, y:0.96, size:12, color:'#000000', showTotal:false, start:1 },
+  watermark:{ enabled:false, text:'CONFIDENTIAL', opacity:0.2, color:'#FF0000', size:72, rotation:-45, x:0.5, y:0.5 },
   past:[], future:[],
 }
 
@@ -375,15 +375,8 @@ function PropsPanel({selected,selCount,currentOrigIdx,state,dispatch,drawColor,s
       {showPN && (
         <div className="space-y-2">
           <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer"><input type="checkbox" checked={state.pageNumbers.enabled} onChange={e=>dispatch({type:'SET_PN',cfg:{enabled:e.target.checked}})} className="accent-blue-500"/> Enabled</label>
-          <div className="grid grid-cols-2 gap-2">
-            <div><label className={lb}>Position</label>
-              <select className={ip} value={state.pageNumbers.pos} onChange={e=>dispatch({type:'SET_PN',cfg:{pos:e.target.value as PNConfig['pos']}})}>
-                <option value="bc">Bottom Center</option><option value="bl">Bottom Left</option><option value="br">Bottom Right</option>
-                <option value="tc">Top Center</option><option value="tl">Top Left</option><option value="tr">Top Right</option>
-              </select>
-            </div>
-            <div><label className={lb}>Size (pt)</label><input type="number" min={6} max={36} className={ip} value={state.pageNumbers.size} onChange={e=>dispatch({type:'SET_PN',cfg:{size:+e.target.value}})}/></div>
-          </div>
+          <p className="text-xs text-blue-400">Drag the number on the canvas to reposition</p>
+          <div><label className={lb}>Size (pt)</label><input type="number" min={6} max={36} className={ip} value={state.pageNumbers.size} onChange={e=>dispatch({type:'SET_PN',cfg:{size:+e.target.value}})}/></div>
           <input type="color" className="w-full h-8 rounded cursor-pointer bg-transparent border border-gray-700" value={state.pageNumbers.color} onChange={e=>dispatch({type:'SET_PN',cfg:{color:e.target.value}})}/>
           <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer"><input type="checkbox" checked={state.pageNumbers.showTotal} onChange={e=>dispatch({type:'SET_PN',cfg:{showTotal:e.target.checked}})} className="accent-blue-500"/> Show total (1/5)</label>
         </div>
@@ -396,6 +389,7 @@ function PropsPanel({selected,selCount,currentOrigIdx,state,dispatch,drawColor,s
       {showWM && (
         <div className="space-y-2">
           <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer"><input type="checkbox" checked={state.watermark.enabled} onChange={e=>dispatch({type:'SET_WM',cfg:{enabled:e.target.checked}})} className="accent-blue-500"/> Enabled</label>
+          {state.watermark.enabled && <p className="text-xs text-blue-400">Drag the watermark on the canvas to reposition</p>}
           <input type="text" className={ip} value={state.watermark.text} onChange={e=>dispatch({type:'SET_WM',cfg:{text:e.target.value}})}/>
           <div className="grid grid-cols-2 gap-2">
             <input type="color" className="w-full h-8 rounded cursor-pointer bg-transparent border border-gray-700" value={state.watermark.color} onChange={e=>dispatch({type:'SET_WM',cfg:{color:e.target.value}})}/>
@@ -469,10 +463,12 @@ export default function PDFEditor({ tool }:Props) {
   const [fontSize,    setFontSize]   = useState(16)
   const [fontFamily,  setFontFamily] = useState('sans')
 
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const svgRef    = useRef<SVGSVGElement>(null)
-  const imgInput  = useRef<HTMLInputElement>(null)
-  const dropInput = useRef<HTMLInputElement>(null)
+  const canvasRef  = useRef<HTMLCanvasElement>(null)
+  const svgRef     = useRef<SVGSVGElement>(null)
+  const imgInput   = useRef<HTMLInputElement>(null)
+  const dropInput  = useRef<HTMLInputElement>(null)
+  const wmDragRef  = useRef<{startMx:number;startMy:number;startX:number;startY:number}|null>(null)
+  const pnDragRef  = useRef<{startMx:number;startMy:number;startX:number;startY:number}|null>(null)
 
   const { pdfDoc, pages, loading } = usePDFPages(state.originalBytes)
 
@@ -588,6 +584,9 @@ export default function PDFEditor({ tool }:Props) {
     const handle=tgt.getAttribute('data-handle')
     const elId=tgt.getAttribute('data-elid')
 
+    if(tgt.getAttribute('data-wmhandle')){ wmDragRef.current={startMx:mx,startMy:my,startX:state.watermark.x,startY:state.watermark.y}; return }
+    if(tgt.getAttribute('data-pnhandle')){ pnDragRef.current={startMx:mx,startMy:my,startX:state.pageNumbers.x,startY:state.pageNumbers.y}; return }
+
     if(active==='select'){
       if(handle && selIds.length===1){
         const el=state.elements.find(e=>e.id===selIds[0])!
@@ -627,19 +626,23 @@ export default function PDFEditor({ tool }:Props) {
     }
     if(active==='draw'){ setDraft({ sx:px, sy:py, x:px, y:py, w:0, h:0, pts:[{x:px,y:py}] }); return }
     setDraft({ sx:px, sy:py, x:px, y:py, w:0, h:0 })
-  },[active, selIds, state.elements, curOrigIdx, scale, fontSize, fontFamily, drawColor, getSvgPos])
+  },[active, selIds, state.elements, state.watermark, state.pageNumbers, curOrigIdx, scale, fontSize, fontFamily, drawColor, getSvgPos])
 
   const handlePointerMove = useCallback((e:React.PointerEvent<SVGSVGElement>)=>{
     const {mx,my,px,py}=getSvgPos(e)
+    if(wmDragRef.current){ const d=wmDragRef.current; dispatch({type:'SET_WM',cfg:{x:Math.max(0,Math.min(1,d.startX+(mx-d.startMx)/pageW)),y:Math.max(0,Math.min(1,d.startY+(my-d.startMy)/pageH))}}); return }
+    if(pnDragRef.current){ const d=pnDragRef.current; dispatch({type:'SET_PN',cfg:{x:Math.max(0,Math.min(1,d.startX+(mx-d.startMx)/pageW)),y:Math.max(0,Math.min(1,d.startY+(my-d.startMy)/pageH))}}); return }
     if(drag){ setDrag(d=>d?{...d,curMx:mx,curMy:my}:null); return }
     if(rubber){ const x=Math.min(px,rubber.sx),y=Math.min(py,rubber.sy),w=Math.abs(px-rubber.sx),h=Math.abs(py-rubber.sy); setRubber(r=>r?{...r,x,y,w,h}:null); return }
     if(draft){
       if(active==='draw') setDraft(d=>d?{...d,pts:[...(d.pts??[]),{x:px,y:py}]}:null)
       else { const x=Math.min(px,draft.sx),y=Math.min(py,draft.sy),w=Math.abs(px-draft.sx)||0.1,h=Math.abs(py-draft.sy)||0.1; setDraft(d=>d?{...d,x,y,w,h}:null) }
     }
-  },[drag,rubber,draft,active,getSvgPos])
+  },[drag,rubber,draft,active,getSvgPos,pageW,pageH])
 
   const handlePointerUp = useCallback(()=>{
+    if(wmDragRef.current){ wmDragRef.current=null; return }
+    if(pnDragRef.current){ pnDragRef.current=null; return }
     /* rubber band select */
     if(rubber){
       if(rubber.w*scale>5 && rubber.h*scale>5){
@@ -922,6 +925,40 @@ export default function PDFEditor({ tool }:Props) {
                     </g>
                   )
                 })()}
+                {/* watermark overlay — drag to reposition */}
+                {state.watermark.enabled && state.watermark.text && (
+                  <g transform={`translate(${state.watermark.x*pageW},${state.watermark.y*pageH}) rotate(${state.watermark.rotation})`}>
+                    <text x={0} y={0} textAnchor="middle" dominantBaseline="middle"
+                      fontSize={state.watermark.size*scale} fill={state.watermark.color}
+                      opacity={state.watermark.opacity} pointerEvents="none">
+                      {state.watermark.text}
+                    </text>
+                    <rect
+                      x={-(state.watermark.text.length*state.watermark.size*scale*0.32)}
+                      y={-(state.watermark.size*scale*0.65)}
+                      width={state.watermark.text.length*state.watermark.size*scale*0.64}
+                      height={state.watermark.size*scale*1.3}
+                      fill="transparent" stroke="#3B82F6" strokeWidth={1.5} strokeDasharray="4 2" opacity={0.7}
+                      style={{cursor:'move'}} data-wmhandle="true"/>
+                  </g>
+                )}
+
+                {/* page number overlay — drag to reposition */}
+                {state.pageNumbers.enabled && (
+                  <g transform={`translate(${state.pageNumbers.x*pageW},${state.pageNumbers.y*pageH})`}>
+                    <text x={0} y={0} textAnchor="middle" dominantBaseline="middle"
+                      fontSize={state.pageNumbers.size*scale} fill={state.pageNumbers.color}
+                      pointerEvents="none">
+                      {state.pageNumbers.showTotal?`${curDispIdx+state.pageNumbers.start} / ${state.pageOrder.length}`:`${curDispIdx+state.pageNumbers.start}`}
+                    </text>
+                    <rect
+                      x={-50} y={-(state.pageNumbers.size*scale*0.75)}
+                      width={100} height={state.pageNumbers.size*scale*1.5}
+                      fill="transparent" stroke="#22C55E" strokeWidth={1.5} strokeDasharray="4 2" opacity={0.7}
+                      style={{cursor:'move'}} data-pnhandle="true"/>
+                  </g>
+                )}
+
               </svg>
 
               {/* inline text editor */}

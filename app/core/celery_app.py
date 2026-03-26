@@ -11,6 +11,7 @@ celery_app = Celery(
         "app.workers.audio_tasks",
         "app.workers.video_tasks",
         "app.workers.document_tasks",
+        "app.workers.ai_tasks",
     ],
 )
 
@@ -26,6 +27,7 @@ celery_app.conf.update(
         "app.workers.audio_tasks.*": {"queue": "heavy"},
         "app.workers.video_tasks.*": {"queue": "heavy"},
         "app.workers.document_tasks.*": {"queue": "default"},
+        "app.workers.ai_tasks.*": {"queue": "default"},
     },
     beat_schedule={
         "cleanup-expired-files": {

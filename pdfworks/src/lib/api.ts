@@ -63,6 +63,11 @@ export async function submitJob(
 ): Promise<Blob> {
   onProgress(5, 'Uploading…')
 
+  // On Render free tier the server sleeps after inactivity — cold start = ~30–50s.
+  // Escalate the status message so users know to wait rather than thinking it's broken.
+  const warmingTimer = setTimeout(() => onProgress(5, 'Server is warming up… (may take ~30s on first use)'), 7000)
+  const slowTimer    = setTimeout(() => onProgress(5, 'Almost ready, hang tight…'), 22000)
+
   let jobRes: Response
   try {
     jobRes = await fetch(`${API_BASE}${endpoint}`, {
@@ -70,10 +75,14 @@ export async function submitJob(
       body: formData,
     })
   } catch {
+    clearTimeout(warmingTimer)
+    clearTimeout(slowTimer)
     throw new Error(
       'Could not reach the conversion server. Make sure the backend is running.',
     )
   }
+  clearTimeout(warmingTimer)
+  clearTimeout(slowTimer)
 
   if (!jobRes.ok) {
     let detail = 'Upload failed'

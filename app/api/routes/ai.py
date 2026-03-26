@@ -2,8 +2,14 @@ import io
 import os
 from typing import Literal
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pypdf import PdfReader
+from sqlmodel.ext.asyncio.session import AsyncSession
+
+from app.api.deps import save_upload_file
+from app.core.celery_app import celery_app
+from app.core.database import get_session
+from app.crud.job import create_job
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
@@ -136,3 +142,21 @@ async def summarize_pdf(
         "sampled": was_sampled,
         "detail": detail,
     }
+
+
+@router.post("/translate-pdf")
+async def translate_pdf_endpoint(
+    file: UploadFile = File(...),
+    target_language: str = Form("Spanish"),
+    session: AsyncSession = Depends(get_session),
+):
+    if not file.filename or not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Only PDF files are accepted.")
+
+    job_id, storage_path = await save_upload_file(file)
+    await create_job(session, job_id, "translate_pdf", file.filename)
+    celery_app.send_task(
+        "app.workers.ai_tasks.translate_pdf_task",
+        args=[storage_path, job_id, target_language],
+    )
+    return {"job_id": job_id, "status": "queued"}

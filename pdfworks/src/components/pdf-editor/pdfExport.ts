@@ -24,8 +24,8 @@ export interface ExportParams {
   backgrounds: Record<number, string>             // origIdx → css hex color
   pageDims: Record<number, { w: number; h: number }> // origIdx → PDF-point dims
   cropBoxes?: Record<number, { x: number; y: number; w: number; h: number } | null>
-  pageNumbers: { enabled: boolean; pos: string; size: number; color: string; showTotal: boolean; start: number }
-  watermark:   { enabled: boolean; text: string;  opacity: number; color: string; size: number; rotation: number }
+  pageNumbers: { enabled: boolean; x: number; y: number; size: number; color: string; showTotal: boolean; start: number }
+  watermark:   { enabled: boolean; text: string;  opacity: number; color: string; size: number; rotation: number; x: number; y: number }
 }
 
 function hexRgb(color: string) {
@@ -183,32 +183,26 @@ export async function exportPDF(p: ExportParams): Promise<Uint8Array> {
 
     /* page numbers */
     if (p.pageNumbers.enabled) {
-      const txt    = p.pageNumbers.showTotal
+      const txt = p.pageNumbers.showTotal
         ? `${di + p.pageNumbers.start} / ${p.pageOrder.length}`
         : `${di + p.pageNumbers.start}`
-      const c   = hexRgb(p.pageNumbers.color) ?? rgb(0, 0, 0)
-      const fs  = p.pageNumbers.size
-      const pad = 28
-      const pos = p.pageNumbers.pos
-      let nx = PW / 2 - txt.length * fs * 0.28
-      let ny = pad
-
-      if (pos === 'bl') nx = pad
-      if (pos === 'br') nx = PW - pad - txt.length * fs * 0.56
-      if (pos.startsWith('t')) ny = PH - pad - fs
-      if (pos === 'tl') nx = pad
-      if (pos === 'tr') nx = PW - pad - txt.length * fs * 0.56
-
+      const c  = hexRgb(p.pageNumbers.color) ?? rgb(0, 0, 0)
+      const fs = p.pageNumbers.size
+      const nx = p.pageNumbers.x * PW - txt.length * fs * 0.28
+      const ny = PH * (1 - p.pageNumbers.y) - fs * 0.5
       try { page.drawText(txt, { x: Math.max(0, nx), y: Math.max(0, ny), size: fs, font: helv, color: c }) } catch {}
     }
 
     /* watermark */
     if (p.watermark.enabled && p.watermark.text) {
-      const c = hexRgb(p.watermark.color) ?? rgb(1, 0, 0)
+      const c  = hexRgb(p.watermark.color) ?? rgb(1, 0, 0)
+      const fs = p.watermark.size
+      const nx = p.watermark.x * PW - p.watermark.text.length * fs * 0.28
+      const ny = PH * (1 - p.watermark.y)
       try {
         page.drawText(p.watermark.text, {
-          x: PW * 0.1, y: PH * 0.35,
-          size: p.watermark.size, font: helvB, color: c,
+          x: Math.max(0, nx), y: Math.max(0, ny),
+          size: fs, font: helvB, color: c,
           opacity: p.watermark.opacity,
           rotate: degrees(p.watermark.rotation),
         })
