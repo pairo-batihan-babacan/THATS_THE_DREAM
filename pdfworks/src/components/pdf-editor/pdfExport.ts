@@ -188,23 +188,28 @@ export async function exportPDF(p: ExportParams): Promise<Uint8Array> {
         : `${di + p.pageNumbers.start}`
       const c  = hexRgb(p.pageNumbers.color) ?? rgb(0, 0, 0)
       const fs = p.pageNumbers.size
-      const nx = p.pageNumbers.x * PW - txt.length * fs * 0.28
-      const ny = PH * (1 - p.pageNumbers.y) - fs * 0.5
-      try { page.drawText(txt, { x: Math.max(0, nx), y: Math.max(0, ny), size: fs, font: helv, color: c }) } catch {}
+      const tw = helv.widthOfTextAtSize(txt, fs)
+      const nx = p.pageNumbers.x * PW - tw / 2
+      // PDF baseline sits ~0.3× fontsize below the visual centre
+      const ny = PH * (1 - p.pageNumbers.y) - fs * 0.3
+      try { page.drawText(txt, { x: nx, y: ny, size: fs, font: helv, color: c }) } catch {}
     }
 
     /* watermark */
     if (p.watermark.enabled && p.watermark.text) {
       const c  = hexRgb(p.watermark.color) ?? rgb(1, 0, 0)
       const fs = p.watermark.size
-      const nx = p.watermark.x * PW - p.watermark.text.length * fs * 0.28
-      const ny = PH * (1 - p.watermark.y)
+      const tw = helvB.widthOfTextAtSize(p.watermark.text, fs)
+      // Centre the text at the stored (x,y) position
+      const nx = p.watermark.x * PW - tw / 2
+      const ny = PH * (1 - p.watermark.y) - fs * 0.3
+      // SVG rotate() is clockwise; pdf-lib degrees() is counter-clockwise — negate to match
       try {
         page.drawText(p.watermark.text, {
-          x: Math.max(0, nx), y: Math.max(0, ny),
+          x: nx, y: ny,
           size: fs, font: helvB, color: c,
           opacity: p.watermark.opacity,
-          rotate: degrees(p.watermark.rotation),
+          rotate: degrees(-p.watermark.rotation),
         })
       } catch {}
     }
