@@ -8,7 +8,7 @@ import { PDFDocument, rgb, StandardFonts, degrees } from 'pdf-lib'
 /* ─── minimal inline types (mirrors PDFEditor types) ────────────────────── */
 interface Pt { x: number; y: number }
 interface BaseEl { id: string; pageIndex: number; x: number; y: number; w: number; h: number; opacity: number }
-interface TextEl      extends BaseEl { kind: 'text';      content: string; fontSize: number; fontFamily: string; color: string; bold: boolean; italic: boolean }
+interface TextEl      extends BaseEl { kind: 'text';      content: string; fontSize: number; fontFamily: string; color: string; bold: boolean; italic: boolean; underline: boolean; align: 'left' | 'center' | 'right' }
 interface DrawEl      extends BaseEl { kind: 'draw';      pts: Pt[]; color: string; lineWidth: number }
 interface HighlightEl extends BaseEl { kind: 'highlight'; color: string }
 interface RectEl      extends BaseEl { kind: 'rect';      fill: string; stroke: string; strokeW: number }

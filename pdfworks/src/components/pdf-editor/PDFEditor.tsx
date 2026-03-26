@@ -14,8 +14,7 @@ import {
   ImageIcon, ShieldX, Undo2, Redo2, ZoomIn, ZoomOut,
   Download, Trash2, ChevronUp, ChevronDown,
   AlignLeft, AlignCenter, AlignRight,
-  Bold, Italic, Underline as UnderlineIcon,
-  Upload, FileText, Hash, Stamp, Palette, X,
+  Upload, FileText, Hash, Stamp, X,
 } from 'lucide-react'
 import * as pdfjsLib from 'pdfjs-dist'
 import type { PDFDocumentProxy } from 'pdfjs-dist'
@@ -541,7 +540,7 @@ function PropsPanel({
                 <div key={k}>
                   <label className={label}>{k.toUpperCase()} (pt)</label>
                   <input type="number" className={input}
-                    value={Math.round((selected as Record<string, number>)[k])}
+                    value={Math.round((selected as unknown as Record<string, number>)[k])}
                     onChange={e => dispatch({ type: 'UPDATE_EL', id: selected.id, patch: { [k]: +e.target.value } as Partial<AnyEl> })} />
                 </div>
               ))}
@@ -857,7 +856,7 @@ export default function PDFEditor({ tool }: PDFEditorProps) {
     }
   }, [drag, draft, active, getSvgPos])
 
-  const handlePointerUp = useCallback((e: React.PointerEvent<SVGSVGElement>) => {
+  const handlePointerUp = useCallback(() => {
     if (drag) {
       /* commit final position */
       const { mx, my } = { mx: drag.curMx, my: drag.curMy }
@@ -949,7 +948,7 @@ export default function PDFEditor({ tool }: PDFEditorProps) {
         pageNumbers:   state.pageNumbers,
         watermark:     state.watermark,
       })
-      const blob = new Blob([bytes], { type: 'application/pdf' })
+      const blob = new Blob([bytes.buffer as ArrayBuffer], { type: 'application/pdf' })
       const url  = URL.createObjectURL(blob)
       const a    = document.createElement('a')
       a.href     = url
@@ -1096,7 +1095,7 @@ export default function PDFEditor({ tool }: PDFEditorProps) {
         </TBtn>
 
         <div className="ml-auto flex items-center gap-2">
-          <span className="text-xs text-gray-500 truncate max-w-[160px]">{state.fileName}</span>
+          <span className="text-xs text-gray-500 truncate max-w-[160px]">{state.fileName || tool.name}</span>
           <button onClick={handleExport} disabled={exporting}
             className="flex items-center gap-1.5 px-4 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-semibold rounded-lg transition-colors">
             {exporting

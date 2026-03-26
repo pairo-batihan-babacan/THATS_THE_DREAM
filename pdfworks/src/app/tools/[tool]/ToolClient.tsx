@@ -9,11 +9,14 @@ import {
   ChevronRight, Home, ArrowLeft, Send, Bot, RotateCcw, RotateCw,
   Loader2, FileText, Zap, Shield, Trash2, Plus, Copy, Eye,
 } from 'lucide-react'
+import dynamic from 'next/dynamic'
 import type { Tool } from '@/lib/tools-registry'
 import type { ToolCategory } from '@/lib/tool-categories'
 import { ToolIcon } from '@/components/ToolIcon'
 import { submitJob } from '@/lib/api'
 import type { ProgressFn } from '@/lib/api'
+
+const PDFEditor = dynamic(() => import('@/components/pdf-editor/PDFEditor'), { ssr: false })
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -4163,5 +4166,6 @@ export default function ToolClient({
     return <PageCanvasInterface tool={tool} category={category} relatedTools={relatedTools} />
   if (tool.id === 'number-pages')  return <NumberPagesInterface tool={tool} category={category} relatedTools={relatedTools} />
   if (tool.id === 'watermark-pdf') return <WatermarkInterface   tool={tool} category={category} relatedTools={relatedTools} />
+  if (tool.id === 'edit-pdf')      return <PDFEditor            tool={tool} category={category} relatedTools={relatedTools} />
   return <FileToolInterface tool={tool} category={category} relatedTools={relatedTools} />
 }
