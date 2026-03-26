@@ -1,0 +1,1294 @@
+'use client'
+/**
+ * PDFEditor — WYSIWYG PDF editor
+ * Render: pdfjs-dist  |  Interact: SVG overlay  |  Export: pdf-lib
+ * All element coords stored in PDF points (top-left origin, page-relative).
+ */
+
+import React, {
+  useState, useEffect, useRef, useReducer, useCallback, useMemo,
+} from 'react'
+import { useDropzone } from 'react-dropzone'
+import {
+  MousePointer2, Type, Pencil, Highlighter, Square, Circle,
+  ImageIcon, ShieldX, Undo2, Redo2, ZoomIn, ZoomOut,
+  Download, Trash2, ChevronUp, ChevronDown,
+  AlignLeft, AlignCenter, AlignRight,
+  Bold, Italic, Underline as UnderlineIcon,
+  Upload, FileText, Hash, Stamp, Palette, X,
+} from 'lucide-react'
+import * as pdfjsLib from 'pdfjs-dist'
+import type { PDFDocumentProxy } from 'pdfjs-dist'
+import { exportPDF } from './pdfExport'
+import type { AnyEl } from './pdfExport'
+import type { Tool } from '@/lib/tools-registry'
+import type { ToolCategory } from '@/lib/tool-categories'
+
+/* ── worker ─────────────────────────────────────────────────────────────── */
+if (typeof window !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TYPES
+═══════════════════════════════════════════════════════════════════════════ */
+type ActiveTool = 'select' | 'text' | 'draw' | 'highlight' | 'rect' | 'ellipse' | 'image' | 'redact'
+
+interface Pt { x: number; y: number }
+
+interface PNConfig {
+  enabled: boolean; pos: 'bc'|'bl'|'br'|'tc'|'tl'|'tr'
+  size: number; color: string; showTotal: boolean; start: number
+}
+interface WMConfig {
+  enabled: boolean; text: string; opacity: number
+  color: string; size: number; rotation: number
+}
+interface PageInfo { w: number; h: number; thumb: string }
+interface Snapshot { elements: AnyEl[]; pageOrder: number[] }
+
+interface EdState {
+  fileName: string
+  originalBytes: Uint8Array | null
+  pageOrder: number[]
+  elements: AnyEl[]
+  backgrounds: Record<number, string>
+  pageNumbers: PNConfig
+  watermark: WMConfig
+  past: Snapshot[]; future: Snapshot[]
+}
+
+type Action =
+  | { type: 'LOAD'; fileName: string; bytes: Uint8Array; pageCount: number }
+  | { type: 'ADD_EL'; el: AnyEl }
+  | { type: 'UPDATE_EL'; id: string; patch: Partial<AnyEl> }
+  | { type: 'DELETE_EL'; id: string }
+  | { type: 'DELETE_PAGE'; origIdx: number }
+  | { type: 'MOVE_PAGE'; from: number; to: number }
+  | { type: 'SET_BG'; origIdx: number; color: string }
+  | { type: 'SET_PN'; cfg: Partial<PNConfig> }
+  | { type: 'SET_WM'; cfg: Partial<WMConfig> }
+  | { type: 'UNDO' }
+  | { type: 'REDO' }
+
+const INIT: EdState = {
+  fileName: '', originalBytes: null, pageOrder: [],
+  elements: [], backgrounds: {},
+  pageNumbers: { enabled: false, pos: 'bc', size: 12, color: '#000000', showTotal: false, start: 1 },
+  watermark: { enabled: false, text: 'CONFIDENTIAL', opacity: 0.2, color: '#FF0000', size: 72, rotation: -45 },
+  past: [], future: [],
+}
+
+function snap(s: EdState): Snapshot {
+  return { elements: s.elements, pageOrder: s.pageOrder }
+}
+
+function reducer(s: EdState, a: Action): EdState {
+  switch (a.type) {
+    case 'LOAD':
+      return { ...INIT, fileName: a.fileName, originalBytes: a.bytes, pageOrder: Array.from({ length: a.pageCount }, (_, i) => i) }
+    case 'ADD_EL':
+      return { ...s, elements: [...s.elements, a.el], past: [...s.past, snap(s)].slice(-40), future: [] }
+    case 'UPDATE_EL':
+      return { ...s, elements: s.elements.map(e => e.id === a.id ? { ...e, ...a.patch } as AnyEl : e), past: [...s.past, snap(s)].slice(-40), future: [] }
+    case 'DELETE_EL':
+      return { ...s, elements: s.elements.filter(e => e.id !== a.id), past: [...s.past, snap(s)].slice(-40), future: [] }
+    case 'DELETE_PAGE': {
+      const pageOrder = s.pageOrder.filter(i => i !== a.origIdx)
+      return { ...s, pageOrder, past: [...s.past, snap(s)].slice(-40), future: [] }
+    }
+    case 'MOVE_PAGE': {
+      const order = [...s.pageOrder]
+      const [rem] = order.splice(a.from, 1)
+      order.splice(a.to, 0, rem)
+      return { ...s, pageOrder: order, past: [...s.past, snap(s)].slice(-40), future: [] }
+    }
+    case 'SET_BG':
+      return { ...s, backgrounds: { ...s.backgrounds, [a.origIdx]: a.color } }
+    case 'SET_PN':
+      return { ...s, pageNumbers: { ...s.pageNumbers, ...a.cfg } }
+    case 'SET_WM':
+      return { ...s, watermark: { ...s.watermark, ...a.cfg } }
+    case 'UNDO': {
+      if (!s.past.length) return s
+      const past = [...s.past]; const prev = past.pop()!
+      return { ...s, ...prev, past, future: [snap(s), ...s.future] }
+    }
+    case 'REDO': {
+      if (!s.future.length) return s
+      const future = [...s.future]; const next = future.shift()!
+      return { ...s, ...next, past: [...s.past, snap(s)], future }
+    }
+    default: return s
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   UTILITIES
+═══════════════════════════════════════════════════════════════════════════ */
+let _id = 0
+const uid = () => `el_${Date.now()}_${++_id}`
+
+function simplify(pts: Pt[], min = 2): Pt[] {
+  if (pts.length < 3) return pts
+  const out: Pt[] = [pts[0]]
+  for (let i = 1; i < pts.length - 1; i++) {
+    const p = out[out.length - 1], c = pts[i]
+    const d = Math.hypot(c.x - p.x, c.y - p.y)
+    if (d >= min) out.push(c)
+  }
+  out.push(pts[pts.length - 1])
+  return out
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   HOOKS
+═══════════════════════════════════════════════════════════════════════════ */
+function usePDFPages(bytes: Uint8Array | null) {
+  const [pdfDoc,  setPdfDoc]  = useState<PDFDocumentProxy | null>(null)
+  const [pages,   setPages]   = useState<PageInfo[]>([])
+  const [loading, setLoading] = useState(false)
+  const docRef = useRef<PDFDocumentProxy | null>(null)
+
+  useEffect(() => {
+    if (!bytes) { docRef.current?.destroy(); docRef.current = null; setPdfDoc(null); setPages([]); return }
+    let cancelled = false
+    setLoading(true)
+    ;(async () => {
+      docRef.current?.destroy()
+      const doc = await pdfjsLib.getDocument({ data: bytes.slice() }).promise
+      if (cancelled) { doc.destroy(); return }
+      docRef.current = doc
+      setPdfDoc(doc)
+      const infos: PageInfo[] = []
+      for (let n = 1; n <= doc.numPages; n++) {
+        if (cancelled) return
+        const pg = await doc.getPage(n)
+        const vp = pg.getViewport({ scale: 1 })
+        const ts = 130 / vp.width
+        const tvp = pg.getViewport({ scale: ts })
+        const tc = document.createElement('canvas')
+        tc.width = tvp.width; tc.height = tvp.height
+        await pg.render({ canvasContext: tc.getContext('2d')!, viewport: tvp }).promise
+        infos.push({ w: vp.width, h: vp.height, thumb: tc.toDataURL('image/jpeg', 0.6) })
+        pg.cleanup()
+      }
+      if (!cancelled) { setPages(infos); setLoading(false) }
+    })().catch(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [bytes]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => () => { docRef.current?.destroy() }, [])
+
+  return { pdfDoc, pages, loading }
+}
+
+function usePageCanvas(
+  pdfDoc: PDFDocumentProxy | null,
+  origPageIdx: number,
+  scale: number,
+  canvasRef: React.RefObject<HTMLCanvasElement>,
+) {
+  useEffect(() => {
+    if (!pdfDoc || !canvasRef.current) return
+    let cancelled = false
+    ;(async () => {
+      const pg  = await pdfDoc.getPage(origPageIdx + 1)
+      if (cancelled) return
+      const vp  = pg.getViewport({ scale })
+      const cv  = canvasRef.current!
+      cv.width  = vp.width
+      cv.height = vp.height
+      await pg.render({ canvasContext: cv.getContext('2d')!, viewport: vp }).promise
+      pg.cleanup()
+    })()
+    return () => { cancelled = true }
+  }, [pdfDoc, origPageIdx, scale, canvasRef])
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SMALL UI COMPONENTS
+═══════════════════════════════════════════════════════════════════════════ */
+function Tip({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="relative group">
+      {children}
+      <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5
+                      bg-gray-700 text-white text-xs rounded px-2 py-0.5 whitespace-nowrap
+                      opacity-0 group-hover:opacity-100 transition-opacity z-50">
+        {label}
+      </div>
+    </div>
+  )
+}
+
+function TBtn({
+  label, active = false, onClick, disabled = false, children,
+}: { label: string; active?: boolean; onClick?: () => void; disabled?: boolean; children: React.ReactNode }) {
+  return (
+    <Tip label={label}>
+      <button
+        onClick={onClick} disabled={disabled}
+        className={`w-8 h-8 flex items-center justify-center rounded transition-colors
+          ${active ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}
+          ${disabled ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'}`}
+      >
+        {children}
+      </button>
+    </Tip>
+  )
+}
+
+const Sep = () => <div className="w-px h-6 bg-gray-700 mx-1" />
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SVG ELEMENT RENDERERS
+═══════════════════════════════════════════════════════════════════════════ */
+interface ElProps { el: AnyEl; s: number; selected: boolean; onSelect: () => void; onDblClick?: () => void }
+
+function ElRenderer({ el, s, selected, onSelect, onDblClick }: ElProps) {
+  const common = {
+    'data-elid': el.id,
+    onClick: (e: React.MouseEvent) => { e.stopPropagation(); onSelect() },
+    onDoubleClick: onDblClick,
+    style: { cursor: 'move' } as React.CSSProperties,
+  }
+
+  if (el.kind === 'text') {
+    const fontFamily = el.fontFamily === 'serif' ? 'Georgia,serif' : el.fontFamily === 'mono' ? 'monospace' : 'system-ui,sans-serif'
+    const lines = el.content.split('\n')
+    const lh = el.fontSize * s * 1.3
+    return (
+      <g {...common} opacity={el.opacity}>
+        {selected && (
+          <rect x={el.x*s-2} y={el.y*s-2} width={el.w*s+4} height={el.h*s+4}
+            fill="transparent" stroke="#3B82F6" strokeWidth={1} strokeDasharray="3 2" pointerEvents="none" />
+        )}
+        {lines.map((line, i) => (
+          <text key={i}
+            x={el.align === 'center' ? (el.x + el.w/2)*s : el.align === 'right' ? (el.x + el.w)*s - 2 : el.x*s + 2}
+            y={el.y*s + el.fontSize*s*0.9 + i*lh}
+            fontSize={el.fontSize * s}
+            fontFamily={fontFamily}
+            fontWeight={el.bold ? 'bold' : 'normal'}
+            fontStyle={el.italic ? 'italic' : 'normal'}
+            textDecoration={el.underline ? 'underline' : 'none'}
+            fill={el.color}
+            textAnchor={el.align === 'center' ? 'middle' : el.align === 'right' ? 'end' : 'start'}
+            pointerEvents="none"
+          >{line || '\u00A0'}</text>
+        ))}
+      </g>
+    )
+  }
+
+  if (el.kind === 'draw') {
+    return (
+      <polyline {...common}
+        points={el.pts.map(p => `${p.x*s},${p.y*s}`).join(' ')}
+        fill="none" stroke={el.color} strokeWidth={el.lineWidth * s}
+        strokeLinecap="round" strokeLinejoin="round"
+        opacity={el.opacity}
+      />
+    )
+  }
+
+  if (el.kind === 'highlight') {
+    return (
+      <rect {...common}
+        x={el.x*s} y={el.y*s} width={el.w*s} height={el.h*s}
+        fill={el.color} opacity={0.4}
+      />
+    )
+  }
+
+  if (el.kind === 'rect') {
+    return (
+      <rect {...common}
+        x={el.x*s} y={el.y*s} width={el.w*s} height={el.h*s}
+        fill={el.fill === 'transparent' ? 'none' : el.fill}
+        stroke={el.stroke} strokeWidth={el.strokeW * s}
+        opacity={el.opacity}
+      />
+    )
+  }
+
+  if (el.kind === 'ellipse') {
+    return (
+      <ellipse {...common}
+        cx={(el.x + el.w/2)*s} cy={(el.y + el.h/2)*s}
+        rx={el.w*s/2} ry={el.h*s/2}
+        fill={el.fill === 'transparent' ? 'none' : el.fill}
+        stroke={el.stroke} strokeWidth={el.strokeW * s}
+        opacity={el.opacity}
+      />
+    )
+  }
+
+  if (el.kind === 'redact') {
+    return (
+      <rect {...common}
+        x={el.x*s} y={el.y*s} width={el.w*s} height={el.h*s}
+        fill="#000" opacity={1}
+      />
+    )
+  }
+
+  if (el.kind === 'image') {
+    return (
+      <image {...common}
+        href={el.src}
+        x={el.x*s} y={el.y*s} width={el.w*s} height={el.h*s}
+        opacity={el.opacity} preserveAspectRatio="xMidYMid meet"
+      />
+    )
+  }
+
+  return null
+}
+
+/* resize handle positions */
+const HANDLES = ['nw','n','ne','e','se','s','sw','w'] as const
+type Handle = typeof HANDLES[number]
+
+function SelectionBox({ el, s }: { el: AnyEl; s: number }) {
+  const x = el.kind === 'draw' ? Math.min(...el.pts.map(p=>p.x))*s : el.x*s
+  const y = el.kind === 'draw' ? Math.min(...el.pts.map(p=>p.y))*s : el.y*s
+  const w = el.kind === 'draw' ? (Math.max(...el.pts.map(p=>p.x)) - Math.min(...el.pts.map(p=>p.x)))*s : el.w*s
+  const h = el.kind === 'draw' ? (Math.max(...el.pts.map(p=>p.y)) - Math.min(...el.pts.map(p=>p.y)))*s : el.h*s
+  const hs = 7
+
+  const hx = (id: Handle) => id.includes('e') ? x+w : id.includes('w') ? x : x+w/2
+  const hy = (id: Handle) => id.includes('s') ? y+h : id.includes('n') ? y : y+h/2
+
+  return (
+    <g pointerEvents="none">
+      <rect x={x-1} y={y-1} width={w+2} height={h+2}
+        fill="none" stroke="#3B82F6" strokeWidth={1.5} strokeDasharray="4 2" />
+      {el.kind !== 'draw' && HANDLES.map(id => (
+        <rect key={id} x={hx(id)-hs/2} y={hy(id)-hs/2} width={hs} height={hs}
+          fill="white" stroke="#3B82F6" strokeWidth={1.5} rx={1}
+          style={{ cursor: `${id}-resize`, pointerEvents: 'all' }}
+          data-handle={id}
+        />
+      ))}
+    </g>
+  )
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PROPERTIES PANEL
+═══════════════════════════════════════════════════════════════════════════ */
+interface PropsPanelProps {
+  selected: AnyEl | null
+  currentOrigIdx: number
+  state: EdState
+  dispatch: React.Dispatch<Action>
+  drawColor: string; setDrawColor: (v: string) => void
+  fillColor: string; setFillColor: (v: string) => void
+  strokeWidth: number; setStrokeWidth: (v: number) => void
+  fontSize: number; setFontSize: (v: number) => void
+  fontFamily: string; setFontFamily: (v: string) => void
+  onDeleteSelected: () => void
+  showPN: boolean; setShowPN: (v: boolean) => void
+  showWM: boolean; setShowWM: (v: boolean) => void
+}
+
+function PropsPanel({
+  selected, currentOrigIdx, state, dispatch,
+  drawColor, setDrawColor, fillColor, setFillColor,
+  strokeWidth, setStrokeWidth, fontSize, setFontSize,
+  fontFamily, setFontFamily, onDeleteSelected,
+  showPN, setShowPN, showWM, setShowWM,
+}: PropsPanelProps) {
+  const label = 'text-xs text-gray-400 mb-1 block'
+  const input = 'w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-sm text-gray-100 focus:outline-none focus:border-blue-500'
+  const row   = 'mb-3'
+
+  return (
+    <div className="p-3 space-y-1 text-sm">
+      {/* ── element-specific properties ── */}
+      {selected && (
+        <>
+          <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Element</div>
+
+          {/* Opacity */}
+          <div className={row}>
+            <label className={label}>Opacity {Math.round(selected.opacity * 100)}%</label>
+            <input type="range" min={0.1} max={1} step={0.05}
+              value={selected.opacity}
+              onChange={e => dispatch({ type: 'UPDATE_EL', id: selected.id, patch: { opacity: +e.target.value } })}
+              className="w-full accent-blue-500" />
+          </div>
+
+          {/* Text-specific */}
+          {selected.kind === 'text' && (
+            <>
+              <div className={row}>
+                <label className={label}>Content</label>
+                <textarea rows={3} className={`${input} resize-none`}
+                  value={selected.content}
+                  onChange={e => dispatch({ type: 'UPDATE_EL', id: selected.id, patch: { content: e.target.value } })} />
+              </div>
+              <div className="grid grid-cols-2 gap-2 mb-3">
+                <div>
+                  <label className={label}>Font</label>
+                  <select className={input} value={selected.fontFamily}
+                    onChange={e => dispatch({ type: 'UPDATE_EL', id: selected.id, patch: { fontFamily: e.target.value } })}>
+                    <option value="sans">Sans</option>
+                    <option value="serif">Serif</option>
+                    <option value="mono">Mono</option>
+                  </select>
+                </div>
+                <div>
+                  <label className={label}>Size (pt)</label>
+                  <input type="number" min={4} max={200} className={input}
+                    value={selected.fontSize}
+                    onChange={e => dispatch({ type: 'UPDATE_EL', id: selected.id, patch: { fontSize: +e.target.value } })} />
+                </div>
+              </div>
+              <div className={row}>
+                <label className={label}>Color</label>
+                <input type="color" className="w-full h-8 rounded cursor-pointer bg-transparent border border-gray-700"
+                  value={selected.color}
+                  onChange={e => dispatch({ type: 'UPDATE_EL', id: selected.id, patch: { color: e.target.value } })} />
+              </div>
+              <div className="flex gap-1 mb-3">
+                <button onClick={() => dispatch({ type: 'UPDATE_EL', id: selected.id, patch: { bold: !selected.bold } })}
+                  className={`flex-1 py-1 rounded text-xs font-bold transition-colors ${selected.bold ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'}`}>B</button>
+                <button onClick={() => dispatch({ type: 'UPDATE_EL', id: selected.id, patch: { italic: !selected.italic } })}
+                  className={`flex-1 py-1 rounded text-xs italic transition-colors ${selected.italic ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'}`}>I</button>
+                <button onClick={() => dispatch({ type: 'UPDATE_EL', id: selected.id, patch: { underline: !selected.underline } })}
+                  className={`flex-1 py-1 rounded text-xs underline transition-colors ${selected.underline ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'}`}>U</button>
+              </div>
+              <div className="flex gap-1 mb-3">
+                {(['left','center','right'] as const).map(align => (
+                  <button key={align}
+                    onClick={() => dispatch({ type: 'UPDATE_EL', id: selected.id, patch: { align } })}
+                    className={`flex-1 py-1 rounded text-xs transition-colors ${selected.align === align ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'}`}>
+                    {align === 'left' ? <AlignLeft className="w-3 h-3 mx-auto" /> : align === 'center' ? <AlignCenter className="w-3 h-3 mx-auto" /> : <AlignRight className="w-3 h-3 mx-auto" />}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* Shape-specific */}
+          {(selected.kind === 'rect' || selected.kind === 'ellipse') && (
+            <>
+              <div className={row}>
+                <label className={label}>Fill</label>
+                <div className="flex gap-2 items-center">
+                  <input type="color" className="w-8 h-8 rounded cursor-pointer bg-transparent border border-gray-700"
+                    value={selected.fill === 'transparent' ? '#ffffff' : selected.fill}
+                    onChange={e => dispatch({ type: 'UPDATE_EL', id: selected.id, patch: { fill: e.target.value } })} />
+                  <button onClick={() => dispatch({ type: 'UPDATE_EL', id: selected.id, patch: { fill: 'transparent' } })}
+                    className={`text-xs px-2 py-1 rounded ${selected.fill === 'transparent' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'}`}>None</button>
+                </div>
+              </div>
+              <div className={row}>
+                <label className={label}>Stroke</label>
+                <input type="color" className="w-full h-8 rounded cursor-pointer bg-transparent border border-gray-700"
+                  value={selected.stroke}
+                  onChange={e => dispatch({ type: 'UPDATE_EL', id: selected.id, patch: { stroke: e.target.value } })} />
+              </div>
+              <div className={row}>
+                <label className={label}>Stroke width</label>
+                <input type="range" min={0} max={10} step={0.5} value={selected.strokeW}
+                  onChange={e => dispatch({ type: 'UPDATE_EL', id: selected.id, patch: { strokeW: +e.target.value } })}
+                  className="w-full accent-blue-500" />
+              </div>
+            </>
+          )}
+
+          {/* Draw-specific */}
+          {selected.kind === 'draw' && (
+            <>
+              <div className={row}>
+                <label className={label}>Color</label>
+                <input type="color" className="w-full h-8 rounded cursor-pointer bg-transparent border border-gray-700"
+                  value={selected.color}
+                  onChange={e => dispatch({ type: 'UPDATE_EL', id: selected.id, patch: { color: e.target.value } })} />
+              </div>
+              <div className={row}>
+                <label className={label}>Line width</label>
+                <input type="range" min={0.5} max={20} step={0.5} value={selected.lineWidth}
+                  onChange={e => dispatch({ type: 'UPDATE_EL', id: selected.id, patch: { lineWidth: +e.target.value } })}
+                  className="w-full accent-blue-500" />
+              </div>
+            </>
+          )}
+
+          {/* Highlight-specific */}
+          {selected.kind === 'highlight' && (
+            <div className={row}>
+              <label className={label}>Color</label>
+              <div className="flex gap-2 flex-wrap">
+                {['#FFD700','#90EE90','#FFB6C1','#ADD8E6','#FFA500'].map(c => (
+                  <button key={c} onClick={() => dispatch({ type: 'UPDATE_EL', id: selected.id, patch: { color: c } })}
+                    className={`w-7 h-7 rounded-full border-2 transition-all ${selected.color === c ? 'border-white scale-110' : 'border-transparent'}`}
+                    style={{ background: c }} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Position */}
+          {selected.kind !== 'draw' && (
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              {(['x','y','w','h'] as const).map(k => (
+                <div key={k}>
+                  <label className={label}>{k.toUpperCase()} (pt)</label>
+                  <input type="number" className={input}
+                    value={Math.round((selected as Record<string, number>)[k])}
+                    onChange={e => dispatch({ type: 'UPDATE_EL', id: selected.id, patch: { [k]: +e.target.value } as Partial<AnyEl> })} />
+                </div>
+              ))}
+            </div>
+          )}
+
+          <button onClick={onDeleteSelected}
+            className="w-full py-1.5 rounded bg-red-900/40 hover:bg-red-700 text-red-300 hover:text-white text-xs font-semibold transition-colors flex items-center justify-center gap-1.5">
+            <Trash2 className="w-3 h-3" /> Delete element
+          </button>
+          <div className="border-t border-gray-800 my-3" />
+        </>
+      )}
+
+      {/* ── page properties ── */}
+      <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Page</div>
+      <div className={row}>
+        <label className={label}>Background color</label>
+        <div className="flex gap-2 items-center">
+          <input type="color" className="w-8 h-8 rounded cursor-pointer bg-transparent border border-gray-700"
+            value={state.backgrounds[currentOrigIdx] || '#ffffff'}
+            onChange={e => dispatch({ type: 'SET_BG', origIdx: currentOrigIdx, color: e.target.value })} />
+          <button onClick={() => dispatch({ type: 'SET_BG', origIdx: currentOrigIdx, color: 'transparent' })}
+            className="text-xs px-2 py-1 rounded bg-gray-700 text-gray-300 hover:bg-gray-600">Clear</button>
+        </div>
+      </div>
+
+      {/* ── page numbers ── */}
+      <div className="border-t border-gray-800 my-3" />
+      <button onClick={() => setShowPN(!showPN)}
+        className="flex items-center justify-between w-full text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 hover:text-white">
+        <span className="flex items-center gap-1"><Hash className="w-3 h-3" /> Page Numbers</span>
+        <span>{showPN ? '▲' : '▼'}</span>
+      </button>
+      {showPN && (
+        <div className="space-y-2">
+          <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer">
+            <input type="checkbox" checked={state.pageNumbers.enabled}
+              onChange={e => dispatch({ type: 'SET_PN', cfg: { enabled: e.target.checked } })}
+              className="accent-blue-500" /> Enabled
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className={label}>Position</label>
+              <select className={input} value={state.pageNumbers.pos}
+                onChange={e => dispatch({ type: 'SET_PN', cfg: { pos: e.target.value as PNConfig['pos'] } })}>
+                <option value="bc">Bottom Center</option>
+                <option value="bl">Bottom Left</option>
+                <option value="br">Bottom Right</option>
+                <option value="tc">Top Center</option>
+                <option value="tl">Top Left</option>
+                <option value="tr">Top Right</option>
+              </select>
+            </div>
+            <div>
+              <label className={label}>Size (pt)</label>
+              <input type="number" min={6} max={36} className={input}
+                value={state.pageNumbers.size}
+                onChange={e => dispatch({ type: 'SET_PN', cfg: { size: +e.target.value } })} />
+            </div>
+          </div>
+          <div>
+            <label className={label}>Color</label>
+            <input type="color" className="w-full h-8 rounded cursor-pointer bg-transparent border border-gray-700"
+              value={state.pageNumbers.color}
+              onChange={e => dispatch({ type: 'SET_PN', cfg: { color: e.target.value } })} />
+          </div>
+          <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer">
+            <input type="checkbox" checked={state.pageNumbers.showTotal}
+              onChange={e => dispatch({ type: 'SET_PN', cfg: { showTotal: e.target.checked } })}
+              className="accent-blue-500" /> Show total (1/5)
+          </label>
+        </div>
+      )}
+
+      {/* ── watermark ── */}
+      <div className="border-t border-gray-800 my-3" />
+      <button onClick={() => setShowWM(!showWM)}
+        className="flex items-center justify-between w-full text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 hover:text-white">
+        <span className="flex items-center gap-1"><Stamp className="w-3 h-3" /> Watermark</span>
+        <span>{showWM ? '▲' : '▼'}</span>
+      </button>
+      {showWM && (
+        <div className="space-y-2">
+          <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer">
+            <input type="checkbox" checked={state.watermark.enabled}
+              onChange={e => dispatch({ type: 'SET_WM', cfg: { enabled: e.target.checked } })}
+              className="accent-blue-500" /> Enabled
+          </label>
+          <div>
+            <label className={label}>Text</label>
+            <input type="text" className={input} value={state.watermark.text}
+              onChange={e => dispatch({ type: 'SET_WM', cfg: { text: e.target.value } })} />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className={label}>Color</label>
+              <input type="color" className="w-full h-8 rounded cursor-pointer bg-transparent border border-gray-700"
+                value={state.watermark.color}
+                onChange={e => dispatch({ type: 'SET_WM', cfg: { color: e.target.value } })} />
+            </div>
+            <div>
+              <label className={label}>Size (pt)</label>
+              <input type="number" min={12} max={200} className={input}
+                value={state.watermark.size}
+                onChange={e => dispatch({ type: 'SET_WM', cfg: { size: +e.target.value } })} />
+            </div>
+          </div>
+          <div>
+            <label className={label}>Opacity {Math.round(state.watermark.opacity * 100)}%</label>
+            <input type="range" min={0.05} max={1} step={0.05} value={state.watermark.opacity}
+              onChange={e => dispatch({ type: 'SET_WM', cfg: { opacity: +e.target.value } })}
+              className="w-full accent-blue-500" />
+          </div>
+          <div>
+            <label className={label}>Rotation {state.watermark.rotation}°</label>
+            <input type="range" min={-90} max={90} value={state.watermark.rotation}
+              onChange={e => dispatch({ type: 'SET_WM', cfg: { rotation: +e.target.value } })}
+              className="w-full accent-blue-500" />
+          </div>
+        </div>
+      )}
+
+      {/* ── default tool options ── */}
+      <div className="border-t border-gray-800 my-3" />
+      <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Tool Defaults</div>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className={label}>Draw color</label>
+          <input type="color" className="w-full h-8 rounded cursor-pointer bg-transparent border border-gray-700"
+            value={drawColor} onChange={e => setDrawColor(e.target.value)} />
+        </div>
+        <div>
+          <label className={label}>Fill color</label>
+          <div className="flex gap-1 items-center">
+            <input type="color" className="w-8 h-8 rounded cursor-pointer bg-transparent border border-gray-700"
+              value={fillColor === 'transparent' ? '#ffffff' : fillColor}
+              onChange={e => setFillColor(e.target.value)} />
+            <button onClick={() => setFillColor('transparent')}
+              className={`text-xs px-1.5 py-1 rounded transition-colors ${fillColor === 'transparent' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'}`}>∅</button>
+          </div>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-2 mt-2">
+        <div>
+          <label className={label}>Line width</label>
+          <input type="number" min={0.5} max={30} step={0.5} className={`${input} text-xs`}
+            value={strokeWidth} onChange={e => setStrokeWidth(+e.target.value)} />
+        </div>
+        <div>
+          <label className={label}>Font size</label>
+          <input type="number" min={4} max={200} className={`${input} text-xs`}
+            value={fontSize} onChange={e => setFontSize(+e.target.value)} />
+        </div>
+      </div>
+      <div className="mt-2">
+        <label className={label}>Font family</label>
+        <select className={input} value={fontFamily} onChange={e => setFontFamily(e.target.value)}>
+          <option value="sans">Sans-serif</option>
+          <option value="serif">Serif</option>
+          <option value="mono">Monospace</option>
+        </select>
+      </div>
+    </div>
+  )
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MAIN COMPONENT
+═══════════════════════════════════════════════════════════════════════════ */
+interface PDFEditorProps {
+  tool: Tool
+  category: ToolCategory | undefined
+  relatedTools: Tool[]
+}
+
+interface DragState {
+  type: 'move' | 'resize'
+  id: string
+  handle?: string
+  startMx: number; startMy: number
+  curMx:   number; curMy: number
+  startEx: number; startEy: number
+  startEw: number; startEh: number
+}
+
+interface DraftEl {
+  sx: number; sy: number
+  x: number;  y: number
+  w: number;  h: number
+  pts?: Pt[]
+}
+
+export default function PDFEditor({ tool }: PDFEditorProps) {
+  const [state,    dispatch] = useReducer(reducer, INIT)
+  const [curDispIdx, setCurDispIdx] = useState(0)
+  const [scale,    setScale]    = useState(1.3)
+  const [active,   setActive]   = useState<ActiveTool>('select')
+  const [selId,    setSelId]    = useState<string | null>(null)
+  const [editTextId, setEditTextId] = useState<string | null>(null)
+  const [drag,     setDrag]     = useState<DragState | null>(null)
+  const [draft,    setDraft]    = useState<DraftEl | null>(null)
+  const [exporting, setExporting] = useState(false)
+  const [showPN,   setShowPN]   = useState(false)
+  const [showWM,   setShowWM]   = useState(false)
+
+  /* tool defaults */
+  const [drawColor,   setDrawColor]   = useState('#EF4444')
+  const [fillColor,   setFillColor]   = useState('transparent')
+  const [strokeWidth, setStrokeWidth] = useState(2)
+  const [fontSize,    setFontSize]    = useState(16)
+  const [fontFamily,  setFontFamily]  = useState('sans')
+
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const svgRef    = useRef<SVGSVGElement>(null)
+  const imgInput  = useRef<HTMLInputElement>(null)
+  const dropInput = useRef<HTMLInputElement>(null)
+
+  const { pdfDoc, pages, loading } = usePDFPages(state.originalBytes)
+
+  const curOrigIdx = state.pageOrder[curDispIdx] ?? 0
+  const pageInfo   = pages[curOrigIdx]
+  const pageW      = (pageInfo?.w ?? 612) * scale
+  const pageH      = (pageInfo?.h ?? 792) * scale
+
+  /* render current page to canvas */
+  usePageCanvas(pdfDoc, curOrigIdx, scale, canvasRef)
+
+  /* selected element (with drag offset applied for live preview) */
+  const selectedEl = useMemo(() => state.elements.find(e => e.id === selId) ?? null, [state.elements, selId])
+
+  const displayEl = useCallback((el: AnyEl): AnyEl => {
+    if (!drag || drag.id !== el.id || el.kind === 'draw') return el
+    const dx = (drag.curMx - drag.startMx) / scale
+    const dy = (drag.curMy - drag.startMy) / scale
+    if (drag.type === 'move') return { ...el, x: drag.startEx + dx, y: drag.startEy + dy }
+    const h = drag.handle!
+    let { x, y, w, h: ht } = { x: drag.startEx, y: drag.startEy, w: drag.startEw, h: drag.startEh }
+    if (h.includes('e')) w  = Math.max(5, drag.startEw + dx)
+    if (h.includes('w')) { x = drag.startEx + dx; w = Math.max(5, drag.startEw - dx) }
+    if (h.includes('s')) ht = Math.max(5, drag.startEh + dy)
+    if (h.includes('n')) { y = drag.startEy + dy; ht = Math.max(5, drag.startEh - dy) }
+    return { ...el, x, y, w, h: ht }
+  }, [drag, scale])
+
+  const curPageEls = useMemo(
+    () => state.elements.filter(e => e.pageIndex === curOrigIdx).map(displayEl),
+    [state.elements, curOrigIdx, displayEl],
+  )
+
+  /* SVG event helpers */
+  const getSvgPos = useCallback((e: React.PointerEvent) => {
+    const r = svgRef.current!.getBoundingClientRect()
+    return { mx: e.clientX - r.left, my: e.clientY - r.top,
+             px: (e.clientX - r.left) / scale, py: (e.clientY - r.top) / scale }
+  }, [scale])
+
+  const handlePointerDown = useCallback((e: React.PointerEvent<SVGSVGElement>) => {
+    svgRef.current?.setPointerCapture(e.pointerId)
+    const { mx, my, px, py } = getSvgPos(e)
+    const tgt = e.target as SVGElement
+    const handle = tgt.getAttribute('data-handle')
+    const elId   = tgt.getAttribute('data-elid')
+
+    if (active === 'select') {
+      if (handle && selId) {
+        const el = state.elements.find(e => e.id === selId)!
+        setDrag({ type: 'resize', id: selId, handle, startMx: mx, startMy: my, curMx: mx, curMy: my,
+                  startEx: el.x, startEy: el.y, startEw: el.w, startEh: el.h })
+        return
+      }
+      if (elId) {
+        const el = state.elements.find(e => e.id === elId)!
+        setSelId(elId)
+        setDrag({ type: 'move', id: elId, startMx: mx, startMy: my, curMx: mx, curMy: my,
+                  startEx: el.x, startEy: el.y, startEw: el.w, startEh: el.h })
+        return
+      }
+      setSelId(null); setEditTextId(null)
+      return
+    }
+
+    if (active === 'text') {
+      const newEl: AnyEl = { id: uid(), kind: 'text', pageIndex: curOrigIdx,
+        x: px, y: py, w: 200, h: fontSize * 2, opacity: 1,
+        content: 'Text', fontSize, fontFamily, color: drawColor,
+        bold: false, italic: false, underline: false, align: 'left' }
+      dispatch({ type: 'ADD_EL', el: newEl })
+      setSelId(newEl.id); setEditTextId(newEl.id); setActive('select')
+      return
+    }
+
+    if (active === 'draw') {
+      setDraft({ sx: px, sy: py, x: px, y: py, w: 0, h: 0, pts: [{ x: px, y: py }] })
+      return
+    }
+
+    /* box tools */
+    setDraft({ sx: px, sy: py, x: px, y: py, w: 0, h: 0 })
+  }, [active, selId, state.elements, curOrigIdx, scale, fontSize, fontFamily, drawColor, getSvgPos])
+
+  const handlePointerMove = useCallback((e: React.PointerEvent<SVGSVGElement>) => {
+    const { mx, my, px, py } = getSvgPos(e)
+    if (drag)  { setDrag(d => d ? { ...d, curMx: mx, curMy: my } : null); return }
+    if (!draft) return
+
+    if (active === 'draw') {
+      setDraft(d => d ? { ...d, pts: [...(d.pts ?? []), { x: px, y: py }] } : null)
+    } else {
+      const x = Math.min(px, draft.sx), y = Math.min(py, draft.sy)
+      const w = Math.abs(px - draft.sx) || 0.1, h = Math.abs(py - draft.sy) || 0.1
+      setDraft(d => d ? { ...d, x, y, w, h } : null)
+    }
+  }, [drag, draft, active, getSvgPos])
+
+  const handlePointerUp = useCallback((e: React.PointerEvent<SVGSVGElement>) => {
+    if (drag) {
+      /* commit final position */
+      const { mx, my } = { mx: drag.curMx, my: drag.curMy }
+      const dx = (mx - drag.startMx) / scale
+      const dy = (my - drag.startMy) / scale
+      if (drag.type === 'move') {
+        dispatch({ type: 'UPDATE_EL', id: drag.id,
+          patch: { x: drag.startEx + dx, y: drag.startEy + dy } })
+      } else {
+        const h = drag.handle!
+        let { x, y, w, h: ht } = { x: drag.startEx, y: drag.startEy, w: drag.startEw, h: drag.startEh }
+        if (h.includes('e')) w  = Math.max(5, drag.startEw + dx)
+        if (h.includes('w')) { x = drag.startEx + dx; w = Math.max(5, drag.startEw - dx) }
+        if (h.includes('s')) ht = Math.max(5, drag.startEh + dy)
+        if (h.includes('n')) { y = drag.startEy + dy; ht = Math.max(5, drag.startEh - dy) }
+        dispatch({ type: 'UPDATE_EL', id: drag.id, patch: { x, y, w, h: ht } })
+      }
+      setDrag(null); return
+    }
+
+    if (draft) {
+      if (active === 'draw') {
+        const pts = simplify(draft.pts ?? [], 2)
+        if (pts.length >= 2) {
+          dispatch({ type: 'ADD_EL', el: { id: uid(), kind: 'draw', pageIndex: curOrigIdx,
+            x: 0, y: 0, w: 0, h: 0, opacity: 1,
+            pts, color: drawColor, lineWidth: strokeWidth } })
+        }
+      } else if (draft.w * scale > 5 && draft.h * scale > 5) {
+        const base = { id: uid(), pageIndex: curOrigIdx, x: draft.x, y: draft.y, w: draft.w, h: draft.h, opacity: 1 }
+        let el: AnyEl | null = null
+        if (active === 'rect')      el = { ...base, kind: 'rect',      fill: fillColor, stroke: drawColor, strokeW: strokeWidth }
+        if (active === 'ellipse')   el = { ...base, kind: 'ellipse',   fill: fillColor, stroke: drawColor, strokeW: strokeWidth }
+        if (active === 'highlight') el = { ...base, kind: 'highlight', color: '#FFD700' }
+        if (active === 'redact')    el = { ...base, kind: 'redact' }
+        if (el) { dispatch({ type: 'ADD_EL', el }); setSelId(el.id) }
+      }
+      setDraft(null)
+    }
+  }, [drag, draft, active, scale, curOrigIdx, drawColor, fillColor, strokeWidth])
+
+  /* keyboard shortcuts */
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z') { e.preventDefault(); dispatch({ type: e.shiftKey ? 'REDO' : 'UNDO' }) }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'y') { e.preventDefault(); dispatch({ type: 'REDO' }) }
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selId) { dispatch({ type: 'DELETE_EL', id: selId }); setSelId(null) }
+      if (e.key === 'Escape') { setSelId(null); setEditTextId(null); setActive('select') }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [selId])
+
+  /* image tool handler */
+  const handleImageFile = useCallback((file: File) => {
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      const src = ev.target?.result as string
+      if (!src) return
+      const img = new window.Image()
+      img.onload = () => {
+        const ratio = img.height / img.width
+        const w = Math.min(200, (pageInfo?.w ?? 400) * 0.5)
+        const h = w * ratio
+        const x = ((pageInfo?.w ?? 612) - w) / 2
+        const y = ((pageInfo?.h ?? 792) - h) / 2
+        dispatch({ type: 'ADD_EL', el: { id: uid(), kind: 'image', pageIndex: curOrigIdx,
+          x, y, w, h, opacity: 1, src } })
+      }
+      img.src = src
+    }
+    reader.readAsDataURL(file)
+  }, [curOrigIdx, pageInfo])
+
+  /* export */
+  const handleExport = useCallback(async () => {
+    if (!state.originalBytes || exporting) return
+    setExporting(true)
+    try {
+      const pageDims: Record<number, { w: number; h: number }> = {}
+      pages.forEach((pg, i) => { pageDims[i] = { w: pg.w, h: pg.h } })
+      const bytes = await exportPDF({
+        originalBytes: state.originalBytes,
+        pageOrder:     state.pageOrder,
+        elements:      state.elements,
+        backgrounds:   state.backgrounds,
+        pageDims,
+        pageNumbers:   state.pageNumbers,
+        watermark:     state.watermark,
+      })
+      const blob = new Blob([bytes], { type: 'application/pdf' })
+      const url  = URL.createObjectURL(blob)
+      const a    = document.createElement('a')
+      a.href     = url
+      a.download = state.fileName.replace(/\.pdf$/i, '') + '_edited.pdf'
+      a.click()
+      setTimeout(() => URL.revokeObjectURL(url), 60000)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setExporting(false)
+    }
+  }, [state, pages, exporting])
+
+  /* dropzone */
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    accept: { 'application/pdf': ['.pdf'] },
+    onDrop: ([file]) => {
+      if (!file) return
+      file.arrayBuffer().then(buf => {
+        dispatch({ type: 'LOAD', fileName: file.name, bytes: new Uint8Array(buf), pageCount: 0 })
+        // page count will be set by usePDFPages → we rely on pageOrder length after
+      })
+    },
+  })
+
+  /* after pages load, fix pageOrder length */
+  useEffect(() => {
+    if (pages.length > 0 && state.pageOrder.length !== pages.length && state.originalBytes) {
+      dispatch({ type: 'LOAD', fileName: state.fileName, bytes: state.originalBytes, pageCount: pages.length })
+      setCurDispIdx(0)
+    }
+  }, [pages.length]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* ── DROPZONE SCREEN ── */
+  if (!state.originalBytes || loading || pages.length === 0) {
+    return (
+      <div className="min-h-[70vh] flex items-center justify-center p-8">
+        <div
+          {...getRootProps()}
+          className={`w-full max-w-2xl border-2 border-dashed rounded-2xl p-16 text-center cursor-pointer transition-all
+            ${isDragActive
+              ? 'border-blue-500 bg-blue-500/10'
+              : 'border-gray-600 hover:border-gray-400 bg-gray-900/50 hover:bg-gray-900'}`}
+        >
+          <input {...getInputProps()} />
+          {loading ? (
+            <div className="flex flex-col items-center gap-4">
+              <div className="w-12 h-12 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+              <p className="text-gray-300 font-medium">Loading PDF…</p>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-4">
+              <div className="w-20 h-20 rounded-2xl bg-blue-500/10 flex items-center justify-center">
+                <FileText className="w-10 h-10 text-blue-400" />
+              </div>
+              <div>
+                <p className="text-xl font-bold text-white mb-2">Open a PDF to edit</p>
+                <p className="text-gray-400 text-sm">Drag & drop or click to browse</p>
+              </div>
+              <div className="flex flex-wrap justify-center gap-2 mt-2">
+                {['Add Text','Draw','Highlight','Redact','Shapes','Watermark','Page Numbers','Reorder Pages'].map(f => (
+                  <span key={f} className="text-xs bg-gray-800 text-gray-400 px-3 py-1 rounded-full">{f}</span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  /* ── EDITOR LAYOUT ── */
+  const toolCursor: Record<ActiveTool, string> = {
+    select: 'default', text: 'text', draw: 'crosshair',
+    highlight: 'crosshair', rect: 'crosshair', ellipse: 'crosshair',
+    image: 'copy', redact: 'crosshair',
+  }
+
+  return (
+    <div className="flex flex-col bg-gray-950 text-gray-100" style={{ height: 'calc(100vh - 64px)' }}>
+
+      {/* ── TOOLBAR ── */}
+      <div className="h-12 bg-gray-900 border-b border-gray-800 flex items-center px-3 gap-1 flex-shrink-0 overflow-x-auto">
+        {/* file */}
+        <TBtn label="Open new PDF" onClick={() => dropInput.current?.click()}>
+          <Upload className="w-4 h-4" />
+        </TBtn>
+        <input ref={dropInput} type="file" accept=".pdf" className="hidden"
+          onChange={e => {
+            const f = e.target.files?.[0]; if (!f) return
+            f.arrayBuffer().then(buf => dispatch({ type: 'LOAD', fileName: f.name, bytes: new Uint8Array(buf), pageCount: 0 }))
+            e.target.value = ''
+          }} />
+
+        <Sep />
+
+        {/* tools */}
+        {([
+          { id: 'select',    icon: <MousePointer2 className="w-4 h-4" />,  label: 'Select (V)'   },
+          { id: 'text',      icon: <Type          className="w-4 h-4" />,  label: 'Add Text (T)' },
+          { id: 'draw',      icon: <Pencil        className="w-4 h-4" />,  label: 'Draw (D)'     },
+          { id: 'highlight', icon: <Highlighter   className="w-4 h-4" />,  label: 'Highlight (H)'},
+          { id: 'rect',      icon: <Square        className="w-4 h-4" />,  label: 'Rectangle (R)'},
+          { id: 'ellipse',   icon: <Circle        className="w-4 h-4" />,  label: 'Ellipse (E)'  },
+          { id: 'redact',    icon: <ShieldX       className="w-4 h-4" />,  label: 'Redact (X)'   },
+          { id: 'image',     icon: <ImageIcon     className="w-4 h-4" />,  label: 'Insert Image' },
+        ] as { id: ActiveTool; icon: React.ReactNode; label: string }[]).map(t => (
+          <TBtn key={t.id} label={t.label} active={active === t.id}
+            onClick={() => {
+              setActive(t.id)
+              if (t.id === 'image') imgInput.current?.click()
+            }}>
+            {t.icon}
+          </TBtn>
+        ))}
+
+        <input ref={imgInput} type="file" accept="image/*" className="hidden"
+          onChange={e => {
+            const f = e.target.files?.[0]; if (f) handleImageFile(f)
+            e.target.value = ''
+          }} />
+
+        <Sep />
+
+        {/* history */}
+        <TBtn label="Undo (Ctrl+Z)" disabled={!state.past.length} onClick={() => dispatch({ type: 'UNDO' })}>
+          <Undo2 className="w-4 h-4" />
+        </TBtn>
+        <TBtn label="Redo (Ctrl+Y)" disabled={!state.future.length} onClick={() => dispatch({ type: 'REDO' })}>
+          <Redo2 className="w-4 h-4" />
+        </TBtn>
+
+        <Sep />
+
+        {/* zoom */}
+        <TBtn label="Zoom out" onClick={() => setScale(s => Math.max(0.4, +(s - 0.1).toFixed(1)))}>
+          <ZoomOut className="w-4 h-4" />
+        </TBtn>
+        <span className="text-xs text-gray-400 w-12 text-center select-none">
+          {Math.round(scale * 100)}%
+        </span>
+        <TBtn label="Zoom in" onClick={() => setScale(s => Math.min(3.0, +(s + 0.1).toFixed(1)))}>
+          <ZoomIn className="w-4 h-4" />
+        </TBtn>
+
+        <div className="ml-auto flex items-center gap-2">
+          <span className="text-xs text-gray-500 truncate max-w-[160px]">{state.fileName}</span>
+          <button onClick={handleExport} disabled={exporting}
+            className="flex items-center gap-1.5 px-4 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-semibold rounded-lg transition-colors">
+            {exporting
+              ? <><div className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Saving…</>
+              : <><Download className="w-4 h-4" /> Export PDF</>}
+          </button>
+        </div>
+      </div>
+
+      {/* ── MAIN AREA ── */}
+      <div className="flex flex-1 overflow-hidden">
+
+        {/* ── LEFT: page panel ── */}
+        <div className="w-44 bg-gray-900 border-r border-gray-800 overflow-y-auto flex-shrink-0 p-2 space-y-2">
+          <div className="text-xs text-gray-500 font-semibold uppercase tracking-wide px-1 pt-1">
+            Pages ({state.pageOrder.length})
+          </div>
+          {state.pageOrder.map((origIdx, dispIdx) => {
+            const pg = pages[origIdx]
+            const isCur = dispIdx === curDispIdx
+            return (
+              <div key={`${origIdx}-${dispIdx}`}
+                className={`relative rounded-lg overflow-hidden cursor-pointer border-2 transition-all
+                  ${isCur ? 'border-blue-500 shadow-lg shadow-blue-900/30' : 'border-transparent hover:border-gray-600'}`}
+                onClick={() => setCurDispIdx(dispIdx)}
+              >
+                {pg?.thumb
+                  ? <img src={pg.thumb} alt={`Page ${dispIdx + 1}`} className="w-full block" />
+                  : <div className="w-full h-24 bg-gray-800 flex items-center justify-center text-gray-600 text-xs">?</div>
+                }
+                <div className="absolute bottom-0 inset-x-0 bg-gray-900/80 text-center text-xs py-0.5 text-gray-300">
+                  {dispIdx + 1}
+                </div>
+                {/* page actions */}
+                <div className={`absolute top-1 right-1 flex flex-col gap-0.5 ${isCur ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                  <button title="Move up"
+                    disabled={dispIdx === 0}
+                    onClick={e => { e.stopPropagation(); dispatch({ type: 'MOVE_PAGE', from: dispIdx, to: dispIdx - 1 }); setCurDispIdx(dispIdx - 1) }}
+                    className="w-5 h-5 bg-gray-800/90 hover:bg-gray-700 rounded flex items-center justify-center disabled:opacity-30">
+                    <ChevronUp className="w-3 h-3" />
+                  </button>
+                  <button title="Move down"
+                    disabled={dispIdx === state.pageOrder.length - 1}
+                    onClick={e => { e.stopPropagation(); dispatch({ type: 'MOVE_PAGE', from: dispIdx, to: dispIdx + 1 }); setCurDispIdx(dispIdx + 1) }}
+                    className="w-5 h-5 bg-gray-800/90 hover:bg-gray-700 rounded flex items-center justify-center disabled:opacity-30">
+                    <ChevronDown className="w-3 h-3" />
+                  </button>
+                  <button title="Delete page"
+                    disabled={state.pageOrder.length === 1}
+                    onClick={e => { e.stopPropagation(); dispatch({ type: 'DELETE_PAGE', origIdx }); setCurDispIdx(Math.min(dispIdx, state.pageOrder.length - 2)) }}
+                    className="w-5 h-5 bg-red-900/80 hover:bg-red-700 rounded flex items-center justify-center disabled:opacity-30">
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* ── CENTER: canvas area ── */}
+        <div className="flex-1 overflow-auto bg-[#1a1a2e] p-8">
+          <div className="flex justify-center">
+            <div
+              className="relative shadow-2xl"
+              style={{
+                width:  pageW,
+                height: pageH,
+                background: state.backgrounds[curOrigIdx] || 'white',
+              }}
+            >
+              {/* PDF render layer */}
+              <canvas ref={canvasRef} className="absolute inset-0 block" />
+
+              {/* SVG interaction layer */}
+              <svg
+                ref={svgRef}
+                className="absolute inset-0 touch-none"
+                width={pageW} height={pageH}
+                style={{ cursor: toolCursor[active] }}
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerUp}
+              >
+                {/* existing elements */}
+                {curPageEls.map(el => (
+                  <ElRenderer key={el.id} el={el} s={scale}
+                    selected={el.id === selId}
+                    onSelect={() => { if (active === 'select') setSelId(el.id) }}
+                    onDblClick={() => { if (el.kind === 'text') { setSelId(el.id); setEditTextId(el.id) } }}
+                  />
+                ))}
+
+                {/* selection handles */}
+                {selId && (() => {
+                  const el = curPageEls.find(e => e.id === selId)
+                  return el ? <SelectionBox el={el} s={scale} /> : null
+                })()}
+
+                {/* draft (in-progress drawing) */}
+                {draft && (() => {
+                  if (active === 'draw' && draft.pts && draft.pts.length > 1) {
+                    return (
+                      <polyline
+                        points={draft.pts.map(p => `${p.x*scale},${p.y*scale}`).join(' ')}
+                        fill="none" stroke={drawColor} strokeWidth={strokeWidth * scale}
+                        strokeLinecap="round" strokeLinejoin="round" opacity={0.9}
+                        pointerEvents="none"
+                      />
+                    )
+                  }
+                  if (draft.w * scale > 2 && draft.h * scale > 2) {
+                    if (active === 'ellipse') {
+                      return (
+                        <ellipse cx={(draft.x+draft.w/2)*scale} cy={(draft.y+draft.h/2)*scale}
+                          rx={draft.w*scale/2} ry={draft.h*scale/2}
+                          fill={fillColor === 'transparent' ? 'none' : fillColor}
+                          stroke={drawColor} strokeWidth={strokeWidth * scale}
+                          opacity={0.7} pointerEvents="none" />
+                      )
+                    }
+                    if (active === 'highlight') {
+                      return <rect x={draft.x*scale} y={draft.y*scale} width={draft.w*scale} height={draft.h*scale}
+                        fill="#FFD700" opacity={0.35} pointerEvents="none" />
+                    }
+                    if (active === 'redact') {
+                      return <rect x={draft.x*scale} y={draft.y*scale} width={draft.w*scale} height={draft.h*scale}
+                        fill="#000" opacity={0.8} pointerEvents="none" />
+                    }
+                    return (
+                      <rect x={draft.x*scale} y={draft.y*scale} width={draft.w*scale} height={draft.h*scale}
+                        fill={fillColor === 'transparent' ? 'none' : fillColor}
+                        stroke={drawColor} strokeWidth={strokeWidth * scale}
+                        opacity={0.7} strokeDasharray="4 2" pointerEvents="none" />
+                    )
+                  }
+                  return null
+                })()}
+              </svg>
+
+              {/* Text edit textarea */}
+              {editTextId && (() => {
+                const el = state.elements.find(e => e.id === editTextId)
+                if (!el || el.kind !== 'text') return null
+                return (
+                  <textarea
+                    className="absolute border-0 outline-none resize-none bg-transparent leading-none p-0"
+                    style={{
+                      left: el.x * scale + 2, top: el.y * scale,
+                      width: el.w * scale, minHeight: el.h * scale,
+                      fontSize: el.fontSize * scale,
+                      fontFamily: el.fontFamily === 'serif' ? 'Georgia,serif' : el.fontFamily === 'mono' ? 'monospace' : 'system-ui,sans-serif',
+                      fontWeight: el.bold ? 'bold' : 'normal',
+                      fontStyle: el.italic ? 'italic' : 'normal',
+                      color: el.color,
+                      textAlign: el.align,
+                      lineHeight: 1.3,
+                      padding: '0 2px',
+                      zIndex: 50,
+                      caretColor: el.color,
+                      background: 'rgba(59,130,246,0.05)',
+                    }}
+                    value={el.content}
+                    onChange={ev => dispatch({ type: 'UPDATE_EL', id: editTextId, patch: { content: ev.target.value } })}
+                    onBlur={() => setEditTextId(null)}
+                    onKeyDown={ev => { if (ev.key === 'Escape') setEditTextId(null) }}
+                    autoFocus
+                  />
+                )
+              })()}
+            </div>
+          </div>
+        </div>
+
+        {/* ── RIGHT: properties panel ── */}
+        <div className="w-60 bg-gray-900 border-l border-gray-800 overflow-y-auto flex-shrink-0">
+          <PropsPanel
+            selected={selectedEl}
+            currentOrigIdx={curOrigIdx}
+            state={state}
+            dispatch={dispatch}
+            drawColor={drawColor} setDrawColor={setDrawColor}
+            fillColor={fillColor} setFillColor={setFillColor}
+            strokeWidth={strokeWidth} setStrokeWidth={setStrokeWidth}
+            fontSize={fontSize} setFontSize={setFontSize}
+            fontFamily={fontFamily} setFontFamily={setFontFamily}
+            onDeleteSelected={() => { if (selId) { dispatch({ type: 'DELETE_EL', id: selId }); setSelId(null) } }}
+            showPN={showPN} setShowPN={setShowPN}
+            showWM={showWM} setShowWM={setShowWM}
+          />
+        </div>
+
+      </div>
+    </div>
+  )
+}

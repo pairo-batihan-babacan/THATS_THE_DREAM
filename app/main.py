@@ -16,11 +16,16 @@ app = FastAPI(title="FileConvert", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://pdfworks.io"],
+    allow_origins=[
+        "https://pdfworks.io",
+        "https://www.pdfworks.io",
+        "https://thats-the-dream-pairo-batihan-babacans-projects.vercel.app"
+    ],
     allow_credentials=False,
     allow_headers=["*"],
     allow_methods=["*"],
 )
+
 
 # Static files (only mount if the directory exists — safe for both local and Render)
 import os as _os
