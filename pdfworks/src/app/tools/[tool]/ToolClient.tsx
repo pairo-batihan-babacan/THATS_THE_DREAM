@@ -125,6 +125,16 @@ function extFromMime(mime: string): string {
 
 type Stage = 'idle' | 'ready' | 'processing' | 'done' | 'error'
 
+interface BatchItem {
+  id: string
+  file: File
+  status: 'pending' | 'processing' | 'done' | 'error'
+  progress: number
+  blob?: Blob
+  ext?: string
+  errorMsg?: string
+}
+
 interface OptionsState {
   compressionLevel: string
   quality: number
@@ -151,6 +161,17 @@ const REAL_TOOLS = new Set([
 const SIZE_CHANGE_TOOLS = new Set([
   'compress-pdf', 'image-compress', 'compress-audio', 'compress-video',
   'image-resize', 'image-convert', 'png-to-jpg', 'heic-to-jpg',
+])
+
+// Tools that support batch mode (one input file → one output file)
+const BATCH_SUPPORTED = new Set([
+  'compress-pdf', 'flatten-pdf',
+  'pdf-to-word', 'word-to-pdf', 'ppt-to-pdf', 'excel-to-pdf', 'pdf-to-excel',
+  'strip-metadata',
+  'image-compress', 'image-resize', 'image-convert', 'strip-exif',
+  'png-to-jpg', 'heic-to-jpg',
+  'audio-convert', 'compress-audio', 'extract-audio',
+  'video-convert', 'compress-video',
 ])
 
 // Tools that call the FastAPI backend (async job queue)
@@ -255,6 +276,67 @@ async function runServerTool(
   }
 
   return submitJob(endpoint, fd, onProgress)
+}
+
+// Processes a single file through the appropriate pipeline (server or client-side).
+// Used by BatchModePanel to process files one by one.
+async function processSingleFile(
+  toolId: string,
+  file: File,
+  options: OptionsState,
+  onProgress: ProgressFn,
+): Promise<{ blob: Blob; ext: string }> {
+  if (SERVER_TOOLS.has(toolId)) {
+    const blob = await runServerTool(toolId, [file], options, onProgress)
+    return { blob, ext: getServerOutputExt(toolId, options.outputFormat) }
+  }
+  let blob: Blob
+  switch (toolId) {
+    case 'compress-pdf': {
+      const { compressPdf } = await import('@/lib/processors/pdf')
+      blob = await compressPdf(file, options.compressionLevel as 'low' | 'medium' | 'high', onProgress)
+      break
+    }
+    case 'flatten-pdf': {
+      const { flattenPdf } = await import('@/lib/processors/pdf')
+      blob = await flattenPdf(file, onProgress)
+      break
+    }
+    case 'watermark-pdf': {
+      const { watermarkPdf } = await import('@/lib/processors/pdf')
+      blob = await watermarkPdf(file, { text: options.watermarkText }, onProgress)
+      break
+    }
+    case 'image-compress': {
+      const { compressImage } = await import('@/lib/processors/image')
+      const q = options.compressionLevel === 'low' ? 40 : options.compressionLevel === 'high' ? 90 : 70
+      blob = await compressImage(file, q, onProgress)
+      break
+    }
+    case 'image-resize': {
+      const { resizeImage } = await import('@/lib/processors/image')
+      blob = await resizeImage(
+        file,
+        options.width  ? parseInt(options.width,  10) : null,
+        options.height ? parseInt(options.height, 10) : null,
+        onProgress,
+      )
+      break
+    }
+    case 'image-convert': {
+      const { convertImage } = await import('@/lib/processors/image')
+      blob = await convertImage(file, options.outputFormat, onProgress)
+      break
+    }
+    case 'strip-exif': {
+      const { stripExif } = await import('@/lib/processors/image')
+      blob = await stripExif(file, onProgress)
+      break
+    }
+    default:
+      throw new Error(`Batch not supported for: ${toolId}`)
+  }
+  return { blob, ext: extFromMime(blob.type) }
 }
 
 const DEFAULT_OPTIONS: OptionsState = {
@@ -1315,6 +1397,243 @@ function MarkdownEditorTool({
   )
 }
 
+// ─── Batch Mode Panel ─────────────────────────────────────────────────────────
+
+function BatchModePanel({
+  tool,
+  accept,
+  acceptLabel,
+  options,
+  onOptionsChange,
+  hasOptions,
+  onBack,
+}: {
+  tool: Tool
+  accept: Accept
+  acceptLabel: string
+  options: OptionsState
+  onOptionsChange: (patch: Partial<OptionsState>) => void
+  hasOptions: boolean
+  onBack: () => void
+}) {
+  const rgb = hexToRgb(tool.color)
+  const [items, setItems] = useState<BatchItem[]>([])
+  const [running, setRunning] = useState(false)
+
+  const hasPending = items.some(i => i.status === 'pending')
+  const allDone    = items.length > 0 && items.every(i => i.status === 'done' || i.status === 'error')
+  const anyDone    = items.some(i => i.status === 'done')
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop: (files: File[]) => {
+      setItems(prev => [
+        ...prev,
+        ...files.map(f => ({
+          id: `${f.name}-${f.size}-${Date.now()}-${Math.random()}`,
+          file: f,
+          status: 'pending' as const,
+          progress: 0,
+        })),
+      ])
+    },
+    accept,
+    multiple: true,
+    disabled: running,
+  })
+
+  const removeItem = (id: string) => {
+    if (!running) setItems(prev => prev.filter(i => i.id !== id))
+  }
+
+  const downloadItem = useCallback((item: BatchItem) => {
+    if (!item.blob || !item.ext) return
+    const url = URL.createObjectURL(item.blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = item.file.name.replace(/\.[^.]+$/, '') + '_processed.' + item.ext
+    a.click()
+    URL.revokeObjectURL(url)
+  }, [])
+
+  const downloadAll = useCallback(() => {
+    items.filter(i => i.status === 'done').forEach((item, idx) => {
+      setTimeout(() => downloadItem(item), idx * 150)
+    })
+  }, [items, downloadItem])
+
+  const processAll = useCallback(async () => {
+    setRunning(true)
+    const pending = items.filter(i => i.status === 'pending')
+    for (const item of pending) {
+      setItems(prev => prev.map(i =>
+        i.id === item.id ? { ...i, status: 'processing', progress: 0 } : i
+      ))
+      try {
+        const prog: ProgressFn = (pct) =>
+          setItems(prev => prev.map(i => i.id === item.id ? { ...i, progress: pct } : i))
+        const { blob, ext } = await processSingleFile(tool.id, item.file, options, prog)
+        setItems(prev => prev.map(i =>
+          i.id === item.id ? { ...i, status: 'done', progress: 100, blob, ext } : i
+        ))
+      } catch (err) {
+        setItems(prev => prev.map(i =>
+          i.id === item.id ? { ...i, status: 'error', errorMsg: (err as Error).message || 'Failed' } : i
+        ))
+      }
+    }
+    setRunning(false)
+  }, [items, options, tool.id])
+
+  return (
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Header */}
+      <div className="flex items-center gap-4 mb-8">
+        <div
+          className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+          style={{ background: `rgba(${rgb}, 0.15)`, color: tool.color }}
+        >
+          <ToolIcon name={tool.icon} className="w-6 h-6" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">{tool.name}</h1>
+          <p className="text-gray-500 dark:text-gray-400 text-sm">Batch mode — process multiple files at once</p>
+        </div>
+        <button
+          onClick={onBack}
+          className="ml-auto inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-700 text-gray-400 hover:text-white hover:border-gray-600 text-sm font-semibold transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Single file
+        </button>
+      </div>
+
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl overflow-hidden mb-8">
+        <div className="p-6 sm:p-8">
+          {/* Dropzone */}
+          <div
+            {...getRootProps()}
+            className={`rounded-xl p-6 text-center cursor-pointer transition-colors mb-5 ${
+              isDragActive
+                ? 'border-2 border-purple-500 bg-purple-500/5'
+                : 'border-2 border-dashed border-gray-700 hover:border-gray-600 hover:bg-gray-800/20'
+            }`}
+          >
+            <input {...getInputProps()} />
+            <Upload className={`w-6 h-6 mx-auto mb-2 transition-colors ${isDragActive ? 'text-purple-400' : 'text-gray-500'}`} />
+            <p className="text-sm font-semibold text-gray-300">
+              {isDragActive ? 'Drop files here!' : `Drop ${acceptLabel} files here`}
+            </p>
+            <p className="text-xs text-gray-600 mt-1">or click to browse · all files share the same settings</p>
+          </div>
+
+          {/* File rows */}
+          {items.length > 0 && (
+            <div className="space-y-2 mb-5 max-h-80 overflow-y-auto pr-0.5">
+              {items.map((item) => (
+                <div key={item.id} className="flex items-center gap-3 bg-gray-800 rounded-xl px-4 py-3">
+                  <div
+                    className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                    style={{ background: `rgba(${rgb}, 0.12)` }}
+                  >
+                    {item.status === 'processing' ? (
+                      <Loader2 className="w-4 h-4 animate-spin" style={{ color: tool.color }} />
+                    ) : item.status === 'done' ? (
+                      <CheckCircle className="w-4 h-4 text-green-400" />
+                    ) : item.status === 'error' ? (
+                      <AlertCircle className="w-4 h-4 text-red-400" />
+                    ) : (
+                      <FileText className="w-4 h-4 text-gray-400" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-white font-medium truncate">{item.file.name}</p>
+                    {item.status === 'processing' ? (
+                      <div className="mt-1">
+                        <div className="h-1 bg-gray-700 rounded-full overflow-hidden">
+                          <motion.div
+                            className="h-full rounded-full"
+                            style={{ background: tool.color }}
+                            animate={{ width: `${item.progress}%` }}
+                            transition={{ duration: 0.3 }}
+                          />
+                        </div>
+                        <p className="text-[10px] text-gray-500 mt-0.5">{Math.round(item.progress)}%</p>
+                      </div>
+                    ) : item.status === 'error' ? (
+                      <p className="text-xs text-red-400 mt-0.5 truncate">{item.errorMsg || 'Processing failed'}</p>
+                    ) : item.status === 'done' ? (
+                      <p className="text-xs text-green-500 mt-0.5">
+                        Ready · {item.blob ? formatBytes(item.blob.size) : ''}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-gray-500 mt-0.5">{formatBytes(item.file.size)}</p>
+                    )}
+                  </div>
+                  {item.status === 'done' && (
+                    <button
+                      onClick={() => downloadItem(item)}
+                      title="Download"
+                      className="p-1.5 rounded-lg bg-green-500/10 text-green-400 hover:bg-green-500/20 transition-colors flex-shrink-0"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                  {!running && item.status !== 'processing' && (
+                    <button
+                      onClick={() => removeItem(item.id)}
+                      className="p-1.5 rounded text-gray-600 hover:text-gray-400 transition-colors flex-shrink-0"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Options */}
+          {hasOptions && items.length > 0 && (
+            <div className="mb-5 bg-gray-800/50 rounded-xl p-4">
+              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
+                Options <span className="normal-case font-normal text-gray-600">(applied to all files)</span>
+              </h3>
+              <ToolOptions toolId={tool.id} options={options} onChange={onOptionsChange} />
+            </div>
+          )}
+
+          {/* Actions */}
+          {items.length > 0 && (
+            <div className="flex gap-3">
+              <button
+                onClick={() => { void processAll() }}
+                disabled={running || !hasPending}
+                className="flex-1 py-3.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                style={{ background: tool.color, boxShadow: `0 4px 24px rgba(${rgb}, 0.3)` }}
+              >
+                {running ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Processing…</>
+                ) : (
+                  `Process ${items.filter(i => i.status === 'pending').length} file${items.filter(i => i.status === 'pending').length !== 1 ? 's' : ''}`
+                )}
+              </button>
+              {allDone && anyDone && (
+                <button
+                  onClick={downloadAll}
+                  title="Download all completed files"
+                  className="px-5 py-3.5 rounded-xl border border-gray-700 text-gray-300 hover:text-white hover:border-gray-600 transition-colors text-sm font-semibold flex items-center gap-2"
+                >
+                  <Download className="w-4 h-4" />
+                  All
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── File Tool Interface ──────────────────────────────────────────────────────
 
 function FileToolInterface({
@@ -1331,6 +1650,8 @@ function FileToolInterface({
   const acceptLabel = getAcceptLabel(accept)
   const allowMultiple = ['merge-pdf', 'jpg-to-pdf'].includes(tool.id)
   const hasOptions = TOOLS_WITH_OPTIONS.includes(tool.id)
+  const isBatchSupported = BATCH_SUPPORTED.has(tool.id) && !allowMultiple
+  const [batchMode, setBatchMode] = useState(false)
 
   const [stage, setStage]       = useState<Stage>('idle')
   const [files, setFiles]       = useState<File[]>([])
@@ -1556,6 +1877,23 @@ function FileToolInterface({
 
   const howToSteps = getHowToSteps(tool)
 
+  if (batchMode) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+        <Breadcrumb tool={tool} category={category} />
+        <BatchModePanel
+          tool={tool}
+          accept={accept}
+          acceptLabel={acceptLabel}
+          options={options}
+          onOptionsChange={(patch) => setOptions((prev) => ({ ...prev, ...patch }))}
+          hasOptions={hasOptions}
+          onBack={() => setBatchMode(false)}
+        />
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Breadcrumb tool={tool} category={category} />
@@ -1633,6 +1971,16 @@ function FileToolInterface({
                     Files deleted in 30 min · No account needed
                   </span>
                 </div>
+                {isBatchSupported && (
+                  <button
+                    type="button"
+                    onClick={() => setBatchMode(true)}
+                    className="mt-4 text-xs text-gray-500 hover:text-gray-300 transition-colors inline-flex items-center gap-1.5 mx-auto"
+                  >
+                    <Plus className="w-3 h-3" />
+                    Process multiple files at once
+                  </button>
+                )}
               </motion.div>
             )}
 

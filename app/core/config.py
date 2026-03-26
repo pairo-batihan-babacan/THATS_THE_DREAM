@@ -21,8 +21,9 @@ class Settings(BaseSettings):
     # Redis
     REDIS_URL: str = "redis://redis:6379/0"
 
-    # Database
-    DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@db:5432/fileconvert"
+    # Database — defaults to SQLite so the service works on Render without an
+    # external PostgreSQL. Set DATABASE_URL to a postgres:// URI to use Postgres.
+    DATABASE_URL: str = "sqlite+aiosqlite:///./fileconvert.db"
 
     # Google OAuth
     GOOGLE_CLIENT_ID: str = ""

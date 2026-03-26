@@ -23,6 +23,7 @@ export interface ExportParams {
   elements: AnyEl[]
   backgrounds: Record<number, string>             // origIdx → css hex color
   pageDims: Record<number, { w: number; h: number }> // origIdx → PDF-point dims
+  cropBoxes?: Record<number, { x: number; y: number; w: number; h: number } | null>
   pageNumbers: { enabled: boolean; pos: string; size: number; color: string; showTotal: boolean; start: number }
   watermark:   { enabled: boolean; text: string;  opacity: number; color: string; size: number; rotation: number }
 }
@@ -165,6 +166,19 @@ export async function exportPDF(p: ExportParams): Promise<Uint8Array> {
           }
         }
       } catch { /* skip malformed elements */ }
+    }
+
+    /* crop box */
+    const crop = p.cropBoxes?.[origIdx]
+    if (crop) {
+      try {
+        page.setCropBox(
+          (crop.x / dims.w) * PW,
+          PH - (crop.y / dims.h) * PH - (crop.h / dims.h) * PH,
+          (crop.w / dims.w) * PW,
+          (crop.h / dims.h) * PH,
+        )
+      } catch {}
     }
 
     /* page numbers */

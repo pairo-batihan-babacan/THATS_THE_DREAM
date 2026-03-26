@@ -1,9 +1,20 @@
+import logging
+import traceback
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.cors import CORSMiddleware
 from app.api.routes import audio, auth, document, image, jobs, payments, pdf, video, pages, ai
 from app.core.database import init_database
+
+logger = logging.getLogger(__name__)
+
+_ALLOWED_ORIGINS = {
+    "https://pdfworks.io",
+    "https://www.pdfworks.io",
+    "https://thats-the-dream-pairo-batihan-babacans-projects.vercel.app",
+}
 
 
 @asynccontextmanager
@@ -16,15 +27,24 @@ app = FastAPI(title="FileConvert", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://pdfworks.io",
-        "https://www.pdfworks.io",
-        "https://thats-the-dream-pairo-batihan-babacans-projects.vercel.app"
-    ],
+    allow_origins=list(_ALLOWED_ORIGINS),
     allow_credentials=False,
     allow_headers=["*"],
     allow_methods=["*"],
 )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    """Return a JSON 500 with CORS headers so the browser can read the error."""
+    logger.error("Unhandled exception: %s", traceback.format_exc())
+    origin = request.headers.get("origin", "")
+    headers = {"Access-Control-Allow-Origin": origin} if origin in _ALLOWED_ORIGINS else {}
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"{type(exc).__name__}: {exc}"},
+        headers=headers,
+    )
 
 
 # Static files (only mount if the directory exists — safe for both local and Render)
