@@ -34,6 +34,21 @@ def download_file(bucket: str, path: str) -> bytes:
     return client.storage.from_(bucket).download(path)
 
 
+def download_file_to_path(bucket: str, path: str, local_path: str) -> None:
+    """Stream download from Supabase directly to local_path — no bytes held in RAM."""
+    import httpx
+    client = get_client()
+    result = client.storage.from_(bucket).create_signed_url(path, 120)
+    url = result.get("signedURL") or result.get("signedUrl") or ""
+    if not url:
+        raise RuntimeError(f"Could not get signed URL for {path} in bucket {bucket}")
+    with httpx.stream("GET", url, follow_redirects=True) as response:
+        response.raise_for_status()
+        with open(local_path, "wb") as f:
+            for chunk in response.iter_bytes(chunk_size=256 * 1024):
+                f.write(chunk)
+
+
 def delete_file(bucket: str, path: str) -> None:
     """Delete a single file from bucket/path."""
     client = get_client()

@@ -9,17 +9,14 @@ from app.core.config import settings
 
 def _download_input(storage_path: str, job_id: str, index: int = 0) -> str:
     """
-    Download a file from the uploads bucket to a local temp path.
-    Returns the local file path.
+    Stream a file from the uploads bucket directly to a local temp path.
+    Returns the local file path. No bytes are held in RAM.
     """
-    from app.core.storage import download_file
+    from app.core.storage import download_file_to_path
 
     ext = os.path.splitext(storage_path)[1]
     local_path = f"/tmp/{job_id}_input_{index}{ext}"
-    data = download_file(settings.SUPABASE_UPLOADS_BUCKET, storage_path)
-    with open(local_path, "wb") as f:
-        f.write(data)
-    del data  # release bytes immediately; only the on-disk copy is needed
+    download_file_to_path(settings.SUPABASE_UPLOADS_BUCKET, storage_path, local_path)
     return local_path
 
 
