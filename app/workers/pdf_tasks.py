@@ -19,6 +19,7 @@ def _download_input(storage_path: str, job_id: str, index: int = 0) -> str:
     data = download_file(settings.SUPABASE_UPLOADS_BUCKET, storage_path)
     with open(local_path, "wb") as f:
         f.write(data)
+    del data  # release bytes immediately; only the on-disk copy is needed
     return local_path
 
 
@@ -43,11 +44,10 @@ def _run_task(job_id: str, conversion_fn, local_input_paths):
     try:
         output_filename = conversion_fn()
 
-        # Upload output to Supabase Storage
+        # Upload output to Supabase Storage via file handle — no bytes in RAM
         local_output_path = os.path.join(settings.OUTPUT_DIR, output_filename)
         with open(local_output_path, "rb") as f:
-            output_data = f.read()
-        upload_file(settings.SUPABASE_OUTPUTS_BUCKET, output_filename, output_data)
+            upload_file(settings.SUPABASE_OUTPUTS_BUCKET, output_filename, f)
 
         r.set(
             status_key,

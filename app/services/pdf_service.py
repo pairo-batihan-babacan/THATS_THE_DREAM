@@ -1,6 +1,7 @@
 import os
 import shutil
 import subprocess
+import tempfile
 import zipfile
 from pypdf import PdfWriter, PdfReader
 from pdf2docx import Converter
@@ -74,28 +75,29 @@ def pdf_to_word(input_path: str, job_id: str) -> str:
 
 
 def pdf_to_images(input_path: str, job_id: str) -> str:
-    """Convert PDF pages to images, zip them, return zip filename."""
+    """Convert PDF pages to images, zip them, return zip filename.
+    Uses output_folder + paths_only so no PIL Image objects are held in RAM."""
+    zip_filename = f"{job_id}_pages.zip"
+    zip_path = _output_path(job_id, zip_filename)
+
     try:
-        images = convert_from_path(input_path, dpi=150)
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            image_paths = convert_from_path(
+                input_path,
+                dpi=150,
+                output_folder=tmp_dir,
+                paths_only=True,
+                fmt="jpeg",
+                jpegopt={"quality": 85},
+            )
+            with zipfile.ZipFile(zip_path, "w") as zf:
+                for i, img_path in enumerate(image_paths):
+                    zf.write(img_path, f"{job_id}_page_{i + 1}.jpg")
     except Exception as e:
         raise RuntimeError(
             f"Failed to convert PDF to images. "
             f"Ensure the file is a valid PDF. Error: {e}"
         )
-
-    image_paths = []
-    for i, img in enumerate(images):
-        img_filename = f"{job_id}_page_{i + 1}.jpg"
-        img_path = _output_path(job_id, img_filename)
-        img.save(img_path, "JPEG", quality=85)
-        image_paths.append(img_path)
-
-    zip_filename = f"{job_id}_pages.zip"
-    zip_path = _output_path(job_id, zip_filename)
-    with zipfile.ZipFile(zip_path, "w") as zf:
-        for p in image_paths:
-            zf.write(p, os.path.basename(p))
-            os.remove(p)
 
     return zip_filename
 
@@ -105,7 +107,7 @@ def images_to_pdf(input_paths: list[str], job_id: str) -> str:
     output_path = _output_path(job_id, output_filename)
     try:
         with open(output_path, "wb") as f:
-            f.write(img2pdf.convert(input_paths))
+            img2pdf.convert(*input_paths, outputstream=f)
     except Exception as e:
         raise RuntimeError(f"Failed to combine images into PDF: {e}")
     return output_filename

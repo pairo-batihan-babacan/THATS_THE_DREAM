@@ -5,6 +5,7 @@ routes (via asyncio.to_thread).
 """
 from __future__ import annotations
 
+from typing import Union, BinaryIO
 from supabase import create_client, Client
 from app.core.config import settings
 
@@ -18,8 +19,8 @@ def get_client() -> Client:
     return _client
 
 
-def upload_file(bucket: str, path: str, data: bytes) -> str:
-    """Upload bytes to bucket/path. Returns the storage path."""
+def upload_file(bucket: str, path: str, data: Union[bytes, BinaryIO]) -> str:
+    """Upload bytes or a file-like object to bucket/path. Returns the storage path."""
     client = get_client()
     client.storage.from_(bucket).upload(
         path, data, {"upsert": "true"}

@@ -2,6 +2,7 @@ import os
 import re
 import uuid
 import asyncio
+import tempfile
 import unicodedata
 from fastapi import UploadFile, HTTPException
 from app.core.config import settings
@@ -35,28 +36,42 @@ def allowed_file(filename: str, allowed: list[str]) -> bool:
 
 async def save_upload_file(file: UploadFile) -> tuple[str, str]:
     """
-    Read the uploaded file, enforce size limit, upload to Supabase Storage.
-    Returns (job_id, storage_path) where storage_path is the key inside the uploads bucket.
+    Stream the uploaded file to a temp file on disk, enforce size limit, then upload
+    to Supabase Storage from a file handle — never loads the full file into RAM.
+    Returns (job_id, storage_path).
     """
-    contents = await file.read()
-    size_mb = len(contents) / (1024 * 1024)
-
-    if size_mb > settings.MAX_FILE_SIZE_MB:
-        raise HTTPException(
-            status_code=413,
-            detail=f"File too large. Max {settings.MAX_FILE_SIZE_MB}MB.",
-        )
-
     job_id = str(uuid.uuid4())
     original = os.path.basename(file.filename or "upload")
     storage_path = f"{job_id}_{sanitize_filename(original)}"
+    max_bytes = settings.MAX_FILE_SIZE_MB * 1024 * 1024
 
-    await asyncio.to_thread(
-        storage.upload_file,
-        settings.SUPABASE_UPLOADS_BUCKET,
-        storage_path,
-        contents,
-    )
+    suffix = os.path.splitext(original)[1]
+    fd, tmp_path = tempfile.mkstemp(suffix=suffix)
+    try:
+        total = 0
+        with os.fdopen(fd, "wb") as tmp:
+            while True:
+                chunk = await file.read(256 * 1024)
+                if not chunk:
+                    break
+                total += len(chunk)
+                if total > max_bytes:
+                    raise HTTPException(
+                        status_code=413,
+                        detail=f"File too large. Max {settings.MAX_FILE_SIZE_MB}MB.",
+                    )
+                tmp.write(chunk)
+
+        with open(tmp_path, "rb") as f:
+            await asyncio.to_thread(
+                storage.upload_file,
+                settings.SUPABASE_UPLOADS_BUCKET,
+                storage_path,
+                f,
+            )
+    finally:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
 
     return job_id, storage_path
 
@@ -64,30 +79,44 @@ async def save_upload_file(file: UploadFile) -> tuple[str, str]:
 async def save_multiple_files(files: list[UploadFile]) -> tuple[str, list[str]]:
     """
     Save multiple files to Supabase Storage under a shared job_id.
+    Streams each file to disk before uploading to keep RAM usage flat.
     Returns (job_id, list_of_storage_paths).
     """
     job_id = str(uuid.uuid4())
     storage_paths = []
+    max_bytes = settings.MAX_FILE_SIZE_MB * 1024 * 1024
 
     for i, file in enumerate(files):
-        contents = await file.read()
-        size_mb = len(contents) / (1024 * 1024)
-
-        if size_mb > settings.MAX_FILE_SIZE_MB:
-            raise HTTPException(
-                status_code=413,
-                detail=f"{file.filename} too large. Max {settings.MAX_FILE_SIZE_MB}MB.",
-            )
-
         original = os.path.basename(file.filename or "upload")
         storage_path = f"{job_id}_{i}_{sanitize_filename(original)}"
 
-        await asyncio.to_thread(
-            storage.upload_file,
-            settings.SUPABASE_UPLOADS_BUCKET,
-            storage_path,
-            contents,
-        )
+        suffix = os.path.splitext(original)[1]
+        fd, tmp_path = tempfile.mkstemp(suffix=suffix)
+        try:
+            total = 0
+            with os.fdopen(fd, "wb") as tmp:
+                while True:
+                    chunk = await file.read(256 * 1024)
+                    if not chunk:
+                        break
+                    total += len(chunk)
+                    if total > max_bytes:
+                        raise HTTPException(
+                            status_code=413,
+                            detail=f"{file.filename} too large. Max {settings.MAX_FILE_SIZE_MB}MB.",
+                        )
+                    tmp.write(chunk)
+
+            with open(tmp_path, "rb") as f:
+                await asyncio.to_thread(
+                    storage.upload_file,
+                    settings.SUPABASE_UPLOADS_BUCKET,
+                    storage_path,
+                    f,
+                )
+        finally:
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
 
         storage_paths.append(storage_path)
 
