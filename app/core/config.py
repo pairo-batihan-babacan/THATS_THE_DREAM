@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     # File handling
     UPLOAD_DIR: str = "/tmp/fileconvert/uploads"
     OUTPUT_DIR: str = "/tmp/fileconvert/outputs"
-    MAX_FILE_SIZE_MB: int = 50
+    MAX_FILE_SIZE_MB: int = 200
     MAX_FILE_SIZE_MB_PRO: int = 500
     FILE_TTL_MINUTES: int = 30
 
