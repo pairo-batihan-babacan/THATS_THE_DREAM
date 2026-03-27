@@ -7,7 +7,8 @@
 (sleep 5 && celery -A app.core.celery_app worker \
   --loglevel=info \
   -Q default,heavy \
-  --concurrency=1 || true) &
+  --concurrency=1 \
+  --max-tasks-per-child=1 || true) &
 
 (sleep 10 && celery -A app.core.celery_app beat \
   --loglevel=info || true) &

@@ -1,10 +1,10 @@
 import os
+import sys
 import shutil
 import subprocess
 import tempfile
 import zipfile
 from pypdf import PdfWriter, PdfReader
-from pdf2docx import Converter
 from pdf2image import convert_from_path
 import img2pdf
 from app.core.config import settings
@@ -63,14 +63,25 @@ def compress_pdf(input_path: str, job_id: str, quality: str = "medium") -> str:
 
 
 def pdf_to_word(input_path: str, job_id: str) -> str:
+    """Run pdf2docx in a child process so its heap is fully released when done."""
     output_filename = f"{job_id}_converted.docx"
     output_path = _output_path(job_id, output_filename)
-    try:
-        cv = Converter(input_path)
-        cv.convert(output_path)
-        cv.close()
-    except Exception as e:
-        raise RuntimeError(f"PDF to Word conversion failed: {e}")
+    script = (
+        "import os; from pdf2docx import Converter; "
+        "cv = Converter(os.environ['_IN']); "
+        "cv.convert(os.environ['_OUT']); "
+        "cv.close()"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        timeout=300,
+        env={**os.environ, "_IN": input_path, "_OUT": output_path},
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"PDF to Word conversion failed: {result.stderr.decode(errors='replace')}"
+        )
     return output_filename
 
 
