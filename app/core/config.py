@@ -45,9 +45,10 @@ class Settings(BaseSettings):
 
     # CORS
     ALLOWED_ORIGINS: List[str] = [
+        "https://pdfworks.io",
+        "https://www.pdfworks.io",
+        "https://api.pdfworks.io",  # If you use an api subdomain
         "http://localhost:3000",
-        "http://localhost:8000",
-        "http://188.245.99.222:3000",
     ]
 
     model_config = {
