@@ -21,26 +21,28 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="FileConvert", lifespan=lifespan)
 
 
-
-# ... app initialization ...
-
-# This logic ensures that even if ALLOWED_ORIGINS is a messy string,
-# we turn it into a clean list of strings that the middleware loves.
+# Updated logic for app/main.py
 _ALLOWED_ORIGINS = []
-if isinstance(settings.ALLOWED_ORIGINS, str):
-    _ALLOWED_ORIGINS = [o.strip() for o in settings.ALLOWED_ORIGINS.split(",")]
-else:
-    _ALLOWED_ORIGINS = list(settings.ALLOWED_ORIGINS)
+raw_origins = settings.ALLOWED_ORIGINS
+
+if isinstance(raw_origins, str):
+    # Standard comma-separated string
+    _ALLOWED_ORIGINS = [o.strip() for o in raw_origins.split(",") if o.strip()]
+elif isinstance(raw_origins, list):
+    # Ensure every item in the list is a string, skip anything weird (like a dict)
+    _ALLOWED_ORIGINS = [str(o) for o in raw_origins if isinstance(o, (str, bytes))]
+
+# If it's still empty, fallback to a safe default
+if not _ALLOWED_ORIGINS:
+    _ALLOWED_ORIGINS = ["https://pdfworks.io"]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_ALLOWED_ORIGINS,  # Use our cleaned-up list
+    allow_origins=_ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
 
 
 @app.exception_handler(Exception)
