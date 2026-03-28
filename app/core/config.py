@@ -44,12 +44,17 @@ class Settings(BaseSettings):
     SUPABASE_OUTPUTS_BUCKET: str = os.getenv("SUPABASE_OUTPUTS_BUCKET", "outputs")
 
     # CORS
-    ALLOWED_ORIGINS: List[str] = [
-        "https://pdfworks.io",
-        "https://www.pdfworks.io",
-        "https://api.pdfworks.io",  # If you use an api subdomain
-        "http://localhost:3000",
-    ]
+    # app/core/config.py
+
+
+    ALLOWED_ORIGINS: str = (
+        "https://pdfworks.io,"
+        "https://www.pdfworks.io,"
+        "https://api.pdfworks.io,"
+        "http://localhost:3000"
+    )
+
+        # ... other settings ...
 
     model_config = {
         "env_file": ".env",
