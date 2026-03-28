@@ -90,7 +90,7 @@ async def download_result(
     try:
         data = await asyncio.to_thread(
             storage.download_file,
-            settings.SUPABASE_OUTPUTS_BUCKET,
+            settings.MINIO_OUTPUTS_BUCKET,
             output_filename,
         )
     except Exception:

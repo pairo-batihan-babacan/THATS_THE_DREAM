@@ -65,7 +65,7 @@ async def save_upload_file(file: UploadFile) -> tuple[str, str]:
         with open(tmp_path, "rb") as f:
             await asyncio.to_thread(
                 storage.upload_file,
-                settings.SUPABASE_UPLOADS_BUCKET,
+                settings.MINIO_UPLOADS_BUCKET,
                 storage_path,
                 f,
             )
@@ -110,7 +110,7 @@ async def save_multiple_files(files: list[UploadFile]) -> tuple[str, list[str]]:
             with open(tmp_path, "rb") as f:
                 await asyncio.to_thread(
                     storage.upload_file,
-                    settings.SUPABASE_UPLOADS_BUCKET,
+                    settings.MINIO_UPLOADS_BUCKET,
                     storage_path,
                     f,
                 )

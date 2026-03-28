@@ -16,7 +16,7 @@ def _download_input(storage_path: str, job_id: str, index: int = 0) -> str:
 
     ext = os.path.splitext(storage_path)[1]
     local_path = f"/tmp/{job_id}_input_{index}{ext}"
-    download_file_to_path(settings.SUPABASE_UPLOADS_BUCKET, storage_path, local_path)
+    download_file_to_path(settings.MINIO_UPLOADS_BUCKET, storage_path, local_path)
     return local_path
 
 
@@ -44,7 +44,7 @@ def _run_task(job_id: str, conversion_fn, local_input_paths):
         # Upload output to Supabase Storage via file handle — no bytes in RAM
         local_output_path = os.path.join(settings.OUTPUT_DIR, output_filename)
         with open(local_output_path, "rb") as f:
-            upload_file(settings.SUPABASE_OUTPUTS_BUCKET, output_filename, f)
+            upload_file(settings.MINIO_OUTPUTS_BUCKET, output_filename, f)
 
         r.set(
             status_key,
@@ -164,6 +164,6 @@ def cleanup_expired_files():
     from app.core.storage import delete_old_files
 
     deleted = 0
-    deleted += delete_old_files(settings.SUPABASE_UPLOADS_BUCKET, settings.FILE_TTL_MINUTES)
-    deleted += delete_old_files(settings.SUPABASE_OUTPUTS_BUCKET, settings.FILE_TTL_MINUTES)
+    deleted += delete_old_files(settings.MINIO_UPLOADS_BUCKET, settings.FILE_TTL_MINUTES)
+    deleted += delete_old_files(settings.MINIO_OUTPUTS_BUCKET, settings.FILE_TTL_MINUTES)
     return {"deleted_files": deleted}
