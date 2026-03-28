@@ -26,15 +26,15 @@ app = FastAPI(title="FileConvert", lifespan=lifespan)
 
 # This logic ensures that even if ALLOWED_ORIGINS is a messy string,
 # we turn it into a clean list of strings that the middleware loves.
-origins = []
+_ALLOWED_ORIGINS = []
 if isinstance(settings.ALLOWED_ORIGINS, str):
-    origins = [o.strip() for o in settings.ALLOWED_ORIGINS.split(",")]
+    _ALLOWED_ORIGINS = [o.strip() for o in settings.ALLOWED_ORIGINS.split(",")]
 else:
-    origins = list(settings.ALLOWED_ORIGINS)
+    _ALLOWED_ORIGINS = list(settings.ALLOWED_ORIGINS)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,  # Use our cleaned-up list
+    allow_origins=_ALLOWED_ORIGINS,  # Use our cleaned-up list
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
