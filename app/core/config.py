@@ -47,12 +47,7 @@ class Settings(BaseSettings):
     # app/core/config.py
 
 
-    ALLOWED_ORIGINS: str = (
-        "https://pdfworks.io,"
-        "https://www.pdfworks.io,"
-        "https://api.pdfworks.io,"
-        "http://localhost:3000"
-    )
+    ALLOWED_ORIGINS: str = "https://pdfworks.io,https://www.pdfworks.io,http://localhost:3000"
 
         # ... other settings ...
 
