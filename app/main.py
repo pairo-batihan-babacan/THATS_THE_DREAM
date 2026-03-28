@@ -4,17 +4,12 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from starlette.middleware.cors import CORSMiddleware
 from app.api.routes import audio, auth, document, image, jobs, payments, pdf, video, pages, ai
 from app.core.database import init_database
-
+from fastapi.middleware.cors import CORSMiddleware
+from app.core.config import settings
 logger = logging.getLogger(__name__)
 
-_ALLOWED_ORIGINS = {
-    "https://pdfworks.io",
-    "https://www.pdfworks.io",
-    "https://thats-the-dream-pairo-batihan-babacans-projects.vercel.app",
-}
 
 
 @asynccontextmanager
@@ -25,14 +20,27 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="FileConvert", lifespan=lifespan)
 
+
+
+# ... app initialization ...
+
+# This logic ensures that even if ALLOWED_ORIGINS is a messy string,
+# we turn it into a clean list of strings that the middleware loves.
+origins = []
+if isinstance(settings.ALLOWED_ORIGINS, str):
+    origins = [o.strip() for o in settings.ALLOWED_ORIGINS.split(",")]
+else:
+    origins = list(settings.ALLOWED_ORIGINS)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=list(_ALLOWED_ORIGINS),
+    allow_origins=origins,  # Use our cleaned-up list
     allow_credentials=True,
-    allow_headers=["*"],
     allow_methods=["*"],
-    expose_headers=["*"],
+    allow_headers=["*"],
 )
+
+
 
 
 @app.exception_handler(Exception)
