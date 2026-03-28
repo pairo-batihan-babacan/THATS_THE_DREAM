@@ -1,58 +1,72 @@
 """
-Supabase Storage client.
-Sync — safe to call from both Celery workers (sync) and FastAPI
-routes (via asyncio.to_thread).
+MinIO / S3-compatible storage client.
+Sync — safe to call from both Celery workers and FastAPI routes (via asyncio.to_thread).
 """
 from __future__ import annotations
 
+import io
+from datetime import datetime, timedelta, timezone
 from typing import Union, BinaryIO
-from supabase import create_client, Client
+
+import boto3
+from botocore.client import Config
+from botocore.exceptions import ClientError
+
 from app.core.config import settings
 
-_client: Client | None = None
+_client = None
 
 
-def get_client() -> Client:
+def get_client():
     global _client
     if _client is None:
-        _client = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY)
+        _client = boto3.client(
+            "s3",
+            endpoint_url=f"{'https' if settings.MINIO_USE_SSL else 'http'}://{settings.MINIO_ENDPOINT}",
+            aws_access_key_id=settings.MINIO_ACCESS_KEY,
+            aws_secret_access_key=settings.MINIO_SECRET_KEY,
+            config=Config(signature_version="s3v4"),
+            region_name="us-east-1",
+        )
+        _ensure_buckets()
     return _client
+
+
+def _ensure_buckets() -> None:
+    for bucket in (settings.MINIO_UPLOADS_BUCKET, settings.MINIO_OUTPUTS_BUCKET):
+        try:
+            _client.head_bucket(Bucket=bucket)
+        except ClientError:
+            _client.create_bucket(Bucket=bucket)
 
 
 def upload_file(bucket: str, path: str, data: Union[bytes, BinaryIO]) -> str:
     """Upload bytes or a file-like object to bucket/path. Returns the storage path."""
     client = get_client()
-    client.storage.from_(bucket).upload(
-        path, data, {"upsert": "true"}
-    )
+    if isinstance(data, (bytes, bytearray)):
+        data = io.BytesIO(data)
+    client.upload_fileobj(data, bucket, path)
     return path
 
 
 def download_file(bucket: str, path: str) -> bytes:
     """Download file from bucket/path and return raw bytes."""
     client = get_client()
-    return client.storage.from_(bucket).download(path)
+    buf = io.BytesIO()
+    client.download_fileobj(bucket, path, buf)
+    return buf.getvalue()
 
 
 def download_file_to_path(bucket: str, path: str, local_path: str) -> None:
-    """Stream download from Supabase directly to local_path — no bytes held in RAM."""
-    import httpx
+    """Stream download directly to local_path — no bytes held in RAM."""
     client = get_client()
-    result = client.storage.from_(bucket).create_signed_url(path, 120)
-    url = result.get("signedURL") or result.get("signedUrl") or ""
-    if not url:
-        raise RuntimeError(f"Could not get signed URL for {path} in bucket {bucket}")
-    with httpx.stream("GET", url, follow_redirects=True) as response:
-        response.raise_for_status()
-        with open(local_path, "wb") as f:
-            for chunk in response.iter_bytes(chunk_size=256 * 1024):
-                f.write(chunk)
+    client.download_file(bucket, path, local_path)
 
 
 def delete_file(bucket: str, path: str) -> None:
     """Delete a single file from bucket/path."""
     client = get_client()
-    client.storage.from_(bucket).remove([path])
+    client.delete_object(Bucket=bucket, Key=path)
 
 
 def delete_old_files(bucket: str, ttl_minutes: int) -> int:
@@ -60,18 +74,17 @@ def delete_old_files(bucket: str, ttl_minutes: int) -> int:
     List all files in the bucket and delete those older than ttl_minutes.
     Returns the count of deleted files.
     """
-    from datetime import datetime, timedelta, timezone
-
     client = get_client()
-    files = client.storage.from_(bucket).list()
     cutoff = datetime.now(timezone.utc) - timedelta(minutes=ttl_minutes)
     to_delete = []
-    for f in files:
-        created_at_str = f.get("created_at", "")
-        if created_at_str:
-            created_at = datetime.fromisoformat(created_at_str.replace("Z", "+00:00"))
-            if created_at < cutoff:
-                to_delete.append(f["name"])
+
+    paginator = client.get_paginator("list_objects_v2")
+    for page in paginator.paginate(Bucket=bucket):
+        for obj in page.get("Contents", []):
+            if obj["LastModified"] < cutoff:
+                to_delete.append({"Key": obj["Key"]})
+
     if to_delete:
-        client.storage.from_(bucket).remove(to_delete)
+        client.delete_objects(Bucket=bucket, Delete={"Objects": to_delete})
+
     return len(to_delete)

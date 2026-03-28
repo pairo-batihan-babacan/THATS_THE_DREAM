@@ -37,19 +37,16 @@ class Settings(BaseSettings):
     # AI
     GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
 
-    # Supabase
-    SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")
-    SUPABASE_SERVICE_ROLE_KEY: str = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
-    SUPABASE_UPLOADS_BUCKET: str = os.getenv("SUPABASE_UPLOADS_BUCKET", "uploads")
-    SUPABASE_OUTPUTS_BUCKET: str = os.getenv("SUPABASE_OUTPUTS_BUCKET", "outputs")
+    # MinIO / S3 storage
+    MINIO_ENDPOINT: str = os.getenv("MINIO_ENDPOINT", "localhost:9000")
+    MINIO_ACCESS_KEY: str = os.getenv("MINIO_ACCESS_KEY", "minioadmin")
+    MINIO_SECRET_KEY: str = os.getenv("MINIO_SECRET_KEY", "minioadmin")
+    MINIO_UPLOADS_BUCKET: str = os.getenv("MINIO_UPLOADS_BUCKET", "uploads")
+    MINIO_OUTPUTS_BUCKET: str = os.getenv("MINIO_OUTPUTS_BUCKET", "outputs")
+    MINIO_USE_SSL: bool = os.getenv("MINIO_USE_SSL", "false").lower() == "true"
 
     # CORS
-    # app/core/config.py
-
-
     ALLOWED_ORIGINS: str = "https://pdfworks.io,https://www.pdfworks.io,http://localhost:3000"
-
-        # ... other settings ...
 
     model_config = {
         "env_file": ".env",

@@ -37,4 +37,4 @@ groq
 
 aiosqlite
 jinja2
-supabase
+boto3
