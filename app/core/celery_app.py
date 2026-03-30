@@ -29,6 +29,8 @@ celery_app.conf.update(
         "app.workers.document_tasks.*": {"queue": "default"},
         "app.workers.ai_tasks.*": {"queue": "default"},
     },
+    task_time_limit=3600,        # hard kill after 60 min (large video/audio files)
+    task_soft_time_limit=3300,   # SoftTimeLimitExceeded at 55 min
     beat_schedule={
         "cleanup-expired-files": {
             "task": "app.workers.pdf_tasks.cleanup_expired_files",

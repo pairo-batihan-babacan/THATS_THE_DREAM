@@ -63,6 +63,13 @@ def download_file_to_path(bucket: str, path: str, local_path: str) -> None:
     client.download_file(bucket, path, local_path)
 
 
+def get_object_body(bucket: str, path: str):
+    """Return the boto3 StreamingBody for bucket/path. Caller must read/close it."""
+    client = get_client()
+    response = client.get_object(Bucket=bucket, Key=path)
+    return response["Body"]
+
+
 def delete_file(bucket: str, path: str) -> None:
     """Delete a single file from bucket/path."""
     client = get_client()

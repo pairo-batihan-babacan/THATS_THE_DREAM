@@ -1,5 +1,4 @@
 import asyncio
-import io
 import json
 import redis.asyncio as aioredis
 from fastapi import APIRouter, Depends, HTTPException
@@ -88,16 +87,23 @@ async def download_result(
         raise HTTPException(404, "Output file not found")
 
     try:
-        data = await asyncio.to_thread(
-            storage.download_file,
+        body = await asyncio.to_thread(
+            storage.get_object_body,
             settings.MINIO_OUTPUTS_BUCKET,
             output_filename,
         )
     except Exception:
         raise HTTPException(404, "Output file has expired or been deleted")
 
+    async def _stream():
+        while True:
+            chunk = await asyncio.to_thread(body.read, 256 * 1024)
+            if not chunk:
+                break
+            yield chunk
+
     return StreamingResponse(
-        io.BytesIO(data),
+        _stream(),
         media_type="application/octet-stream",
         headers={"Content-Disposition": f'attachment; filename="{output_filename}"'},
     )
