@@ -1,14 +1,13 @@
-import asyncio
+import os
 import json
 import redis.asyncio as aioredis
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse
 from sqlmodel.ext.asyncio.session import AsyncSession
 from app.core.database import get_session
 from app.crud.job import get_job, update_job_status
 from app.models.job import JobStatus
 from app.core.config import settings
-from app.core import storage
 
 router = APIRouter(prefix="/api/jobs", tags=["Jobs"])
 
@@ -67,7 +66,6 @@ async def download_result(
     session: AsyncSession = Depends(get_session),
     r: aioredis.Redis = Depends(_get_redis),
 ):
-    # Check Redis for output filename
     output_filename = None
     redis_data = await r.get(f"job_status:{job_id}")
     if redis_data:
@@ -86,24 +84,12 @@ async def download_result(
     if not output_filename:
         raise HTTPException(404, "Output file not found")
 
-    try:
-        body = await asyncio.to_thread(
-            storage.get_object_body,
-            settings.MINIO_OUTPUTS_BUCKET,
-            output_filename,
-        )
-    except Exception:
+    local_path = os.path.join(settings.OUTPUT_DIR, output_filename)
+    if not os.path.exists(local_path):
         raise HTTPException(404, "Output file has expired or been deleted")
 
-    async def _stream():
-        while True:
-            chunk = await asyncio.to_thread(body.read, 256 * 1024)
-            if not chunk:
-                break
-            yield chunk
-
-    return StreamingResponse(
-        _stream(),
+    return FileResponse(
+        local_path,
         media_type="application/octet-stream",
-        headers={"Content-Disposition": f'attachment; filename="{output_filename}"'},
+        filename=output_filename,
     )

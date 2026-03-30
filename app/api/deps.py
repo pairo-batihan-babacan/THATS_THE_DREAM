@@ -1,12 +1,9 @@
 import os
 import re
 import uuid
-import asyncio
-import tempfile
 import unicodedata
 from fastapi import UploadFile, HTTPException
 from app.core.config import settings
-from app.core import storage
 
 # Manual transliteration for characters that NFKD decomposition doesn't handle
 _TRANSLITERATION = str.maketrans(
@@ -16,7 +13,7 @@ _TRANSLITERATION = str.maketrans(
 
 
 def sanitize_filename(filename: str) -> str:
-    """Make a filename safe for cross-container use (ASCII-only, no spaces/specials)."""
+    """Make a filename safe (ASCII-only, no spaces/specials)."""
     name, ext = os.path.splitext(filename)
     name = name.translate(_TRANSLITERATION)
     name = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode()
@@ -36,20 +33,20 @@ def allowed_file(filename: str, allowed: list[str]) -> bool:
 
 async def save_upload_file(file: UploadFile) -> tuple[str, str]:
     """
-    Stream the uploaded file to a temp file on disk, enforce size limit, then upload
-    to Supabase Storage from a file handle — never loads the full file into RAM.
-    Returns (job_id, storage_path).
+    Stream the uploaded file directly to UPLOAD_DIR on disk.
+    Returns (job_id, local_path).
     """
     job_id = str(uuid.uuid4())
     original = os.path.basename(file.filename or "upload")
-    storage_path = f"{job_id}_{sanitize_filename(original)}"
+    filename = f"{job_id}_{sanitize_filename(original)}"
     max_bytes = settings.MAX_FILE_SIZE_MB * 1024 * 1024
 
-    suffix = os.path.splitext(original)[1]
-    fd, tmp_path = tempfile.mkstemp(suffix=suffix)
+    os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+    local_path = os.path.join(settings.UPLOAD_DIR, filename)
+
+    total = 0
     try:
-        total = 0
-        with os.fdopen(fd, "wb") as tmp:
+        with open(local_path, "wb") as f:
             while True:
                 chunk = await file.read(256 * 1024)
                 if not chunk:
@@ -60,41 +57,34 @@ async def save_upload_file(file: UploadFile) -> tuple[str, str]:
                         status_code=413,
                         detail=f"File too large. Max {settings.MAX_FILE_SIZE_MB}MB.",
                     )
-                tmp.write(chunk)
+                f.write(chunk)
+    except HTTPException:
+        if os.path.exists(local_path):
+            os.unlink(local_path)
+        raise
 
-        with open(tmp_path, "rb") as f:
-            await asyncio.to_thread(
-                storage.upload_file,
-                settings.MINIO_UPLOADS_BUCKET,
-                storage_path,
-                f,
-            )
-    finally:
-        if os.path.exists(tmp_path):
-            os.unlink(tmp_path)
-
-    return job_id, storage_path
+    return job_id, local_path
 
 
 async def save_multiple_files(files: list[UploadFile]) -> tuple[str, list[str]]:
     """
-    Save multiple files to Supabase Storage under a shared job_id.
-    Streams each file to disk before uploading to keep RAM usage flat.
-    Returns (job_id, list_of_storage_paths).
+    Save multiple files to UPLOAD_DIR under a shared job_id.
+    Returns (job_id, list_of_local_paths).
     """
     job_id = str(uuid.uuid4())
-    storage_paths = []
+    local_paths = []
     max_bytes = settings.MAX_FILE_SIZE_MB * 1024 * 1024
+
+    os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
 
     for i, file in enumerate(files):
         original = os.path.basename(file.filename or "upload")
-        storage_path = f"{job_id}_{i}_{sanitize_filename(original)}"
+        filename = f"{job_id}_{i}_{sanitize_filename(original)}"
+        local_path = os.path.join(settings.UPLOAD_DIR, filename)
 
-        suffix = os.path.splitext(original)[1]
-        fd, tmp_path = tempfile.mkstemp(suffix=suffix)
+        total = 0
         try:
-            total = 0
-            with os.fdopen(fd, "wb") as tmp:
+            with open(local_path, "wb") as f:
                 while True:
                     chunk = await file.read(256 * 1024)
                     if not chunk:
@@ -105,19 +95,12 @@ async def save_multiple_files(files: list[UploadFile]) -> tuple[str, list[str]]:
                             status_code=413,
                             detail=f"{file.filename} too large. Max {settings.MAX_FILE_SIZE_MB}MB.",
                         )
-                    tmp.write(chunk)
+                    f.write(chunk)
+        except HTTPException:
+            if os.path.exists(local_path):
+                os.unlink(local_path)
+            raise
 
-            with open(tmp_path, "rb") as f:
-                await asyncio.to_thread(
-                    storage.upload_file,
-                    settings.MINIO_UPLOADS_BUCKET,
-                    storage_path,
-                    f,
-                )
-        finally:
-            if os.path.exists(tmp_path):
-                os.unlink(tmp_path)
+        local_paths.append(local_path)
 
-        storage_paths.append(storage_path)
-
-    return job_id, storage_paths
+    return job_id, local_paths
