@@ -8,6 +8,11 @@ __pycache__/
 # Environment variables - NEVER commit this
 .env
 
+# Database files
+*.db
+*.db-shm
+*.db-wal
+
 # Temp files
 /tmp/
 
