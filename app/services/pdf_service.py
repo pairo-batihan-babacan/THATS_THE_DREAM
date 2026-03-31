@@ -5,7 +5,6 @@ import subprocess
 import tempfile
 import zipfile
 from pypdf import PdfWriter, PdfReader
-from pdf2image import convert_from_path
 import img2pdf
 from app.core.config import settings
 
@@ -66,6 +65,11 @@ def pdf_to_word(input_path: str, job_id: str) -> str:
     """Run pdf2docx in a child process so its heap is fully released when done."""
     output_filename = f"{job_id}_converted.docx"
     output_path = _output_path(job_id, output_filename)
+
+    # Scale timeout with file size: ~10s per MB, min 5 min, max 50 min
+    file_mb = os.path.getsize(input_path) / (1024 * 1024)
+    timeout = min(max(int(file_mb * 10), 300), 3000)
+
     script = (
         "import os; from pdf2docx import Converter; "
         "cv = Converter(os.environ['_IN']); "
@@ -75,7 +79,7 @@ def pdf_to_word(input_path: str, job_id: str) -> str:
     result = subprocess.run(
         [sys.executable, "-c", script],
         capture_output=True,
-        timeout=300,
+        timeout=timeout,
         env={**os.environ, "_IN": input_path, "_OUT": output_path},
     )
     if result.returncode != 0:
@@ -86,24 +90,25 @@ def pdf_to_word(input_path: str, job_id: str) -> str:
 
 
 def pdf_to_images(input_path: str, job_id: str) -> str:
-    """Convert PDF pages to images, zip them, return zip filename.
-    Uses output_folder + paths_only so no PIL Image objects are held in RAM."""
+    """Convert PDF pages to JPEG images using PyMuPDF, zip and return.
+    PyMuPDF is 5-10x faster than poppler and frees each page from RAM immediately."""
+    import fitz  # PyMuPDF
+
     zip_filename = f"{job_id}_pages.zip"
     zip_path = _output_path(job_id, zip_filename)
+    mat = fitz.Matrix(150 / 72, 150 / 72)  # 150 DPI
 
     try:
+        doc = fitz.open(input_path)
         with tempfile.TemporaryDirectory() as tmp_dir:
-            image_paths = convert_from_path(
-                input_path,
-                dpi=150,
-                output_folder=tmp_dir,
-                paths_only=True,
-                fmt="jpeg",
-                jpegopt={"quality": 85},
-            )
-            with zipfile.ZipFile(zip_path, "w") as zf:
-                for i, img_path in enumerate(image_paths):
+            with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_STORED) as zf:
+                for i, page in enumerate(doc):
+                    pix = page.get_pixmap(matrix=mat, alpha=False)
+                    img_path = os.path.join(tmp_dir, f"page_{i + 1}.jpg")
+                    pix.save(img_path)
                     zf.write(img_path, f"{job_id}_page_{i + 1}.jpg")
+                    pix = None  # release pixmap memory immediately
+        doc.close()
     except Exception as e:
         raise RuntimeError(
             f"Failed to convert PDF to images. "
