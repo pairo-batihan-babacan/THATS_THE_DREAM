@@ -62,49 +62,42 @@ def compress_pdf(input_path: str, job_id: str, quality: str = "medium") -> str:
 
 
 def pdf_to_word(input_path: str, job_id: str) -> str:
-    """Convert PDF to DOCX with three-tier fallback:
-    1. pdf2docx full conversion (layout + images)
-    2. pdf2docx with image clipping disabled (handles malformed image PDFs)
-    3. PyMuPDF text extraction → python-docx (always works, layout-free)
+    """Convert PDF to DOCX with two-tier approach:
+    1. LibreOffice (fast, mature C++ engine, handles most PDFs well)
+    2. PyMuPDF text extraction → python-docx (always works, layout-free fallback)
     """
     output_filename = f"{job_id}_converted.docx"
     output_path = _output_path(job_id, output_filename)
-
-    file_mb = os.path.getsize(input_path) / (1024 * 1024)
-    env = {**os.environ, "_IN": input_path, "_OUT": output_path}
     last_error = "Unknown error"
 
-    # Tier 1: full conversion — capped at 5 min (fast PDFs only)
+    # Tier 1: LibreOffice PDF→DOCX (same engine used for Word/PPT→PDF, very reliable)
+    lo_home = f"/tmp/lo_home_{job_id}"
+    os.makedirs(lo_home, exist_ok=True)
+    env = os.environ.copy()
+    env["HOME"] = lo_home
     try:
-        r1 = subprocess.run(
-            [sys.executable, "-c",
-             "import os; from pdf2docx import Converter; "
-             "cv = Converter(os.environ['_IN']); "
-             "cv.convert(os.environ['_OUT']); cv.close()"],
-            capture_output=True, timeout=300, env=env,
+        result = subprocess.run(
+            [
+                "libreoffice", "--headless", "--norestore", "--nofirststartwizard",
+                "--convert-to", "docx",
+                "--outdir", settings.OUTPUT_DIR,
+                input_path,
+            ],
+            capture_output=True, text=True, timeout=300, env=env,
         )
-        if r1.returncode == 0:
+        # LibreOffice names output after the input filename
+        base = os.path.splitext(os.path.basename(input_path))[0]
+        lo_output = os.path.join(settings.OUTPUT_DIR, f"{base}.docx")
+        if result.returncode == 0 and os.path.exists(lo_output):
+            os.rename(lo_output, output_path)
             return output_filename
-        last_error = r1.stderr.decode(errors="replace")
+        last_error = result.stderr.strip() or result.stdout.strip() or "LibreOffice failed"
     except subprocess.TimeoutExpired:
-        last_error = "pdf2docx timed out (full conversion)"
+        last_error = "LibreOffice timed out"
+    finally:
+        shutil.rmtree(lo_home, ignore_errors=True)
 
-    # Tier 2: skip image clipping — faster, handles malformed images, up to 10 min
-    try:
-        r2 = subprocess.run(
-            [sys.executable, "-c",
-             "import os; from pdf2docx import Converter; "
-             "cv = Converter(os.environ['_IN']); "
-             "cv.convert(os.environ['_OUT'], clip_image_res_ratio=0.0); cv.close()"],
-            capture_output=True, timeout=600, env=env,
-        )
-        if r2.returncode == 0:
-            return output_filename
-        last_error = r2.stderr.decode(errors="replace")
-    except subprocess.TimeoutExpired:
-        last_error = "pdf2docx timed out (no-image-clip)"
-
-    # Tier 3: PyMuPDF text extraction → python-docx (always works, no layout)
+    # Tier 2: PyMuPDF text extraction → python-docx (always works, no layout)
     try:
         import fitz
         from docx import Document as DocxDocument
