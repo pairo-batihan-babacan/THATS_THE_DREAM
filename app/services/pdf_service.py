@@ -62,31 +62,64 @@ def compress_pdf(input_path: str, job_id: str, quality: str = "medium") -> str:
 
 
 def pdf_to_word(input_path: str, job_id: str) -> str:
-    """Run pdf2docx in a child process so its heap is fully released when done."""
+    """Convert PDF to DOCX with three-tier fallback:
+    1. pdf2docx full conversion (layout + images)
+    2. pdf2docx with image clipping disabled (handles malformed image PDFs)
+    3. PyMuPDF text extraction → python-docx (always works, layout-free)
+    """
     output_filename = f"{job_id}_converted.docx"
     output_path = _output_path(job_id, output_filename)
 
-    # Scale timeout with file size: ~10s per MB, min 5 min, max 50 min
     file_mb = os.path.getsize(input_path) / (1024 * 1024)
     timeout = min(max(int(file_mb * 10), 300), 3000)
+    env = {**os.environ, "_IN": input_path, "_OUT": output_path}
 
-    script = (
-        "import os; from pdf2docx import Converter; "
-        "cv = Converter(os.environ['_IN']); "
-        "cv.convert(os.environ['_OUT']); "
-        "cv.close()"
+    # Tier 1: full conversion
+    r1 = subprocess.run(
+        [sys.executable, "-c",
+         "import os; from pdf2docx import Converter; "
+         "cv = Converter(os.environ['_IN']); "
+         "cv.convert(os.environ['_OUT']); cv.close()"],
+        capture_output=True, timeout=timeout, env=env,
     )
-    result = subprocess.run(
-        [sys.executable, "-c", script],
-        capture_output=True,
-        timeout=timeout,
-        env={**os.environ, "_IN": input_path, "_OUT": output_path},
+    if r1.returncode == 0:
+        return output_filename
+
+    # Tier 2: skip image clipping (fixes PDFs with malformed/indexed-color images)
+    r2 = subprocess.run(
+        [sys.executable, "-c",
+         "import os; from pdf2docx import Converter; "
+         "cv = Converter(os.environ['_IN']); "
+         "cv.convert(os.environ['_OUT'], clip_image_res_ratio=0.0); cv.close()"],
+        capture_output=True, timeout=timeout, env=env,
     )
-    if result.returncode != 0:
-        raise RuntimeError(
-            f"PDF to Word conversion failed: {result.stderr.decode(errors='replace')}"
+    if r2.returncode == 0:
+        return output_filename
+
+    # Tier 3: text-only fallback via PyMuPDF + python-docx
+    try:
+        import fitz
+        from docx import Document as DocxDocument
+        doc = fitz.open(input_path)
+        word = DocxDocument()
+        word.add_paragraph(
+            "Note: This PDF contains complex formatting or images that could not be "
+            "fully preserved. Text content has been extracted as-is."
         )
-    return output_filename
+        for page in doc:
+            text = page.get_text()
+            if text.strip():
+                word.add_paragraph(text)
+            word.add_page_break()
+        doc.close()
+        word.save(output_path)
+        return output_filename
+    except Exception as fallback_err:
+        raise RuntimeError(
+            f"PDF to Word conversion failed: "
+            f"{r2.stderr.decode(errors='replace') or r1.stderr.decode(errors='replace')} "
+            f"(fallback also failed: {fallback_err})"
+        )
 
 
 def pdf_to_images(input_path: str, job_id: str) -> str:
