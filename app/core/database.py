@@ -4,8 +4,10 @@ from sqlmodel import SQLModel
 from app.core.config import settings
 
 DATABASE_URL = settings.DATABASE_URL
-# Supabase (and Render) give postgresql:// or postgres:// — normalize to asyncpg driver
-if DATABASE_URL.startswith("postgres://"):
+# Normalize all postgres:// variants to the correct asyncpg driver format
+if DATABASE_URL.startswith("postgres+asyncpg://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres+asyncpg://", "postgresql+asyncpg://", 1)
+elif DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
 elif DATABASE_URL.startswith("postgresql://"):
     DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
@@ -15,7 +17,7 @@ _connect_args = {"check_same_thread": False} if _is_sqlite else {"statement_cach
 
 engine = create_async_engine(
     DATABASE_URL,
-    echo=True,
+    echo=False,
     connect_args=_connect_args,
 )
 
