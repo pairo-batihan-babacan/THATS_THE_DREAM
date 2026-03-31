@@ -71,40 +71,48 @@ def pdf_to_word(input_path: str, job_id: str) -> str:
     output_path = _output_path(job_id, output_filename)
 
     file_mb = os.path.getsize(input_path) / (1024 * 1024)
-    timeout = min(max(int(file_mb * 10), 300), 3000)
     env = {**os.environ, "_IN": input_path, "_OUT": output_path}
+    last_error = "Unknown error"
 
-    # Tier 1: full conversion
-    r1 = subprocess.run(
-        [sys.executable, "-c",
-         "import os; from pdf2docx import Converter; "
-         "cv = Converter(os.environ['_IN']); "
-         "cv.convert(os.environ['_OUT']); cv.close()"],
-        capture_output=True, timeout=timeout, env=env,
-    )
-    if r1.returncode == 0:
-        return output_filename
+    # Tier 1: full conversion — capped at 5 min (fast PDFs only)
+    try:
+        r1 = subprocess.run(
+            [sys.executable, "-c",
+             "import os; from pdf2docx import Converter; "
+             "cv = Converter(os.environ['_IN']); "
+             "cv.convert(os.environ['_OUT']); cv.close()"],
+            capture_output=True, timeout=300, env=env,
+        )
+        if r1.returncode == 0:
+            return output_filename
+        last_error = r1.stderr.decode(errors="replace")
+    except subprocess.TimeoutExpired:
+        last_error = "pdf2docx timed out (full conversion)"
 
-    # Tier 2: skip image clipping (fixes PDFs with malformed/indexed-color images)
-    r2 = subprocess.run(
-        [sys.executable, "-c",
-         "import os; from pdf2docx import Converter; "
-         "cv = Converter(os.environ['_IN']); "
-         "cv.convert(os.environ['_OUT'], clip_image_res_ratio=0.0); cv.close()"],
-        capture_output=True, timeout=timeout, env=env,
-    )
-    if r2.returncode == 0:
-        return output_filename
+    # Tier 2: skip image clipping — faster, handles malformed images, up to 10 min
+    try:
+        r2 = subprocess.run(
+            [sys.executable, "-c",
+             "import os; from pdf2docx import Converter; "
+             "cv = Converter(os.environ['_IN']); "
+             "cv.convert(os.environ['_OUT'], clip_image_res_ratio=0.0); cv.close()"],
+            capture_output=True, timeout=600, env=env,
+        )
+        if r2.returncode == 0:
+            return output_filename
+        last_error = r2.stderr.decode(errors="replace")
+    except subprocess.TimeoutExpired:
+        last_error = "pdf2docx timed out (no-image-clip)"
 
-    # Tier 3: text-only fallback via PyMuPDF + python-docx
+    # Tier 3: PyMuPDF text extraction → python-docx (always works, no layout)
     try:
         import fitz
         from docx import Document as DocxDocument
         doc = fitz.open(input_path)
         word = DocxDocument()
         word.add_paragraph(
-            "Note: This PDF contains complex formatting or images that could not be "
-            "fully preserved. Text content has been extracted as-is."
+            "Note: This PDF's layout could not be fully reconstructed. "
+            "Text content has been extracted as-is."
         )
         for page in doc:
             text = page.get_text()
@@ -116,9 +124,8 @@ def pdf_to_word(input_path: str, job_id: str) -> str:
         return output_filename
     except Exception as fallback_err:
         raise RuntimeError(
-            f"PDF to Word conversion failed: "
-            f"{r2.stderr.decode(errors='replace') or r1.stderr.decode(errors='replace')} "
-            f"(fallback also failed: {fallback_err})"
+            f"PDF to Word conversion failed: {last_error} "
+            f"(text fallback also failed: {fallback_err})"
         )
 
 
