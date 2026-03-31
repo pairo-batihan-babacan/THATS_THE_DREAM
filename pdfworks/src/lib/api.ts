@@ -27,8 +27,29 @@ interface StatusResponse {
 
 async function pollJob(job_id: string, onProgress: ProgressFn): Promise<void> {
   let pct = 20
-  for (let attempt = 0; attempt < 180; attempt++) {
-    await new Promise<void>((r) => setTimeout(r, 1000))
+  let elapsed = 0 // seconds elapsed
+
+  // Variable interval: fast at first, backs off for large files
+  // Total budget: ~30 minutes
+  const intervalFor = (secs: number): number => {
+    if (secs < 60)  return 1000   // first minute:  every 1s
+    if (secs < 180) return 2000   // 1–3 min:       every 2s
+    if (secs < 600) return 5000   // 3–10 min:      every 5s
+    return 10000                  // 10–30 min:     every 10s
+  }
+
+  const msgFor = (secs: number): string => {
+    if (secs < 10)  return 'Queued for processing…'
+    if (secs < 60)  return 'Converting…'
+    if (secs < 180) return 'Still working — large file takes a few minutes…'
+    if (secs < 600) return 'Processing large file, please keep this tab open…'
+    return 'Almost there — large conversion in progress…'
+  }
+
+  while (elapsed < 1800) { // 30 minute hard limit
+    const interval = intervalFor(elapsed)
+    await new Promise<void>((r) => setTimeout(r, interval))
+    elapsed += interval / 1000
 
     let data: StatusResponse
     try {
@@ -44,13 +65,11 @@ async function pollJob(job_id: string, onProgress: ProgressFn): Promise<void> {
       throw new Error(data.error_message ?? 'Processing failed on server')
     }
 
-    pct = Math.min(90, pct + Math.random() * 4 + 1.5)
-    onProgress(
-      pct,
-      pct < 40 ? 'Queued for processing…' : pct < 70 ? 'Converting…' : 'Finalizing…',
-    )
+    // Slow the bar as it approaches 89 so it never visually caps
+    pct = Math.min(89, pct + Math.random() * 2 + 0.5)
+    onProgress(pct, msgFor(elapsed))
   }
-  throw new Error('Processing timed out. Please try again.')
+  throw new Error('Processing timed out after 30 minutes. Please try with a smaller file.')
 }
 
 /**
