@@ -4778,27 +4778,29 @@ function StripExifInterface({
 
             {/* ── IDLE ── */}
             {stage === 'idle' && (
-              <motion.div key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                {...getRootProps()}
-                className={`p-10 sm:p-14 flex flex-col items-center justify-center text-center cursor-pointer transition-colors ${
-                  isDragActive ? 'bg-green-500/5' : 'hover:bg-gray-50 dark:hover:bg-gray-800/30'
-                }`}
-              >
-                <input {...getInputProps()} />
-                <div className="w-16 h-16 rounded-2xl mb-5 flex items-center justify-center"
-                  style={{ background: `rgba(${rgb}, 0.1)`, color: tool.color }}>
-                  <Upload className="w-7 h-7" />
+              <motion.div key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <div
+                  {...getRootProps()}
+                  className={`p-10 sm:p-14 flex flex-col items-center justify-center text-center cursor-pointer transition-colors ${
+                    isDragActive ? 'bg-green-500/5' : 'hover:bg-gray-50 dark:hover:bg-gray-800/30'
+                  }`}
+                >
+                  <input {...getInputProps()} />
+                  <div className="w-16 h-16 rounded-2xl mb-5 flex items-center justify-center"
+                    style={{ background: `rgba(${rgb}, 0.1)`, color: tool.color }}>
+                    <Upload className="w-7 h-7" />
+                  </div>
+                  <p className="text-gray-900 dark:text-white font-bold text-lg mb-1">
+                    {isDragActive ? 'Drop image here' : 'Upload an image'}
+                  </p>
+                  <p className="text-gray-500 text-sm mb-5">
+                    JPEG, PNG, WebP, TIFF, HEIC — we&apos;ll show all hidden metadata before stripping
+                  </p>
+                  <span className="px-5 py-2.5 rounded-xl text-white text-sm font-bold"
+                    style={{ background: tool.color }}>
+                    Choose Image
+                  </span>
                 </div>
-                <p className="text-gray-900 dark:text-white font-bold text-lg mb-1">
-                  {isDragActive ? 'Drop image here' : 'Upload an image'}
-                </p>
-                <p className="text-gray-500 text-sm mb-5">
-                  JPEG, PNG, WebP, TIFF, HEIC — we&apos;ll show all hidden metadata before stripping
-                </p>
-                <span className="px-5 py-2.5 rounded-xl text-white text-sm font-bold"
-                  style={{ background: tool.color }}>
-                  Choose Image
-                </span>
               </motion.div>
             )}
 
