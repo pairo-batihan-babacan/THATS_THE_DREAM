@@ -1,7 +1,14 @@
 'use client'
 /**
- * PDFEditor v2 — WYSIWYG PDF editor
- * New in v2: multi-select (rubber-band + shift-click), signature pad, crop per page
+ * PDFEditor v3 — WYSIWYG PDF editor
+ * v3 changes:
+ *  - Multi-page scrollable view: all pages stack vertically, smooth scroll
+ *  - Fixed first-page auto-render (canvasesReady dep on render effect)
+ *  - Per-page canvas refs (Map) — no single canvasRef / svgRef
+ *  - Scroll-tracking updates the active page indicator automatically
+ *  - Second click on a selected text element enters in-place edit mode
+ *  - handlePointerDown takes pageOrigIdx so elements land on the correct page
+ *  - draft / rubber track their originating page
  */
 
 import React, { useState, useEffect, useRef, useReducer, useCallback, useMemo } from 'react'
@@ -154,22 +161,7 @@ function usePDFPages(bytes:Uint8Array|null) {
   return { pdfDoc, pages, loading }
 }
 
-function usePageCanvas(pdfDoc:PDFDocumentProxy|null, origPageIdx:number, scale:number, canvasRef:React.RefObject<HTMLCanvasElement>) {
-  useEffect(()=>{
-    if(!pdfDoc||!canvasRef.current) return
-    let cancelled=false
-    ;(async()=>{
-      const pg=await pdfDoc.getPage(origPageIdx+1); if(cancelled) return
-      const vp=pg.getViewport({scale}); const cv=canvasRef.current!
-      cv.width=vp.width; cv.height=vp.height
-      await pg.render({canvasContext:cv.getContext('2d')!,viewport:vp}).promise
-      pg.cleanup()
-    })()
-    return ()=>{ cancelled=true }
-  },[pdfDoc,origPageIdx,scale,canvasRef])
-}
-
-/* ══════════════════════════════════════════════════════════ SMALL UI BITS */
+/* ══════════════════════════════════════════════════════ SMALL UI BITS */
 
 function Tip({label,children}:{label:string;children:React.ReactNode}) {
   return (
@@ -246,7 +238,7 @@ function SelectionBox({bbox,s,showHandles=true}:{bbox:{x:number;y:number;w:numbe
   )
 }
 
-/* ═══════════════════════════════════════════════════════ PROPERTIES PANEL */
+/* ═══════════════════════════════════════════════════════════ PROPERTIES PANEL */
 
 function PropsPanel({selected,selCount,currentOrigIdx,state,dispatch,drawColor,setDrawColor,fillColor,setFillColor,strokeWidth,setStrokeWidth,fontSize,setFontSize,fontFamily,setFontFamily,onDeleteSelected,showPN,setShowPN,showWM,setShowWM}:{
   selected:AnyEl|null; selCount:number; currentOrigIdx:number; state:EdState; dispatch:React.Dispatch<Action>
@@ -433,8 +425,9 @@ interface DragState {
   startMx:number; startMy:number; curMx:number; curMy:number
   startEx:number; startEy:number; startEw:number; startEh:number
 }
-interface DraftEl { sx:number; sy:number; x:number; y:number; w:number; h:number; pts?:Pt[] }
-interface RubberBand { sx:number; sy:number; x:number; y:number; w:number; h:number }
+// origIdx tracks the page the interaction started on
+interface DraftEl  { sx:number; sy:number; x:number; y:number; w:number; h:number; pts?:Pt[]; origIdx:number }
+interface RubberBand { sx:number; sy:number; x:number; y:number; w:number; h:number; origIdx:number }
 
 /* ════════════════════════════════════════════════════════════ MAIN EXPORT */
 
@@ -456,6 +449,8 @@ export default function PDFEditor({ tool }:Props) {
   const [exporting,setExporting]=useState(false)
   const [showPN,   setShowPN]  = useState(false)
   const [showWM,   setShowWM]  = useState(false)
+  // incremented each time a new canvas element mounts — triggers the render effect
+  const [canvasesReady, setCanvasesReady] = useState(0)
 
   const [drawColor,   setDrawColor]  = useState('#EF4444')
   const [fillColor,   setFillColor]  = useState('transparent')
@@ -463,29 +458,80 @@ export default function PDFEditor({ tool }:Props) {
   const [fontSize,    setFontSize]   = useState(16)
   const [fontFamily,  setFontFamily] = useState('sans')
 
-  const canvasRef  = useRef<HTMLCanvasElement>(null)
-  const svgRef     = useRef<SVGSVGElement>(null)
-  const imgInput   = useRef<HTMLInputElement>(null)
-  const dropInput  = useRef<HTMLInputElement>(null)
-  const wmDragRef  = useRef<{startMx:number;startMy:number;startX:number;startY:number}|null>(null)
-  const pnDragRef  = useRef<{startMx:number;startMy:number;startX:number;startY:number}|null>(null)
+  // per-page canvas / container refs (keyed by display index)
+  const pageCanvasRefs    = useRef<Map<number,HTMLCanvasElement>>(new Map())
+  const pageContainerRefs = useRef<Map<number,HTMLDivElement>>(new Map())
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+
+  const imgInput  = useRef<HTMLInputElement>(null)
+  const dropInput = useRef<HTMLInputElement>(null)
+  const wmDragRef = useRef<{startMx:number;startMy:number;startX:number;startY:number}|null>(null)
+  const pnDragRef = useRef<{startMx:number;startMy:number;startX:number;startY:number}|null>(null)
 
   const { pdfDoc, pages, loading } = usePDFPages(state.originalBytes)
 
+  // curOrigIdx / pageW / pageH are still needed for watermark & PN drag calculations
   const curOrigIdx = state.pageOrder[curDispIdx] ?? 0
   const pageInfo   = pages[curOrigIdx]
   const pageW      = (pageInfo?.w ?? 612) * scale
   const pageH      = (pageInfo?.h ?? 792) * scale
 
-  usePageCanvas(pdfDoc, curOrigIdx, scale, canvasRef)
+  /* ── RENDER ALL PAGES to canvas ─────────────────────────────────────────
+     Fires whenever pdfDoc, scale, pageOrder, or any new canvas mounts.
+     canvasesReady ensures the effect re-runs once the DOM elements exist.   */
+  useEffect(()=>{
+    if(!pdfDoc || pages.length===0) return
+    let cancelled=false
+    ;(async()=>{
+      await Promise.all(state.pageOrder.map(async(origIdx,dispIdx)=>{
+        const cv=pageCanvasRefs.current.get(dispIdx)
+        if(!cv) return
+        try {
+          const pg=await pdfDoc.getPage(origIdx+1)
+          if(cancelled) return
+          const vp=pg.getViewport({scale})
+          cv.width=vp.width; cv.height=vp.height
+          await pg.render({canvasContext:cv.getContext('2d')!,viewport:vp}).promise
+          pg.cleanup()
+        } catch { /* page render error — leave canvas blank */ }
+      }))
+    })()
+    return ()=>{ cancelled=true }
+  },[pdfDoc,scale,state.pageOrder,canvasesReady]) // eslint-disable-line
 
-  /* single selected element (only when exactly 1) */
+  /* ── SCROLL TRACKING — update active page as user scrolls ────────────── */
+  useEffect(()=>{
+    const container=scrollContainerRef.current
+    if(!container || state.pageOrder.length===0) return
+    const onScroll=()=>{
+      const cRect=container.getBoundingClientRect()
+      const mid=cRect.top+cRect.height/2
+      let bestDist=Infinity, bestIdx=0
+      pageContainerRefs.current.forEach((el,dispIdx)=>{
+        const r=el.getBoundingClientRect()
+        const d=Math.abs((r.top+r.height/2)-mid)
+        if(d<bestDist){ bestDist=d; bestIdx=dispIdx }
+      })
+      setCur(bestIdx)
+    }
+    container.addEventListener('scroll',onScroll,{passive:true})
+    return ()=>container.removeEventListener('scroll',onScroll)
+  },[state.pageOrder.length,pages.length])
+
+  /* ── SCROLL TO PAGE (called from left panel) ─────────────────────────── */
+  const scrollToPage=useCallback((dispIdx:number)=>{
+    setCur(dispIdx)
+    const el=pageContainerRefs.current.get(dispIdx)
+    if(el) el.scrollIntoView({behavior:'smooth',block:'nearest'})
+  },[])
+
+  /* single selected element */
   const selectedEl = useMemo(()=>
     selIds.length===1 ? state.elements.find(e=>e.id===selIds[0])??null : null,
     [state.elements, selIds]
   )
 
-  /* current page elements with live drag offset */
+  /* live-drag offset applied to element display */
   const displayEl = useCallback((el:AnyEl): AnyEl => {
     if(!drag || el.kind==='draw') return el
     if(!drag.allIds.includes(el.id) && drag.id!==el.id) return el
@@ -505,11 +551,6 @@ export default function PDFEditor({ tool }:Props) {
     return { ...el, x, y, w, h:ht }
   },[drag,scale])
 
-  const curPageEls = useMemo(()=>
-    state.elements.filter(e=>e.pageIndex===curOrigIdx).map(displayEl),
-    [state.elements, curOrigIdx, displayEl]
-  )
-
   /* crop: initialise draft to full page when entering crop mode */
   useEffect(()=>{
     if(!cropMode) return
@@ -518,15 +559,15 @@ export default function PDFEditor({ tool }:Props) {
     setCropDraft(existing ?? { x:0, y:0, w:pi?.w??612, h:pi?.h??792 })
   },[cropMode]) // eslint-disable-line
 
-  /* SVG helpers */
-  const getSvgPos = useCallback((e:React.PointerEvent)=>{
-    const r=svgRef.current!.getBoundingClientRect()
+  /* SVG coord helper — uses e.currentTarget so it works for any page's SVG */
+  const getSvgPos = useCallback((e:React.PointerEvent<SVGSVGElement>)=>{
+    const r=e.currentTarget.getBoundingClientRect()
     return { mx:e.clientX-r.left, my:e.clientY-r.top, px:(e.clientX-r.left)/scale, py:(e.clientY-r.top)/scale }
   },[scale])
 
   /* ── CROP MODE INTERACTIONS ── */
   const handleCropDown = useCallback((e:React.PointerEvent<SVGSVGElement>)=>{
-    svgRef.current?.setPointerCapture(e.pointerId)
+    e.currentTarget.setPointerCapture(e.pointerId)
     const {mx,my,px,py}=getSvgPos(e)
     const tgt=e.target as SVGElement
     const ch=tgt.getAttribute('data-crophandle')
@@ -539,9 +580,9 @@ export default function PDFEditor({ tool }:Props) {
         startEx:cropDraft.x, startEy:cropDraft.y, startEw:cropDraft.w, startEh:cropDraft.h })
     } else {
       setCropDraft({ x:px, y:py, w:0.1, h:0.1 })
-      setDraft({ sx:px, sy:py, x:px, y:py, w:0.1, h:0.1 })
+      setDraft({ sx:px, sy:py, x:px, y:py, w:0.1, h:0.1, origIdx:curOrigIdx })
     }
-  },[getSvgPos, cropDraft])
+  },[getSvgPos, cropDraft, curOrigIdx])
 
   const handleCropMove = useCallback((e:React.PointerEvent<SVGSVGElement>)=>{
     const {mx,my,px,py}=getSvgPos(e)
@@ -566,9 +607,7 @@ export default function PDFEditor({ tool }:Props) {
     }
   },[drag,draft,scale,getSvgPos])
 
-  const handleCropUp = useCallback(()=>{
-    setDrag(null); setDraft(null)
-  },[])
+  const handleCropUp = useCallback(()=>{ setDrag(null); setDraft(null) },[])
 
   const applyCrop = () => {
     if(cropDraft) dispatch({ type:'SET_CROP', origIdx:curOrigIdx, box:cropDraft })
@@ -576,9 +615,12 @@ export default function PDFEditor({ tool }:Props) {
   }
   const cancelCrop = () => { setCropMode(false); setCropDraft(null) }
 
-  /* ── NORMAL INTERACTIONS ── */
-  const handlePointerDown = useCallback((e:React.PointerEvent<SVGSVGElement>)=>{
-    svgRef.current?.setPointerCapture(e.pointerId)
+  /* ── NORMAL INTERACTIONS ─────────────────────────────────────────────────
+     pageOrigIdx: the origIdx of the page whose SVG received this event.
+     This replaces the old curOrigIdx so elements land on the correct page
+     even when the user clicks a page that isn't the "active" one.           */
+  const handlePointerDown = useCallback((e:React.PointerEvent<SVGSVGElement>, pageOrigIdx:number)=>{
+    e.currentTarget.setPointerCapture(e.pointerId)
     const {mx,my,px,py}=getSvgPos(e)
     const tgt=e.target as SVGElement
     const handle=tgt.getAttribute('data-handle')
@@ -597,6 +639,11 @@ export default function PDFEditor({ tool }:Props) {
       }
       if(elId){
         const isShift=e.shiftKey
+        // Second click on an already-selected text element → open in-place editor
+        if(!isShift && selIds.length===1 && selIds[0]===elId){
+          const el=state.elements.find(e=>e.id===elId)
+          if(el?.kind==='text'){ setEditTextId(elId); return }
+        }
         const newSel = isShift
           ? (selIds.includes(elId) ? selIds.filter(id=>id!==elId) : [...selIds, elId])
           : (selIds.includes(elId) ? selIds : [elId])
@@ -613,20 +660,20 @@ export default function PDFEditor({ tool }:Props) {
         return
       }
       setSelIds([]); setEditTextId(null)
-      setRubber({ sx:px, sy:py, x:px, y:py, w:0, h:0 })
+      setRubber({ sx:px, sy:py, x:px, y:py, w:0, h:0, origIdx:pageOrigIdx })
       return
     }
 
     if(active==='text'){
-      const newEl:AnyEl = { id:uid(), kind:'text', pageIndex:curOrigIdx, x:px, y:py, w:200, h:fontSize*2, opacity:1,
+      const newEl:AnyEl = { id:uid(), kind:'text', pageIndex:pageOrigIdx, x:px, y:py, w:200, h:fontSize*2, opacity:1,
         content:'Text', fontSize, fontFamily, color:drawColor, bold:false, italic:false, underline:false, align:'left' }
       dispatch({ type:'ADD_EL', el:newEl })
       setSelIds([newEl.id]); setEditTextId(newEl.id); setActive('select')
       return
     }
-    if(active==='draw'){ setDraft({ sx:px, sy:py, x:px, y:py, w:0, h:0, pts:[{x:px,y:py}] }); return }
-    setDraft({ sx:px, sy:py, x:px, y:py, w:0, h:0 })
-  },[active, selIds, state.elements, state.watermark, state.pageNumbers, curOrigIdx, scale, fontSize, fontFamily, drawColor, getSvgPos])
+    if(active==='draw'){ setDraft({ sx:px, sy:py, x:px, y:py, w:0, h:0, pts:[{x:px,y:py}], origIdx:pageOrigIdx }); return }
+    setDraft({ sx:px, sy:py, x:px, y:py, w:0, h:0, origIdx:pageOrigIdx })
+  },[active, selIds, state.elements, state.watermark, state.pageNumbers, scale, fontSize, fontFamily, drawColor, getSvgPos])
 
   const handlePointerMove = useCallback((e:React.PointerEvent<SVGSVGElement>)=>{
     const {mx,my,px,py}=getSvgPos(e)
@@ -643,10 +690,11 @@ export default function PDFEditor({ tool }:Props) {
   const handlePointerUp = useCallback(()=>{
     if(wmDragRef.current){ wmDragRef.current=null; return }
     if(pnDragRef.current){ pnDragRef.current=null; return }
-    /* rubber band select */
+    /* rubber band select — use rubber.origIdx to filter elements for that page */
     if(rubber){
       if(rubber.w*scale>5 && rubber.h*scale>5){
-        const hits=curPageEls.filter(el=>overlaps(el,rubber)).map(el=>el.id)
+        const pageEls=state.elements.filter(e=>e.pageIndex===rubber.origIdx).map(displayEl)
+        const hits=pageEls.filter(el=>overlaps(el,rubber)).map(el=>el.id)
         setSelIds(hits)
       }
       setRubber(null); return
@@ -669,13 +717,14 @@ export default function PDFEditor({ tool }:Props) {
       setDrag(null); return
     }
     setDrag(null)
-    /* commit draw/shape */
+    /* commit draw/shape — use draft.origIdx (the page where the stroke started) */
     if(draft){
+      const pageOrigIdx=draft.origIdx
       if(active==='draw'){
         const pts=simplify(draft.pts??[],2)
-        if(pts.length>=2) dispatch({ type:'ADD_EL', el:{ id:uid(),kind:'draw',pageIndex:curOrigIdx,x:0,y:0,w:0,h:0,opacity:1,pts,color:drawColor,lineWidth:strokeWidth } })
+        if(pts.length>=2) dispatch({ type:'ADD_EL', el:{ id:uid(),kind:'draw',pageIndex:pageOrigIdx,x:0,y:0,w:0,h:0,opacity:1,pts,color:drawColor,lineWidth:strokeWidth } })
       } else if(draft.w*scale>5 && draft.h*scale>5){
-        const base={id:uid(),pageIndex:curOrigIdx,x:draft.x,y:draft.y,w:draft.w,h:draft.h,opacity:1}
+        const base={id:uid(),pageIndex:pageOrigIdx,x:draft.x,y:draft.y,w:draft.w,h:draft.h,opacity:1}
         let el:AnyEl|null=null
         if(active==='rect')      el={...base,kind:'rect',fill:fillColor,stroke:drawColor,strokeW:strokeWidth}
         if(active==='ellipse')   el={...base,kind:'ellipse',fill:fillColor,stroke:drawColor,strokeW:strokeWidth}
@@ -685,7 +734,7 @@ export default function PDFEditor({ tool }:Props) {
       }
       setDraft(null)
     }
-  },[drag,rubber,draft,active,scale,curOrigIdx,drawColor,fillColor,strokeWidth,curPageEls])
+  },[drag,rubber,draft,active,scale,drawColor,fillColor,strokeWidth,displayEl,state.elements])
 
   /* keyboard */
   useEffect(()=>{
@@ -693,13 +742,17 @@ export default function PDFEditor({ tool }:Props) {
       if(e.target instanceof HTMLInputElement||e.target instanceof HTMLTextAreaElement) return
       if((e.metaKey||e.ctrlKey)&&e.key==='z'){ e.preventDefault(); dispatch({type:e.shiftKey?'REDO':'UNDO'}) }
       if((e.metaKey||e.ctrlKey)&&e.key==='y'){ e.preventDefault(); dispatch({type:'REDO'}) }
-      if((e.metaKey||e.ctrlKey)&&e.key==='a'){ e.preventDefault(); setSelIds(curPageEls.map(el=>el.id)) }
+      if((e.metaKey||e.ctrlKey)&&e.key==='a'){
+        e.preventDefault()
+        const ids=state.elements.filter(el=>el.pageIndex===curOrigIdx).map(el=>el.id)
+        setSelIds(ids)
+      }
       if((e.key==='Delete'||e.key==='Backspace')&&selIds.length){ if(selIds.length===1) dispatch({type:'DELETE_EL',id:selIds[0]}); else dispatch({type:'DELETE_ELS',ids:selIds}); setSelIds([]) }
       if(e.key==='Escape'){ setSelIds([]); setEditTextId(null); setActive('select'); setCropMode(false) }
     }
     window.addEventListener('keydown',fn)
     return ()=>window.removeEventListener('keydown',fn)
-  },[selIds,curPageEls])
+  },[selIds,curOrigIdx,state.elements])
 
   /* image insert */
   const handleImageFile = useCallback((file:File)=>{
@@ -737,6 +790,7 @@ export default function PDFEditor({ tool }:Props) {
     onDrop:([file])=>{ if(!file) return; file.arrayBuffer().then(buf=>dispatch({type:'LOAD',fileName:file.name,bytes:new Uint8Array(buf),pageCount:0})) }
   })
 
+  /* sync page count once thumbnails are ready */
   useEffect(()=>{
     if(pages.length>0&&state.pageOrder.length!==pages.length&&state.originalBytes){
       dispatch({type:'LOAD',fileName:state.fileName,bytes:state.originalBytes,pageCount:pages.length})
@@ -744,16 +798,12 @@ export default function PDFEditor({ tool }:Props) {
     }
   },[pages.length]) // eslint-disable-line
 
-  /* derived — must be before any early return (rules-of-hooks) */
+  /* derived */
   const cropDisplay = cropMode && cropDraft ? cropDraft : null
-  const groupBox = useMemo(()=>{
-    const els=curPageEls.filter(el=>selIds.includes(el.id))
-    return groupBBox(els)
-  },[curPageEls,selIds])
   const toolCursor:Record<ActiveTool,string>={ select:'default',text:'text',draw:'crosshair',highlight:'crosshair',rect:'crosshair',ellipse:'crosshair',image:'copy',redact:'crosshair',signature:'default' }
 
-  /* ── DROP SCREEN ── */
-  if(!state.originalBytes||loading||pages.length===0) return (
+  /* ── DROP / LOADING SCREEN ── */
+  if(!state.originalBytes||loading||pages.length===0||state.pageOrder.length===0) return (
     <div className="min-h-[70vh] flex items-center justify-center p-8">
       <div {...getRootProps()} className={`w-full max-w-2xl border-2 border-dashed rounded-2xl p-16 text-center cursor-pointer transition-all ${isDragActive?'border-blue-500 bg-blue-500/10':'border-gray-600 hover:border-gray-400 bg-gray-900/50 hover:bg-gray-900'}`}>
         <input {...getInputProps()}/>
@@ -780,7 +830,6 @@ export default function PDFEditor({ tool }:Props) {
       {/* TOOLBAR */}
       <div className="h-12 bg-gray-900 border-b border-gray-800 flex items-center px-3 gap-1 flex-shrink-0 overflow-x-auto">
         {cropMode ? (
-          /* crop mode controls */
           <>
             <span className="text-sm text-yellow-400 font-semibold mr-2 flex items-center gap-1.5"><Crop className="w-4 h-4"/> Crop Mode — drag handles to adjust</span>
             <button onClick={applyCrop} className="flex items-center gap-1 px-3 py-1 bg-green-600 hover:bg-green-500 text-white text-sm font-semibold rounded-lg transition-colors"><Check className="w-4 h-4"/> Apply</button>
@@ -830,7 +879,7 @@ export default function PDFEditor({ tool }:Props) {
 
       <div className="flex flex-1 overflow-hidden">
 
-        {/* LEFT — page panel */}
+        {/* LEFT — page thumbnails */}
         <div className="w-44 bg-gray-900 border-r border-gray-800 overflow-y-auto flex-shrink-0 p-2 space-y-2">
           <div className="text-xs text-gray-500 font-semibold uppercase tracking-wide px-1 pt-1">Pages ({state.pageOrder.length})</div>
           {state.pageOrder.map((origIdx,dispIdx)=>{
@@ -838,13 +887,13 @@ export default function PDFEditor({ tool }:Props) {
             return (
               <div key={`${origIdx}-${dispIdx}`}
                 className={`relative rounded-lg overflow-hidden cursor-pointer border-2 transition-all group ${isCur?'border-blue-500 shadow-lg shadow-blue-900/30':'border-transparent hover:border-gray-600'}`}
-                onClick={()=>setCur(dispIdx)}>
+                onClick={()=>scrollToPage(dispIdx)}>
                 {pg?.thumb ? <img src={pg.thumb} alt={`Page ${dispIdx+1}`} className="w-full block"/> : <div className="w-full h-24 bg-gray-800 flex items-center justify-center text-gray-600 text-xs">?</div>}
                 {state.cropBoxes[origIdx] && <div className="absolute top-1 left-1 bg-yellow-600/80 text-white text-[10px] px-1 rounded">Cropped</div>}
                 <div className="absolute bottom-0 inset-x-0 bg-gray-900/80 text-center text-xs py-0.5 text-gray-300">{dispIdx+1}</div>
-                <div className={`absolute top-1 right-1 flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity`}>
-                  <button title="Up" disabled={dispIdx===0} onClick={e=>{e.stopPropagation();dispatch({type:'MOVE_PAGE',from:dispIdx,to:dispIdx-1});setCur(dispIdx-1)}} className="w-5 h-5 bg-gray-800/90 hover:bg-gray-700 rounded flex items-center justify-center disabled:opacity-30"><ChevronUp className="w-3 h-3"/></button>
-                  <button title="Down" disabled={dispIdx===state.pageOrder.length-1} onClick={e=>{e.stopPropagation();dispatch({type:'MOVE_PAGE',from:dispIdx,to:dispIdx+1});setCur(dispIdx+1)}} className="w-5 h-5 bg-gray-800/90 hover:bg-gray-700 rounded flex items-center justify-center disabled:opacity-30"><ChevronDown className="w-3 h-3"/></button>
+                <div className="absolute top-1 right-1 flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button title="Up" disabled={dispIdx===0} onClick={e=>{e.stopPropagation();dispatch({type:'MOVE_PAGE',from:dispIdx,to:dispIdx-1});scrollToPage(dispIdx-1)}} className="w-5 h-5 bg-gray-800/90 hover:bg-gray-700 rounded flex items-center justify-center disabled:opacity-30"><ChevronUp className="w-3 h-3"/></button>
+                  <button title="Down" disabled={dispIdx===state.pageOrder.length-1} onClick={e=>{e.stopPropagation();dispatch({type:'MOVE_PAGE',from:dispIdx,to:dispIdx+1});scrollToPage(dispIdx+1)}} className="w-5 h-5 bg-gray-800/90 hover:bg-gray-700 rounded flex items-center justify-center disabled:opacity-30"><ChevronDown className="w-3 h-3"/></button>
                   <button title="Delete" disabled={state.pageOrder.length===1} onClick={e=>{e.stopPropagation();dispatch({type:'DELETE_PAGE',origIdx});setCur(Math.min(dispIdx,state.pageOrder.length-2))}} className="w-5 h-5 bg-red-900/80 hover:bg-red-700 rounded flex items-center justify-center disabled:opacity-30"><X className="w-3 h-3"/></button>
                 </div>
               </div>
@@ -852,139 +901,193 @@ export default function PDFEditor({ tool }:Props) {
           })}
         </div>
 
-        {/* CENTER — canvas */}
-        <div className="flex-1 overflow-auto bg-[#1a1a2e] p-8">
-          <div className="flex justify-center">
-            <div className="relative shadow-2xl" style={{width:pageW,height:pageH,background:state.backgrounds[curOrigIdx]||'white'}}>
-              <canvas ref={canvasRef} className="absolute inset-0 block"/>
-              <svg ref={svgRef} className="absolute inset-0 touch-none" width={pageW} height={pageH}
-                style={{cursor:cropMode?'crosshair':toolCursor[active]}}
-                onPointerDown={cropMode?handleCropDown:handlePointerDown}
-                onPointerMove={cropMode?handleCropMove:handlePointerMove}
-                onPointerUp={cropMode?handleCropUp:handlePointerUp}>
+        {/* CENTER — all pages stacked, smooth scroll */}
+        <div ref={scrollContainerRef} className="flex-1 overflow-auto bg-[#1a1a2e] py-10 px-4">
+          <div className="flex flex-col items-center gap-10">
+            {state.pageOrder.map((origIdx,dispIdx)=>{
+              const pi=pages[origIdx]
+              const pw=(pi?.w??612)*scale
+              const ph=(pi?.h??792)*scale
+              const isCurPage=dispIdx===curDispIdx
+              const isCropActivePage=cropMode&&isCurPage
 
-                {/* elements */}
-                {curPageEls.map(el=>(
-                  <ElRenderer key={el.id} el={el} s={scale}
-                    selected={selIds.includes(el.id)}
-                    onSelect={()=>{ if(active==='select') setSelIds(s=>s.includes(el.id)?s:[el.id]) }}
-                    onDblClick={()=>{ if(el.kind==='text'){setSelIds([el.id]);setEditTextId(el.id)} }}/>
-                ))}
+              // per-page elements with live drag offset
+              const pageEls=state.elements.filter(e=>e.pageIndex===origIdx).map(displayEl)
+              // selection box covers only elements on this page
+              const pageGroupBox=groupBBox(pageEls.filter(el=>selIds.includes(el.id)))
+              // rubber band and draft only appear on the page where the interaction started
+              const pageRubber=rubber?.origIdx===origIdx?rubber:null
+              const pageDraft=draft?.origIdx===origIdx?draft:null
 
-                {/* selection box */}
-                {groupBox && selIds.length>0 && (
-                  <SelectionBox bbox={groupBox} s={scale} showHandles={selIds.length===1 && selectedEl?.kind!=='draw'}/>
-                )}
+              return (
+                <div key={`${origIdx}-${dispIdx}`}
+                  data-dispidx={dispIdx}
+                  ref={el=>{
+                    if(el) pageContainerRefs.current.set(dispIdx,el)
+                    else pageContainerRefs.current.delete(dispIdx)
+                  }}
+                  className={`relative flex-shrink-0 shadow-2xl transition-all duration-150 ${isCurPage?'ring-2 ring-blue-500/50':'ring-1 ring-white/5'}`}
+                  style={{width:pw,height:ph,background:state.backgrounds[origIdx]||'white'}}>
 
-                {/* rubber band */}
-                {rubber && rubber.w>0 && rubber.h>0 && (
-                  <rect x={rubber.x*scale} y={rubber.y*scale} width={rubber.w*scale} height={rubber.h*scale}
-                    fill="rgba(59,130,246,0.1)" stroke="#3B82F6" strokeWidth={1.5} strokeDasharray="4 2" pointerEvents="none"/>
-                )}
+                  {/* PDF canvas */}
+                  <canvas className="absolute inset-0 block"
+                    ref={el=>{
+                      if(el&&!pageCanvasRefs.current.has(dispIdx)){
+                        pageCanvasRefs.current.set(dispIdx,el)
+                        setCanvasesReady(c=>c+1)
+                      } else if(!el){
+                        pageCanvasRefs.current.delete(dispIdx)
+                      }
+                    }}
+                  />
 
-                {/* draw draft */}
-                {draft && active==='draw' && draft.pts && draft.pts.length>1 && (
-                  <polyline points={draft.pts.map(p=>`${p.x*scale},${p.y*scale}`).join(' ')}
-                    fill="none" stroke={drawColor} strokeWidth={strokeWidth*scale}
-                    strokeLinecap="round" strokeLinejoin="round" opacity={0.9} pointerEvents="none"/>
-                )}
-                {/* shape draft */}
-                {draft && draft.w*scale>2 && draft.h*scale>2 && active!=='draw' && (
-                  active==='ellipse'
-                    ? <ellipse cx={(draft.x+draft.w/2)*scale} cy={(draft.y+draft.h/2)*scale} rx={draft.w*scale/2} ry={draft.h*scale/2} fill={fillColor==='transparent'?'none':fillColor} stroke={drawColor} strokeWidth={strokeWidth*scale} opacity={0.7} pointerEvents="none"/>
-                    : <rect x={draft.x*scale} y={draft.y*scale} width={draft.w*scale} height={draft.h*scale}
-                        fill={active==='highlight'?'#FFD700':active==='redact'?'#000':(fillColor==='transparent'?'none':fillColor)}
-                        stroke={active==='highlight'||active==='redact'?'none':drawColor}
-                        strokeWidth={strokeWidth*scale} strokeDasharray={active==='rect'?'4 2':undefined}
-                        opacity={active==='redact'?0.8:0.6} pointerEvents="none"/>
-                )}
+                  {/* SVG editing overlay */}
+                  <svg className="absolute inset-0 touch-none" width={pw} height={ph}
+                    style={{cursor:isCropActivePage?'crosshair':toolCursor[active]}}
+                    onPointerDown={isCropActivePage?handleCropDown:(e=>handlePointerDown(e,origIdx))}
+                    onPointerMove={isCropActivePage?handleCropMove:handlePointerMove}
+                    onPointerUp={isCropActivePage?handleCropUp:handlePointerUp}>
 
-                {/* crop overlay */}
-                {cropDisplay && (() => {
-                  const {x,y,w,h}=cropDisplay; const s=scale
-                  const hx=(id:Handle)=>id.includes('e')?(x+w)*s:id.includes('w')?x*s:(x+w/2)*s
-                  const hy=(id:Handle)=>id.includes('s')?(y+h)*s:id.includes('n')?y*s:(y+h/2)*s
-                  return (
-                    <g>
-                      <rect x={0} y={0} width={pageW} height={y*s} fill="rgba(0,0,0,0.55)" pointerEvents="none"/>
-                      <rect x={0} y={(y+h)*s} width={pageW} height={pageH-(y+h)*s} fill="rgba(0,0,0,0.55)" pointerEvents="none"/>
-                      <rect x={0} y={y*s} width={x*s} height={h*s} fill="rgba(0,0,0,0.55)" pointerEvents="none"/>
-                      <rect x={(x+w)*s} y={y*s} width={pageW-(x+w)*s} height={h*s} fill="rgba(0,0,0,0.55)" pointerEvents="none"/>
-                      <rect x={x*s} y={y*s} width={w*s} height={h*s} fill="none" stroke="white" strokeWidth={2} pointerEvents="none"/>
-                      {[1/3,2/3].map(f=>(
-                        <React.Fragment key={f}>
-                          <line x1={(x+w*f)*s} y1={y*s} x2={(x+w*f)*s} y2={(y+h)*s} stroke="rgba(255,255,255,0.25)" strokeWidth={1} pointerEvents="none"/>
-                          <line x1={x*s} y1={(y+h*f)*s} x2={(x+w)*s} y2={(y+h*f)*s} stroke="rgba(255,255,255,0.25)" strokeWidth={1} pointerEvents="none"/>
-                        </React.Fragment>
-                      ))}
-                      {HANDLES.map(id=>(
-                        <rect key={id} x={hx(id)-5} y={hy(id)-5} width={10} height={10}
-                          fill="white" stroke="#3B82F6" strokeWidth={1.5} rx={1}
-                          style={{cursor:`${id}-resize`,pointerEvents:'all'}} data-crophandle={id}/>
-                      ))}
-                    </g>
-                  )
-                })()}
-                {/* watermark overlay — drag to reposition */}
-                {state.watermark.enabled && state.watermark.text && (
-                  <g transform={`translate(${state.watermark.x*pageW},${state.watermark.y*pageH}) rotate(${state.watermark.rotation})`}>
-                    <text x={0} y={0} textAnchor="middle" dominantBaseline="middle"
-                      fontSize={state.watermark.size*scale} fill={state.watermark.color}
-                      opacity={state.watermark.opacity} pointerEvents="none">
-                      {state.watermark.text}
-                    </text>
-                    <rect
-                      x={-(state.watermark.text.length*state.watermark.size*scale*0.32)}
-                      y={-(state.watermark.size*scale*0.65)}
-                      width={state.watermark.text.length*state.watermark.size*scale*0.64}
-                      height={state.watermark.size*scale*1.3}
-                      fill="transparent" stroke="#3B82F6" strokeWidth={1.5} strokeDasharray="4 2" opacity={0.7}
-                      style={{cursor:'move'}} data-wmhandle="true"/>
-                  </g>
-                )}
+                    {/* elements for this page */}
+                    {pageEls.map(el=>(
+                      <ElRenderer key={el.id} el={el} s={scale}
+                        selected={selIds.includes(el.id)}
+                        onSelect={()=>{
+                          if(active==='select'){
+                            // Second click on a selected text element → enter in-place edit
+                            if(selIds.length===1&&selIds[0]===el.id&&el.kind==='text'){
+                              setEditTextId(el.id)
+                            } else {
+                              setSelIds(s=>s.includes(el.id)?s:[el.id])
+                            }
+                          }
+                        }}
+                        onDblClick={()=>{ if(el.kind==='text'){setSelIds([el.id]);setEditTextId(el.id)} }}/>
+                    ))}
 
-                {/* page number overlay — drag to reposition */}
-                {state.pageNumbers.enabled && (
-                  <g transform={`translate(${state.pageNumbers.x*pageW},${state.pageNumbers.y*pageH})`}>
-                    <text x={0} y={0} textAnchor="middle" dominantBaseline="middle"
-                      fontSize={state.pageNumbers.size*scale} fill={state.pageNumbers.color}
-                      pointerEvents="none">
-                      {state.pageNumbers.showTotal?`${curDispIdx+state.pageNumbers.start} / ${state.pageOrder.length}`:`${curDispIdx+state.pageNumbers.start}`}
-                    </text>
-                    <rect
-                      x={-50} y={-(state.pageNumbers.size*scale*0.75)}
-                      width={100} height={state.pageNumbers.size*scale*1.5}
-                      fill="transparent" stroke="#22C55E" strokeWidth={1.5} strokeDasharray="4 2" opacity={0.7}
-                      style={{cursor:'move'}} data-pnhandle="true"/>
-                  </g>
-                )}
+                    {/* selection box */}
+                    {pageGroupBox && selIds.some(id=>pageEls.find(e=>e.id===id)) && (
+                      <SelectionBox bbox={pageGroupBox} s={scale} showHandles={selIds.length===1&&selectedEl?.kind!=='draw'}/>
+                    )}
 
-              </svg>
+                    {/* rubber band selection */}
+                    {pageRubber&&pageRubber.w>0&&pageRubber.h>0&&(
+                      <rect x={pageRubber.x*scale} y={pageRubber.y*scale} width={pageRubber.w*scale} height={pageRubber.h*scale}
+                        fill="rgba(59,130,246,0.1)" stroke="#3B82F6" strokeWidth={1.5} strokeDasharray="4 2" pointerEvents="none"/>
+                    )}
 
-              {/* inline text editor */}
-              {editTextId && (()=>{
-                const el=state.elements.find(e=>e.id===editTextId)
-                if(!el||el.kind!=='text') return null
-                return (
-                  <textarea className="absolute border-0 outline-none resize-none bg-transparent leading-none p-0"
-                    style={{ left:el.x*scale+2, top:el.y*scale, width:el.w*scale, minHeight:el.h*scale,
-                      fontSize:el.fontSize*scale,
-                      fontFamily:el.fontFamily==='serif'?'Georgia,serif':el.fontFamily==='mono'?'monospace':'system-ui,sans-serif',
-                      fontWeight:el.bold?'bold':'normal', fontStyle:el.italic?'italic':'normal',
-                      color:el.color, textAlign:el.align, lineHeight:1.3, padding:'0 2px', zIndex:50,
-                      caretColor:el.color, background:'rgba(59,130,246,0.05)' }}
-                    value={el.content}
-                    onChange={ev=>dispatch({type:'UPDATE_EL',id:editTextId,patch:{content:ev.target.value}})}
-                    onBlur={()=>setEditTextId(null)}
-                    onKeyDown={ev=>{ if(ev.key==='Escape') setEditTextId(null) }}
-                    autoFocus/>
-                )
-              })()}
-            </div>
+                    {/* draw draft */}
+                    {pageDraft&&active==='draw'&&pageDraft.pts&&pageDraft.pts.length>1&&(
+                      <polyline points={pageDraft.pts.map(p=>`${p.x*scale},${p.y*scale}`).join(' ')}
+                        fill="none" stroke={drawColor} strokeWidth={strokeWidth*scale}
+                        strokeLinecap="round" strokeLinejoin="round" opacity={0.9} pointerEvents="none"/>
+                    )}
+
+                    {/* shape draft */}
+                    {pageDraft&&pageDraft.w*scale>2&&pageDraft.h*scale>2&&active!=='draw'&&(
+                      active==='ellipse'
+                        ?<ellipse cx={(pageDraft.x+pageDraft.w/2)*scale} cy={(pageDraft.y+pageDraft.h/2)*scale} rx={pageDraft.w*scale/2} ry={pageDraft.h*scale/2} fill={fillColor==='transparent'?'none':fillColor} stroke={drawColor} strokeWidth={strokeWidth*scale} opacity={0.7} pointerEvents="none"/>
+                        :<rect x={pageDraft.x*scale} y={pageDraft.y*scale} width={pageDraft.w*scale} height={pageDraft.h*scale}
+                            fill={active==='highlight'?'#FFD700':active==='redact'?'#000':(fillColor==='transparent'?'none':fillColor)}
+                            stroke={active==='highlight'||active==='redact'?'none':drawColor}
+                            strokeWidth={strokeWidth*scale} strokeDasharray={active==='rect'?'4 2':undefined}
+                            opacity={active==='redact'?0.8:0.6} pointerEvents="none"/>
+                    )}
+
+                    {/* crop overlay — only on the active crop page */}
+                    {isCropActivePage&&cropDisplay&&(()=>{
+                      const {x,y,w,h}=cropDisplay; const s=scale
+                      const hx=(id:Handle)=>id.includes('e')?(x+w)*s:id.includes('w')?x*s:(x+w/2)*s
+                      const hy=(id:Handle)=>id.includes('s')?(y+h)*s:id.includes('n')?y*s:(y+h/2)*s
+                      return (
+                        <g>
+                          <rect x={0} y={0} width={pw} height={y*s} fill="rgba(0,0,0,0.55)" pointerEvents="none"/>
+                          <rect x={0} y={(y+h)*s} width={pw} height={ph-(y+h)*s} fill="rgba(0,0,0,0.55)" pointerEvents="none"/>
+                          <rect x={0} y={y*s} width={x*s} height={h*s} fill="rgba(0,0,0,0.55)" pointerEvents="none"/>
+                          <rect x={(x+w)*s} y={y*s} width={pw-(x+w)*s} height={h*s} fill="rgba(0,0,0,0.55)" pointerEvents="none"/>
+                          <rect x={x*s} y={y*s} width={w*s} height={h*s} fill="none" stroke="white" strokeWidth={2} pointerEvents="none"/>
+                          {[1/3,2/3].map(f=>(
+                            <React.Fragment key={f}>
+                              <line x1={(x+w*f)*s} y1={y*s} x2={(x+w*f)*s} y2={(y+h)*s} stroke="rgba(255,255,255,0.25)" strokeWidth={1} pointerEvents="none"/>
+                              <line x1={x*s} y1={(y+h*f)*s} x2={(x+w)*s} y2={(y+h*f)*s} stroke="rgba(255,255,255,0.25)" strokeWidth={1} pointerEvents="none"/>
+                            </React.Fragment>
+                          ))}
+                          {HANDLES.map(id=>(
+                            <rect key={id} x={hx(id)-5} y={hy(id)-5} width={10} height={10}
+                              fill="white" stroke="#3B82F6" strokeWidth={1.5} rx={1}
+                              style={{cursor:`${id}-resize`,pointerEvents:'all'}} data-crophandle={id}/>
+                          ))}
+                        </g>
+                      )
+                    })()}
+
+                    {/* watermark — draggable, shown on active page only */}
+                    {isCurPage&&state.watermark.enabled&&state.watermark.text&&(
+                      <g transform={`translate(${state.watermark.x*pw},${state.watermark.y*ph}) rotate(${state.watermark.rotation})`}>
+                        <text x={0} y={0} textAnchor="middle" dominantBaseline="middle"
+                          fontSize={state.watermark.size*scale} fill={state.watermark.color}
+                          opacity={state.watermark.opacity} pointerEvents="none">
+                          {state.watermark.text}
+                        </text>
+                        <rect
+                          x={-(state.watermark.text.length*state.watermark.size*scale*0.32)}
+                          y={-(state.watermark.size*scale*0.65)}
+                          width={state.watermark.text.length*state.watermark.size*scale*0.64}
+                          height={state.watermark.size*scale*1.3}
+                          fill="transparent" stroke="#3B82F6" strokeWidth={1.5} strokeDasharray="4 2" opacity={0.7}
+                          style={{cursor:'move'}} data-wmhandle="true"/>
+                      </g>
+                    )}
+
+                    {/* page number — draggable, shown on active page only */}
+                    {isCurPage&&state.pageNumbers.enabled&&(
+                      <g transform={`translate(${state.pageNumbers.x*pw},${state.pageNumbers.y*ph})`}>
+                        <text x={0} y={0} textAnchor="middle" dominantBaseline="middle"
+                          fontSize={state.pageNumbers.size*scale} fill={state.pageNumbers.color}
+                          pointerEvents="none">
+                          {state.pageNumbers.showTotal?`${dispIdx+state.pageNumbers.start} / ${state.pageOrder.length}`:`${dispIdx+state.pageNumbers.start}`}
+                        </text>
+                        <rect
+                          x={-50} y={-(state.pageNumbers.size*scale*0.75)}
+                          width={100} height={state.pageNumbers.size*scale*1.5}
+                          fill="transparent" stroke="#22C55E" strokeWidth={1.5} strokeDasharray="4 2" opacity={0.7}
+                          style={{cursor:'move'}} data-pnhandle="true"/>
+                      </g>
+                    )}
+
+                  </svg>
+
+                  {/* in-place text editor — only for elements on this page */}
+                  {editTextId&&(()=>{
+                    const el=state.elements.find(e=>e.id===editTextId)
+                    if(!el||el.kind!=='text'||el.pageIndex!==origIdx) return null
+                    const ff=el.fontFamily==='serif'?'Georgia,serif':el.fontFamily==='mono'?'monospace':'system-ui,sans-serif'
+                    return (
+                      <textarea className="absolute border-0 outline-none resize-none bg-transparent leading-none p-0"
+                        style={{ left:el.x*scale+2, top:el.y*scale, width:el.w*scale, minHeight:el.h*scale,
+                          fontSize:el.fontSize*scale, fontFamily:ff,
+                          fontWeight:el.bold?'bold':'normal', fontStyle:el.italic?'italic':'normal',
+                          color:el.color, textAlign:el.align, lineHeight:1.3, padding:'0 2px', zIndex:50,
+                          caretColor:el.color, background:'rgba(59,130,246,0.05)' }}
+                        value={el.content}
+                        onChange={ev=>dispatch({type:'UPDATE_EL',id:editTextId,patch:{content:ev.target.value}})}
+                        onBlur={()=>setEditTextId(null)}
+                        onKeyDown={ev=>{ if(ev.key==='Escape') setEditTextId(null) }}
+                        autoFocus/>
+                    )
+                  })()}
+
+                  {/* page label below */}
+                  <div className="absolute -bottom-7 inset-x-0 text-center text-xs text-gray-500 select-none pointer-events-none">
+                    {dispIdx+1} / {state.pageOrder.length}
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </div>
 
-        {/* RIGHT — properties */}
+        {/* RIGHT — properties panel */}
         <div className="w-60 bg-gray-900 border-l border-gray-800 overflow-y-auto flex-shrink-0">
           <PropsPanel
             selected={selectedEl} selCount={selIds.length}
@@ -1000,7 +1103,7 @@ export default function PDFEditor({ tool }:Props) {
         </div>
       </div>
 
-      {showSig && (
+      {showSig&&(
         <SignaturePad
           onInsert={dataUrl=>{
             setShowSig(false)
