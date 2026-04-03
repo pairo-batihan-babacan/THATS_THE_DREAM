@@ -1668,8 +1668,9 @@ function FileToolInterface({
   const [outputUrl, setOutputUrl]   = useState('')
   const [outputExt, setOutputExt]   = useState('')
   const [errorMsg, setErrorMsg]     = useState('')
-  const [ocrText, setOcrText]       = useState<string | null>(null)
-  const [ocrCopied, setOcrCopied]   = useState(false)
+  const [ocrText, setOcrText]         = useState<string | null>(null)
+  const [ocrCopied, setOcrCopied]     = useState(false)
+  const [imgPreviewUrl, setImgPreviewUrl] = useState('')
   const progressInterval = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
@@ -1857,6 +1858,9 @@ function FileToolInterface({
       setProgress(100)
       if (tool.id === 'ocr-image-to-text' || tool.id === 'pdf-ocr') {
         blob.text().then(setOcrText)
+        if (tool.id === 'ocr-image-to-text' && files[0]) {
+          setImgPreviewUrl(URL.createObjectURL(files[0]))
+        }
       }
       setTimeout(() => setStage('done'), 250)
     } catch (err) {
@@ -1869,6 +1873,7 @@ function FileToolInterface({
   const reset = useCallback(() => {
     if (progressInterval.current) clearInterval(progressInterval.current)
     if (outputUrl) URL.revokeObjectURL(outputUrl)
+    if (imgPreviewUrl) URL.revokeObjectURL(imgPreviewUrl)
     setStage('idle')
     setFiles([])
     setProgress(0)
@@ -1879,8 +1884,9 @@ function FileToolInterface({
     setErrorMsg('')
     setOcrText(null)
     setOcrCopied(false)
+    setImgPreviewUrl('')
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [outputUrl])
+  }, [outputUrl, imgPreviewUrl])
 
   const resolvedExt = outputExt || getOutputExtension(tool)
   const outputName =
@@ -2179,30 +2185,70 @@ function FileToolInterface({
                 )}
                 {!outputBlob && <div className="mb-7" />}
 
-                {/* ── OCR result: text preview + copy ── */}
+                {/* ── OCR result ── */}
                 {ocrText !== null && (
-                  <div className="mt-4 mb-6 text-left">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-xs text-gray-500 font-medium uppercase tracking-wide">Extracted text</span>
-                      <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(ocrText)
-                          setOcrCopied(true)
-                          setTimeout(() => setOcrCopied(false), 2000)
-                        }}
-                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-gray-700/60 transition-colors"
-                      >
-                        <Copy className="w-3.5 h-3.5" />
-                        {ocrCopied ? 'Copied!' : 'Copy'}
-                      </button>
+                  tool.id === 'ocr-image-to-text' && imgPreviewUrl ? (
+                    /* Side-by-side: source image + extracted text */
+                    <div className="mt-5 mb-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+                      {/* Source image */}
+                      <div className="flex flex-col">
+                        <span className="text-xs text-gray-500 font-medium uppercase tracking-wide block mb-1.5">Source</span>
+                        <div className="flex-1 rounded-xl overflow-hidden border border-gray-700 bg-gray-950 flex items-center justify-center min-h-[16rem]">
+                          <img
+                            src={imgPreviewUrl}
+                            alt="Source"
+                            className="max-h-72 w-full object-contain"
+                          />
+                        </div>
+                      </div>
+                      {/* Extracted text */}
+                      <div className="flex flex-col">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-xs text-gray-500 font-medium uppercase tracking-wide">Extracted text</span>
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(ocrText)
+                              setOcrCopied(true)
+                              setTimeout(() => setOcrCopied(false), 2000)
+                            }}
+                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-gray-700/60 transition-colors"
+                          >
+                            <Copy className="w-3.5 h-3.5" />
+                            {ocrCopied ? 'Copied!' : 'Copy'}
+                          </button>
+                        </div>
+                        <textarea
+                          readOnly
+                          value={ocrText}
+                          className="flex-1 min-h-[16rem] w-full rounded-xl bg-gray-950 border border-gray-700 text-gray-200 text-sm font-mono p-4 resize-y focus:outline-none focus:border-gray-500 leading-relaxed"
+                        />
+                      </div>
                     </div>
-                    <textarea
-                      readOnly
-                      value={ocrText}
-                      rows={10}
-                      className="w-full rounded-xl bg-gray-950 border border-gray-700 text-gray-200 text-sm font-mono p-4 resize-y focus:outline-none focus:border-gray-500 leading-relaxed"
-                    />
-                  </div>
+                  ) : (
+                    /* pdf-ocr: text only */
+                    <div className="mt-4 mb-6 text-left">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-xs text-gray-500 font-medium uppercase tracking-wide">Extracted text</span>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(ocrText)
+                            setOcrCopied(true)
+                            setTimeout(() => setOcrCopied(false), 2000)
+                          }}
+                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-gray-700/60 transition-colors"
+                        >
+                          <Copy className="w-3.5 h-3.5" />
+                          {ocrCopied ? 'Copied!' : 'Copy'}
+                        </button>
+                      </div>
+                      <textarea
+                        readOnly
+                        value={ocrText}
+                        rows={10}
+                        className="w-full rounded-xl bg-gray-950 border border-gray-700 text-gray-200 text-sm font-mono p-4 resize-y focus:outline-none focus:border-gray-500 leading-relaxed"
+                      />
+                    </div>
+                  )
                 )}
 
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
