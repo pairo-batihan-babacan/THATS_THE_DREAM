@@ -1,8 +1,9 @@
 'use client'
 
-import React, { Fragment } from 'react'
+import React, { Fragment, useState, useRef, useMemo, useEffect } from 'react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
+import { useRouter } from 'next/navigation'
 import { motion, useScroll, useTransform } from 'framer-motion'
 import type { LucideIcon } from 'lucide-react'
 import {
@@ -13,13 +14,27 @@ import {
   PenLine,
   ArrowRight,
   Zap,
+  Search,
+  X,
 } from 'lucide-react'
+import { tools } from '@/lib/tools-registry'
+import { totalToolCount } from '@/lib/tool-categories'
+import { ToolIcon } from '@/components/ToolIcon'
 
 // Below-fold sections are code-split into a separate bundle
 const BelowFold = dynamic(() => import('./BelowFold'), {
   ssr: false,
   loading: () => <div className="min-h-[200vh]" aria-hidden />,
 })
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function hexToRgb(hex: string) {
+  const r = parseInt(hex.slice(1, 3), 16)
+  const g = parseInt(hex.slice(3, 5), 16)
+  const b = parseInt(hex.slice(5, 7), 16)
+  return `${r}, ${g}, ${b}`
+}
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -40,6 +55,57 @@ function HeroSection() {
   const blob1Y = useTransform(scrollY, [0, 600], [0, -70])
   const blob2Y = useTransform(scrollY, [0, 600], [0, -45])
   const blob3Y = useTransform(scrollY, [0, 600], [0, -25])
+
+  const router      = useRouter()
+  const [query, setQuery]       = useState('')
+  const [open, setOpen]         = useState(false)
+  const [activeIdx, setActiveIdx] = useState(-1)
+  const inputRef    = useRef<HTMLInputElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  const results = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return []
+    return tools
+      .filter(t => !t.comingSoon && (
+        t.name.toLowerCase().includes(q) || t.description.toLowerCase().includes(q)
+      ))
+      .slice(0, 6)
+  }, [query])
+
+  const showDropdown = open && results.length > 0
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (
+        !inputRef.current?.contains(e.target as Node) &&
+        !dropdownRef.current?.contains(e.target as Node)
+      ) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      if (showDropdown) setActiveIdx(i => Math.min(i + 1, results.length - 1))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setActiveIdx(i => Math.max(i - 1, -1))
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      if (activeIdx >= 0 && results[activeIdx]) {
+        router.push(results[activeIdx].route)
+        setOpen(false)
+      } else if (query.trim()) {
+        router.push(`/tools?q=${encodeURIComponent(query.trim())}`)
+        setOpen(false)
+      }
+    } else if (e.key === 'Escape') {
+      setOpen(false)
+    }
+  }
 
   return (
     <section className="relative min-h-[92vh] flex items-center justify-center overflow-hidden bg-gray-50 dark:bg-gray-950 px-4 py-20">
@@ -137,11 +203,83 @@ function HeroSection() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.72 }}
-          className="text-gray-600 dark:text-gray-400 text-lg sm:text-xl max-w-2xl mx-auto mb-9 leading-relaxed"
+          className="text-gray-600 dark:text-gray-400 text-lg sm:text-xl max-w-2xl mx-auto mb-7 leading-relaxed"
         >
           Free, fast PDF tools — no accounts, no tracking, no premium tiers.
           Just drag, drop, and done.
         </motion.p>
+
+        {/* Search bar */}
+        <motion.div
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.55, delay: 0.78 }}
+          className="relative max-w-xl mx-auto mb-8"
+        >
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+            <input
+              ref={inputRef}
+              type="text"
+              placeholder={`Search ${totalToolCount} tools…`}
+              value={query}
+              onChange={e => { setQuery(e.target.value); setActiveIdx(-1); setOpen(true) }}
+              onFocus={() => setOpen(true)}
+              onKeyDown={handleKeyDown}
+              className="w-full pl-11 pr-10 py-3.5 rounded-xl bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/15 transition-all text-sm shadow-sm"
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => { setQuery(''); setActiveIdx(-1); inputRef.current?.focus() }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                aria-label="Clear search"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          {showDropdown && (
+            <div
+              ref={dropdownRef}
+              className="absolute top-full left-0 right-0 mt-1.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-xl dark:shadow-black/50 overflow-hidden z-50 text-left"
+            >
+              {results.map((tool, i) => (
+                <Link
+                  key={tool.id}
+                  href={tool.route}
+                  onClick={() => setOpen(false)}
+                  onMouseEnter={() => setActiveIdx(i)}
+                  className={`flex items-center gap-3 px-4 py-3 transition-colors ${
+                    i === activeIdx
+                      ? 'bg-gray-100 dark:bg-gray-800'
+                      : 'hover:bg-gray-50 dark:hover:bg-gray-800/60'
+                  } ${i !== results.length - 1 ? 'border-b border-gray-100 dark:border-gray-800/60' : ''}`}
+                >
+                  <div
+                    className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+                    style={{ background: `rgba(${hexToRgb(tool.color)}, 0.12)`, color: tool.color }}
+                  >
+                    <ToolIcon name={tool.icon} className="w-3.5 h-3.5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-semibold text-sm text-gray-900 dark:text-white truncate">{tool.name}</div>
+                    <div className="text-xs text-gray-500 truncate">{tool.description}</div>
+                  </div>
+                </Link>
+              ))}
+              <Link
+                href={`/tools?q=${encodeURIComponent(query.trim())}`}
+                onClick={() => setOpen(false)}
+                className="flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-semibold text-purple-500 hover:text-purple-400 hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors border-t border-gray-100 dark:border-gray-800/60"
+              >
+                See all results
+                <ArrowRight className="w-3 h-3" />
+              </Link>
+            </div>
+          )}
+        </motion.div>
 
         {/* CTAs */}
         <motion.div

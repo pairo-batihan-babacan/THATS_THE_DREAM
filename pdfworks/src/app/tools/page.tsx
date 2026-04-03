@@ -78,10 +78,13 @@ export default function AllToolsPage() {
   const [query, setQuery]         = useState('')
   const [activeCat, setActiveCat] = useState('all')
 
-  // Pre-select category from ?cat= URL param (e.g. links from homepage/navbar)
+  // Pre-select category / query from URL params (e.g. links from homepage/navbar)
   useEffect(() => {
-    const cat = new URLSearchParams(window.location.search).get('cat')
+    const params = new URLSearchParams(window.location.search)
+    const cat = params.get('cat')
+    const q   = params.get('q')
     if (cat && categories.some((c) => c.id === cat)) setActiveCat(cat)
+    if (q) setQuery(q)
   }, [])
 
   const filteredTools = useMemo(() => {
