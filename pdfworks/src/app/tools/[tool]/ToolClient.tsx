@@ -8,6 +8,7 @@ import {
   Upload, X, CheckCircle, Download, AlertCircle, Clock,
   ChevronRight, Home, ArrowLeft, Send, Bot, RotateCcw, RotateCw,
   Loader2, FileText, Zap, Shield, Trash2, Plus, Copy, Eye,
+  MapPin, Camera, SlidersHorizontal, CalendarDays, ImageIcon, AlertTriangle,
 } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import type { Tool } from '@/lib/tools-registry'
@@ -168,7 +169,7 @@ const BATCH_SUPPORTED = new Set([
   'compress-pdf', 'flatten-pdf',
   'pdf-to-word', 'word-to-pdf', 'ppt-to-pdf', 'excel-to-pdf', 'pdf-to-excel',
   'strip-metadata',
-  'image-compress', 'image-resize', 'image-convert', 'strip-exif',
+  'image-compress', 'image-resize', 'image-convert',
   'png-to-jpg', 'heic-to-jpg',
   'audio-convert', 'compress-audio', 'extract-audio',
   'video-convert', 'compress-video',
@@ -4601,6 +4602,390 @@ function WatermarkInterface({
   )
 }
 
+// ─── Strip EXIF Interface ─────────────────────────────────────────────────────
+
+type ExifField   = { label: string; value: string; sensitive?: boolean }
+type ExifSection = { id: string; label: string; Icon: React.FC<{ className?: string }>; fields: ExifField[] }
+
+function buildExifSections(raw: Record<string, unknown>): ExifSection[] {
+  const sections: ExifSection[] = []
+
+  // Location
+  const loc: ExifField[] = []
+  if (raw.latitude != null && raw.longitude != null) {
+    const lat = raw.latitude as number
+    const lng = raw.longitude as number
+    loc.push({ label: 'Latitude',  value: `${Math.abs(lat).toFixed(6)}° ${lat >= 0 ? 'N' : 'S'}`, sensitive: true })
+    loc.push({ label: 'Longitude', value: `${Math.abs(lng).toFixed(6)}° ${lng >= 0 ? 'E' : 'W'}`, sensitive: true })
+  }
+  if (raw.GPSAltitude != null)
+    loc.push({ label: 'Altitude', value: `${Math.round(raw.GPSAltitude as number)} m`, sensitive: true })
+  if (loc.length) sections.push({ id: 'location', label: 'Location', Icon: MapPin, fields: loc })
+
+  // Camera
+  const cam: ExifField[] = []
+  if (raw.Make)       cam.push({ label: 'Make',      value: String(raw.Make) })
+  if (raw.Model)      cam.push({ label: 'Model',     value: String(raw.Model) })
+  if (raw.LensModel)  cam.push({ label: 'Lens',      value: String(raw.LensModel) })
+  if (raw.Software)   cam.push({ label: 'Software',  value: String(raw.Software), sensitive: true })
+  if (raw.Artist)     cam.push({ label: 'Artist',    value: String(raw.Artist),   sensitive: true })
+  if (raw.Copyright)  cam.push({ label: 'Copyright', value: String(raw.Copyright) })
+  if (cam.length) sections.push({ id: 'camera', label: 'Camera', Icon: Camera, fields: cam })
+
+  // Capture settings
+  const cap: ExifField[] = []
+  if (raw.ExposureTime != null) {
+    const et = raw.ExposureTime as number
+    cap.push({ label: 'Shutter', value: et < 1 ? `1/${Math.round(1 / et)}s` : `${et}s` })
+  }
+  if (raw.FNumber   != null) cap.push({ label: 'Aperture',    value: `f/${(raw.FNumber as number).toFixed(1)}` })
+  if (raw.ISO       != null) cap.push({ label: 'ISO',         value: String(raw.ISO) })
+  if (raw.FocalLength != null) cap.push({ label: 'Focal Length', value: `${raw.FocalLength}mm` })
+  if (raw.Flash     != null) cap.push({ label: 'Flash',       value: raw.Flash === 0 ? 'No flash' : 'Fired' })
+  if (raw.WhiteBalance != null) cap.push({ label: 'White Balance', value: (raw.WhiteBalance as number) === 0 ? 'Auto' : 'Manual' })
+  if (cap.length) sections.push({ id: 'capture', label: 'Capture Settings', Icon: SlidersHorizontal, fields: cap })
+
+  // Date/Time
+  const dt: ExifField[] = []
+  const fmtDate = (d: unknown) => {
+    try { return new Date(d as string).toLocaleString() } catch { return String(d) }
+  }
+  if (raw.DateTimeOriginal) dt.push({ label: 'Taken',    value: fmtDate(raw.DateTimeOriginal), sensitive: true })
+  if (raw.CreateDate && raw.CreateDate !== raw.DateTimeOriginal)
+    dt.push({ label: 'Created',  value: fmtDate(raw.CreateDate), sensitive: true })
+  if (raw.ModifyDate) dt.push({ label: 'Modified', value: fmtDate(raw.ModifyDate) })
+  if (dt.length) sections.push({ id: 'datetime', label: 'Date & Time', Icon: CalendarDays, fields: dt })
+
+  // Image info
+  const img: ExifField[] = []
+  if (raw.ImageWidth && raw.ImageHeight)
+    img.push({ label: 'Dimensions', value: `${raw.ImageWidth} × ${raw.ImageHeight} px` })
+  if (raw.XResolution)
+    img.push({ label: 'Resolution', value: `${raw.XResolution} DPI` })
+  if (raw.ColorSpace != null)
+    img.push({ label: 'Color Space', value: (raw.ColorSpace as number) === 1 ? 'sRGB' : String(raw.ColorSpace) })
+  if (raw.Orientation != null) {
+    const ori: Record<number, string> = { 1:'Normal', 3:'Rotated 180°', 6:'Rotated 90° CW', 8:'Rotated 90° CCW' }
+    img.push({ label: 'Orientation', value: ori[raw.Orientation as number] ?? String(raw.Orientation) })
+  }
+  if (img.length) sections.push({ id: 'image', label: 'Image Info', Icon: ImageIcon, fields: img })
+
+  return sections
+}
+
+function StripExifInterface({
+  tool,
+  category,
+  relatedTools,
+}: {
+  tool: Tool
+  category: ToolCategory | undefined
+  relatedTools: Tool[]
+}) {
+  const rgb = hexToRgb(tool.color)
+  const [file,         setFile]         = useState<File | null>(null)
+  const [stage,        setStage]        = useState<'idle' | 'loading' | 'ready' | 'processing' | 'done' | 'error'>('idle')
+  const [sections,     setSections]     = useState<ExifSection[]>([])
+  const [outputBlob,   setOutputBlob]   = useState<Blob | null>(null)
+  const [outputUrl,    setOutputUrl]    = useState('')
+  const [imgPreviewUrl,setImgPreviewUrl]= useState('')
+  const [errorMsg,     setErrorMsg]     = useState('')
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    accept: {
+      'image/jpeg': ['.jpg', '.jpeg'],
+      'image/png':  ['.png'],
+      'image/webp': ['.webp'],
+      'image/tiff': ['.tiff', '.tif'],
+      'image/heic': ['.heic'],
+    },
+    maxFiles: 1,
+    disabled: stage === 'loading' || stage === 'processing',
+    onDrop: async (accepted) => {
+      const f = accepted[0]
+      if (!f) return
+      setFile(f)
+      setStage('loading')
+      setSections([])
+      if (imgPreviewUrl) URL.revokeObjectURL(imgPreviewUrl)
+      setImgPreviewUrl(URL.createObjectURL(f))
+
+      try {
+        const exifr = await import('exifr')
+        const raw = await exifr.parse(f, {
+          tiff: true, exif: true, gps: true, iptc: true, xmp: false,
+        }) as Record<string, unknown> | undefined
+        setSections(raw ? buildExifSections(raw) : [])
+      } catch {
+        setSections([])
+      }
+      setStage('ready')
+    },
+  })
+
+  const strip = useCallback(async () => {
+    if (!file) return
+    setStage('processing')
+    try {
+      const { stripExif } = await import('@/lib/processors/image')
+      const blob = await stripExif(file, () => {})
+      const url  = URL.createObjectURL(blob)
+      setOutputBlob(blob)
+      setOutputUrl(url)
+      setStage('done')
+    } catch (err) {
+      setErrorMsg((err as Error).message || 'Failed to strip metadata.')
+      setStage('error')
+    }
+  }, [file])
+
+  const reset = useCallback(() => {
+    if (outputUrl)     URL.revokeObjectURL(outputUrl)
+    if (imgPreviewUrl) URL.revokeObjectURL(imgPreviewUrl)
+    setFile(null); setStage('idle'); setSections([])
+    setOutputBlob(null); setOutputUrl(''); setImgPreviewUrl(''); setErrorMsg('')
+  }, [outputUrl, imgPreviewUrl])
+
+  const hasGps       = sections.some(s => s.id === 'location')
+  const totalFields  = sections.reduce((n, s) => n + s.fields.length, 0)
+  const sensitiveCount = sections.reduce((n, s) => n + s.fields.filter(f => f.sensitive).length, 0)
+  const outputName   = file ? file.name.replace(/(\.[^.]+)$/, '_clean$1') : 'clean_image.jpg'
+
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+      <Breadcrumb tool={tool} category={category} />
+
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        {/* Header */}
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
+          className="flex items-center gap-4 mb-8">
+          <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ background: `rgba(${rgb}, 0.15)`, color: tool.color }}>
+            <ToolIcon name={tool.icon} className="w-6 h-6" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-black text-gray-900 dark:text-white">{tool.name}</h1>
+            <p className="text-gray-500 text-sm mt-0.5">View and remove hidden metadata from your photos</p>
+          </div>
+        </motion.div>
+
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.08 }}
+          className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl overflow-hidden">
+
+          <AnimatePresence mode="wait">
+
+            {/* ── IDLE ── */}
+            {stage === 'idle' && (
+              <motion.div key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                {...getRootProps()}
+                className={`p-10 sm:p-14 flex flex-col items-center justify-center text-center cursor-pointer transition-colors ${
+                  isDragActive ? 'bg-green-500/5' : 'hover:bg-gray-50 dark:hover:bg-gray-800/30'
+                }`}
+              >
+                <input {...getInputProps()} />
+                <div className="w-16 h-16 rounded-2xl mb-5 flex items-center justify-center"
+                  style={{ background: `rgba(${rgb}, 0.1)`, color: tool.color }}>
+                  <Upload className="w-7 h-7" />
+                </div>
+                <p className="text-gray-900 dark:text-white font-bold text-lg mb-1">
+                  {isDragActive ? 'Drop image here' : 'Upload an image'}
+                </p>
+                <p className="text-gray-500 text-sm mb-5">
+                  JPEG, PNG, WebP, TIFF, HEIC — we&apos;ll show all hidden metadata before stripping
+                </p>
+                <span className="px-5 py-2.5 rounded-xl text-white text-sm font-bold"
+                  style={{ background: tool.color }}>
+                  Choose Image
+                </span>
+              </motion.div>
+            )}
+
+            {/* ── LOADING ── */}
+            {stage === 'loading' && (
+              <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                className="p-14 flex flex-col items-center justify-center text-center">
+                <Loader2 className="w-10 h-10 animate-spin mb-4" style={{ color: tool.color }} />
+                <p className="text-gray-900 dark:text-white font-semibold">Reading metadata…</p>
+                <p className="text-gray-500 text-sm mt-1">Scanning EXIF, GPS, and camera data</p>
+              </motion.div>
+            )}
+
+            {/* ── READY: EXIF viewer ── */}
+            {stage === 'ready' && file && (
+              <motion.div key="ready" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+
+                {/* File header bar */}
+                <div className="flex items-center gap-4 px-6 py-4 border-b border-gray-100 dark:border-gray-800">
+                  {imgPreviewUrl && (
+                    <img src={imgPreviewUrl} alt="Preview" className="w-12 h-12 rounded-lg object-cover flex-shrink-0 border border-gray-200 dark:border-gray-700" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-gray-900 dark:text-white font-semibold text-sm truncate">{file.name}</p>
+                    <p className="text-gray-500 text-xs mt-0.5">{formatBytes(file.size)}</p>
+                  </div>
+                  {totalFields > 0 ? (
+                    <div className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold"
+                      style={{ background: `rgba(${rgb}, 0.1)`, color: tool.color }}>
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                      {totalFields} metadata field{totalFields !== 1 ? 's' : ''} found
+                    </div>
+                  ) : (
+                    <div className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-green-500/10 text-green-500">
+                      <CheckCircle className="w-3.5 h-3.5" />
+                      No metadata found
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-6">
+                  {totalFields > 0 ? (
+                    <>
+                      {/* GPS warning banner */}
+                      {hasGps && (
+                        <div className="flex items-start gap-3 mb-5 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20">
+                          <MapPin className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                          <p className="text-sm text-red-400 font-medium">
+                            This image contains GPS location data. Anyone who receives this file can see exactly where it was taken.
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Sensitive field summary */}
+                      {sensitiveCount > 0 && !hasGps && (
+                        <div className="flex items-center gap-3 mb-5 px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                          <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                          <p className="text-sm text-amber-400 font-medium">
+                            {sensitiveCount} field{sensitiveCount > 1 ? 's' : ''} may contain personal information (software, dates, artist name).
+                          </p>
+                        </div>
+                      )}
+
+                      {/* EXIF sections */}
+                      <div className="space-y-4 mb-6">
+                        {sections.map(section => (
+                          <div key={section.id} className="rounded-xl border border-gray-100 dark:border-gray-800 overflow-hidden">
+                            {/* Section header */}
+                            <div className="flex items-center gap-2 px-4 py-2.5 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-800">
+                              <section.Icon className="w-3.5 h-3.5 text-gray-500" />
+                              <span className="text-xs font-bold uppercase tracking-wide text-gray-500">{section.label}</span>
+                              {section.id === 'location' && (
+                                <span className="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-400">HIGH RISK</span>
+                              )}
+                            </div>
+                            {/* Fields */}
+                            <div className="divide-y divide-gray-100 dark:divide-gray-800/60">
+                              {section.fields.map((field) => (
+                                <div key={field.label} className="flex items-center justify-between px-4 py-2.5 gap-4">
+                                  <span className="text-xs text-gray-500 flex-shrink-0">{field.label}</span>
+                                  <span className={`text-sm font-mono text-right truncate max-w-[60%] ${
+                                    field.sensitive ? 'text-amber-600 dark:text-amber-400' : 'text-gray-900 dark:text-gray-200'
+                                  }`}>{field.value}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-center py-10">
+                      <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-3" />
+                      <p className="text-gray-900 dark:text-white font-bold mb-1">No metadata found</p>
+                      <p className="text-gray-500 text-sm">This image is already clean — no EXIF, GPS, or camera data.</p>
+                    </div>
+                  )}
+
+                  {/* Actions */}
+                  <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                    <button
+                      onClick={strip}
+                      className="flex-1 inline-flex items-center justify-center gap-2 py-3.5 rounded-xl text-white text-sm font-bold transition-all hover:opacity-90 active:scale-[0.98]"
+                      style={{ background: tool.color, boxShadow: `0 4px 20px rgba(${rgb}, 0.3)` }}
+                    >
+                      <Shield className="w-4 h-4" />
+                      {totalFields > 0 ? 'Strip All Metadata' : 'Clean & Download Anyway'}
+                    </button>
+                    <button
+                      onClick={reset}
+                      className="sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl border border-gray-700 text-gray-400 hover:text-white hover:border-gray-600 text-sm font-semibold transition-colors"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                      Try another
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* ── PROCESSING ── */}
+            {stage === 'processing' && (
+              <motion.div key="processing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                className="p-14 flex flex-col items-center justify-center text-center">
+                <Loader2 className="w-10 h-10 animate-spin mb-4" style={{ color: tool.color }} />
+                <p className="text-gray-900 dark:text-white font-semibold">Stripping metadata…</p>
+                <p className="text-gray-500 text-sm mt-1">Re-encoding image without any EXIF data</p>
+              </motion.div>
+            )}
+
+            {/* ── DONE ── */}
+            {stage === 'done' && outputBlob && file && (
+              <motion.div key="done" initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
+                className="p-10 sm:p-14 text-center">
+                <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}
+                  transition={{ type: 'spring', stiffness: 220, damping: 16 }}
+                  className="w-16 h-16 rounded-full bg-green-500/15 flex items-center justify-center mx-auto mb-5">
+                  <CheckCircle className="w-8 h-8 text-green-400" />
+                </motion.div>
+                <h2 className="text-gray-900 dark:text-white font-black text-xl mb-2">All clean!</h2>
+                <p className="text-gray-400 text-sm mb-1">Metadata has been completely removed.</p>
+                <p className="text-xs text-gray-600 mb-8 flex items-center justify-center gap-1.5">
+                  <span>{formatBytes(file.size)}</span>
+                  <span className="text-gray-700">→</span>
+                  <span className="text-gray-400">{formatBytes(outputBlob.size)}</span>
+                </p>
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                  <a href={outputUrl} download={outputName}
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl text-white font-bold text-sm transition-all hover:opacity-90 active:scale-[0.98]"
+                    style={{ background: tool.color, boxShadow: `0 4px 24px rgba(${rgb}, 0.3)` }}>
+                    <Download className="w-4 h-4" />
+                    Download {outputName}
+                  </a>
+                  <button onClick={reset}
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl border border-gray-700 text-gray-400 hover:text-white hover:border-gray-600 text-sm font-semibold transition-colors">
+                    <RotateCcw className="w-4 h-4" />
+                    Process another
+                  </button>
+                </div>
+              </motion.div>
+            )}
+
+            {/* ── ERROR ── */}
+            {stage === 'error' && (
+              <motion.div key="error" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                className="p-14 text-center">
+                <div className="w-16 h-16 rounded-2xl bg-red-500/10 flex items-center justify-center mx-auto mb-5">
+                  <AlertCircle className="w-8 h-8 text-red-400" />
+                </div>
+                <p className="text-white font-semibold mb-2">Something went wrong</p>
+                <p className="text-gray-500 text-sm mb-6 max-w-sm mx-auto">{errorMsg || 'Please try with a different file.'}</p>
+                <button onClick={reset}
+                  className="px-6 py-3 rounded-xl bg-gray-800 text-gray-300 text-sm font-semibold hover:bg-gray-700 transition-colors">
+                  Try again
+                </button>
+              </motion.div>
+            )}
+
+          </AnimatePresence>
+        </motion.div>
+
+        <RelatedTools tools={relatedTools} />
+      </div>
+    </div>
+  )
+}
+
 // ─── Default export ───────────────────────────────────────────────────────────
 
 export default function ToolClient({
@@ -4625,5 +5010,6 @@ export default function ToolClient({
   if (tool.id === 'number-pages')  return <NumberPagesInterface tool={tool} category={category} relatedTools={relatedTools} />
   if (tool.id === 'watermark-pdf') return <WatermarkInterface   tool={tool} category={category} relatedTools={relatedTools} />
   if (tool.id === 'edit-pdf')      return <PDFEditor            tool={tool} category={category} relatedTools={relatedTools} />
+  if (tool.id === 'strip-exif')    return <StripExifInterface   tool={tool} category={category} relatedTools={relatedTools} />
   return <FileToolInterface tool={tool} category={category} relatedTools={relatedTools} />
 }

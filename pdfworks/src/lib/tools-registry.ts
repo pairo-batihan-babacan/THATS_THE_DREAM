@@ -420,7 +420,7 @@ export const tools: Tool[] = [
   {
     id: 'strip-exif',
     name: 'Strip EXIF',
-    description: 'Remove location and camera data from photos',
+    description: 'View and remove hidden GPS, camera, and metadata from photos',
     category: 'image',
     icon: 'ShieldX',
     color: '#2ecc71',
