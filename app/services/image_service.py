@@ -1,5 +1,6 @@
+import io
 import os
-from PIL import Image
+from PIL import Image, ExifTags
 from pillow_heif import register_heif_opener
 import cairosvg
 from app.core.config import settings
@@ -14,6 +15,7 @@ FORMAT_MAP = {
     "bmp": "BMP",
     "tiff": "TIFF",
     "gif": "GIF",
+    "heic": "HEIC",
 }
 
 
@@ -92,19 +94,60 @@ def strip_image_metadata(input_path: str, job_id: str) -> str:
     output_filename = f"{job_id}_clean.{ext}"
     output_path = _output_path(job_id, output_filename)
 
-    # Flatten palette images so pixel data is preserved correctly
-    if img.mode == "P":
-        img = img.convert("RGBA" if img.info.get("transparency") is not None else "RGB")
-
-    if fmt == "JPEG" and img.mode in ("RGBA", "LA"):
-        img = img.convert("RGB")
-
-    # Save without passing exif= — Pillow omits metadata by default
     try:
+        # Animated GIF: collect all frames and re-save without metadata
+        if fmt == "GIF" and getattr(img, "n_frames", 1) > 1:
+            frames = []
+            durations = []
+            for i in range(img.n_frames):
+                img.seek(i)
+                frame = img.copy()
+                if frame.mode == "P":
+                    frame = frame.convert("RGBA" if frame.info.get("transparency") is not None else "RGB")
+                frames.append(frame)
+                durations.append(img.info.get("duration", 100))
+            frames[0].save(
+                output_path, "GIF", save_all=True, append_images=frames[1:],
+                loop=img.info.get("loop", 0), duration=durations, optimize=False,
+            )
+            return output_filename
+
+        # Flatten palette images so pixel data is preserved correctly
+        if img.mode == "P":
+            img = img.convert("RGBA" if img.info.get("transparency") is not None else "RGB")
+
+        if fmt == "JPEG" and img.mode in ("RGBA", "LA"):
+            img = img.convert("RGB")
+
+        # Save without passing exif= — Pillow omits metadata by default
         img.save(output_path, fmt)
     except Exception as e:
         raise RuntimeError(f"Failed to save stripped image: {e}")
     return output_filename
+
+
+def inspect_image_metadata(content: bytes) -> dict:
+    """Return a human-readable dict of EXIF/metadata fields from image bytes."""
+    try:
+        img = Image.open(io.BytesIO(content))
+    except Exception as e:
+        raise RuntimeError(f"Failed to open image: {e}")
+
+    result = {}
+    try:
+        exif = img.getexif()
+        for tag_id, value in exif.items():
+            tag_name = ExifTags.TAGS.get(tag_id, f"Tag_{tag_id}")
+            result[tag_name] = str(value)
+        # GPS sub-IFD (tag 0x8825 = 34853)
+        gps_ifd = exif.get_ifd(0x8825)
+        if gps_ifd:
+            for tag_id, value in gps_ifd.items():
+                tag_name = ExifTags.GPSTAGS.get(tag_id, f"GPS_{tag_id}")
+                result[f"GPS_{tag_name}"] = str(value)
+    except Exception:
+        pass  # no EXIF — return empty dict
+    return result
 
 
 def svg_to_png(input_path: str, job_id: str) -> str:

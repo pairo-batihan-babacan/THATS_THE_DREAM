@@ -52,6 +52,20 @@
           <div class="options-grid" id="optionsGrid"></div>
         </div>
 
+        <!-- Metadata preview panel (shown for strip-metadata tools after file select) -->
+        <div class="metadata-panel hidden" id="metadataPanel">
+          <div class="metadata-header">
+            <span class="metadata-title">Metadata found in your file</span>
+            <span class="metadata-count" id="metadataCount"></span>
+          </div>
+          <div class="metadata-table-wrap">
+            <table class="metadata-table">
+              <tbody id="metadataBody"></tbody>
+            </table>
+          </div>
+          <p class="metadata-note">All of the above will be removed.</p>
+        </div>
+
         <!-- Convert button -->
         <button class="btn btn-primary btn-convert" id="convertBtn" disabled>
           <span class="btn-text">Convert</span>

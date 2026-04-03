@@ -1,4 +1,5 @@
 import os
+import tempfile
 import ffmpeg
 from app.core.config import settings
 
@@ -63,3 +64,24 @@ def strip_audio_metadata(input_path: str, job_id: str) -> str:
     except ffmpeg.Error as e:
         raise _ffmpeg_error(e, "Audio metadata removal failed")
     return output_filename
+
+
+def inspect_audio_metadata(content: bytes, ext: str) -> dict:
+    """Return a dict of ID3/metadata tags from audio bytes via ffprobe."""
+    with tempfile.NamedTemporaryFile(suffix=f".{ext}", delete=False) as tmp:
+        tmp.write(content)
+        tmp_path = tmp.name
+    try:
+        probe = ffmpeg.probe(tmp_path)
+        tags = {}
+        for k, v in probe.get("format", {}).get("tags", {}).items():
+            tags[k.title()] = str(v)
+        for stream in probe.get("streams", []):
+            for k, v in stream.get("tags", {}).items():
+                if k.title() not in tags:
+                    tags[k.title()] = str(v)
+        return tags
+    except ffmpeg.Error as e:
+        raise _ffmpeg_error(e, "Audio metadata probe failed")
+    finally:
+        os.unlink(tmp_path)

@@ -4,6 +4,7 @@ from app.api.deps import allowed_file, save_upload_file, save_multiple_files
 from app.core.database import get_session
 from app.core.celery_app import celery_app
 from app.crud.job import create_job
+from app.services.pdf_service import inspect_pdf_metadata
 
 router = APIRouter(prefix="/api/pdf", tags=["PDF"])
 
@@ -113,6 +114,19 @@ async def strip_pdf_metadata(
     await create_job(session, job_id, "pdf_strip_metadata", file.filename)
     celery_app.send_task("app.workers.pdf_tasks.strip_pdf_metadata_task", args=[saved_path, job_id])
     return {"job_id": job_id, "status": "queued"}
+
+
+@router.post("/inspect-metadata")
+async def inspect_pdf_metadata_endpoint(file: UploadFile = File(...)):
+    """Read metadata fields from a PDF without creating a job."""
+    if not allowed_file(file.filename, PDF_EXTS):
+        raise HTTPException(400, "Only PDF files accepted")
+    content = await file.read()
+    try:
+        metadata = inspect_pdf_metadata(content)
+    except RuntimeError as e:
+        raise HTTPException(400, str(e))
+    return {"metadata": metadata, "count": len(metadata)}
 
 
 @router.post("/word-to-pdf")

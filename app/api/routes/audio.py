@@ -1,9 +1,11 @@
+import os
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
 from sqlmodel.ext.asyncio.session import AsyncSession
 from app.api.deps import allowed_file, save_upload_file
 from app.core.database import get_session
 from app.core.celery_app import celery_app
 from app.crud.job import create_job
+from app.services.audio_service import inspect_audio_metadata
 
 router = APIRouter(prefix="/api/audio", tags=["Audio"])
 
@@ -82,6 +84,19 @@ async def strip_audio_metadata(
     celery_app.send_task(
         "app.workers.audio_tasks.strip_metadata_task",
         args=[saved_path, job_id],
-        queue="heavy",
     )
     return {"job_id": job_id, "status": "queued"}
+
+
+@router.post("/inspect-metadata")
+async def inspect_audio_metadata_endpoint(file: UploadFile = File(...)):
+    """Read ID3/metadata tags from an audio file without creating a job."""
+    if not allowed_file(file.filename, AUDIO_EXTS):
+        raise HTTPException(400, f"Unsupported audio format. Allowed: {AUDIO_EXTS}")
+    ext = os.path.splitext(file.filename)[1].lower().lstrip(".")
+    content = await file.read()
+    try:
+        metadata = inspect_audio_metadata(content, ext)
+    except RuntimeError as e:
+        raise HTTPException(400, str(e))
+    return {"metadata": metadata, "count": len(metadata)}

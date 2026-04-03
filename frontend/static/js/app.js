@@ -75,7 +75,8 @@ const TOOLS = {
       {
         id: 'strip-metadata', label: 'Strip Metadata',
         desc: 'Remove hidden data',
-        endpoint: '/api/pdf/strip-metadata', accept: '.pdf', multiple: false, options: []
+        endpoint: '/api/pdf/strip-metadata', accept: '.pdf', multiple: false, options: [],
+        inspectEndpoint: '/api/pdf/inspect-metadata'
       },
     ]
   },
@@ -111,7 +112,8 @@ const TOOLS = {
         id: 'strip-metadata', label: 'Strip EXIF',
         desc: 'Remove GPS & camera data',
         endpoint: '/api/image/strip-metadata', accept: '.jpg,.jpeg,.png,.webp,.tiff',
-        multiple: false, options: []
+        multiple: false, options: [],
+        inspectEndpoint: '/api/image/inspect-metadata'
       },
       {
         id: 'svg-to-png', label: 'SVG → PNG',
@@ -148,7 +150,8 @@ const TOOLS = {
         id: 'strip-metadata', label: 'Strip Metadata',
         desc: 'Remove ID3 tags',
         endpoint: '/api/audio/strip-metadata', accept: '.mp3,.wav,.m4a,.ogg,.flac',
-        multiple: false, options: []
+        multiple: false, options: [],
+        inspectEndpoint: '/api/audio/inspect-metadata'
       },
     ]
   },
@@ -255,6 +258,8 @@ function initToolPage(category) {
 
 /* ─── Tool Selection ─────────────────────────────────────── */
 function selectTool(tool, btn) {
+  currentTool = tool;
+
   // Update active state
   document.querySelectorAll('.tool-nav-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
@@ -267,6 +272,10 @@ function selectTool(tool, btn) {
   // Update upload hint
   const hint = document.getElementById('uploadHint');
   if (hint) hint.textContent = `Accepts: ${tool.accept.replace(/\./g, '').toUpperCase()} · max 50MB`;
+
+  // Update button label
+  const btnText = document.querySelector('#convertBtn .btn-text');
+  if (btnText) btnText.textContent = tool.inspectEndpoint ? 'Strip & Download' : 'Convert';
 
   // Build options panel
   buildOptions(tool.options);
@@ -302,8 +311,9 @@ function setupUploadZone(config) {
 
 /* ─── File Handling ──────────────────────────────────────── */
 let selectedFiles = null;
+let currentTool = null;
 
-function handleFileSelect(files) {
+async function handleFileSelect(files) {
   selectedFiles = files;
   const file = files[0];
 
@@ -328,6 +338,11 @@ function handleFileSelect(files) {
   }
 
   document.getElementById('convertBtn').disabled = false;
+
+  // For strip-metadata tools, auto-fetch and show existing metadata
+  if (currentTool?.inspectEndpoint && files.length === 1) {
+    await fetchAndShowMetadata(file, currentTool.inspectEndpoint);
+  }
 }
 
 function clearFile() {
@@ -522,6 +537,9 @@ function resetUI() {
   hide('progressArea');
   hide('resultArea');
   hide('errorArea');
+  hide('metadataPanel');
+  document.getElementById('metadataBody').innerHTML = '';
+  document.getElementById('metadataCount').textContent = '';
   setProgress(0);
   clearFile();
   resetBtn();
@@ -536,6 +554,49 @@ function resetBtn() {
 
 function show(id) { document.getElementById(id)?.classList.remove('hidden'); }
 function hide(id) { document.getElementById(id)?.classList.add('hidden'); }
+
+/* ─── Metadata Inspect ───────────────────────────────────── */
+async function fetchAndShowMetadata(file, endpoint) {
+  const panel = document.getElementById('metadataPanel');
+  const tbody = document.getElementById('metadataBody');
+  const countEl = document.getElementById('metadataCount');
+
+  panel.classList.remove('hidden');
+  tbody.innerHTML = '<tr><td colspan="2" class="metadata-loading">Reading metadata…</td></tr>';
+  countEl.textContent = '';
+
+  try {
+    const fd = new FormData();
+    fd.append('file', file);
+    const res = await fetch(endpoint, { method: 'POST', body: fd });
+    if (!res.ok) throw new Error('Could not read metadata');
+    const data = await res.json();
+
+    const fields = data.metadata || {};
+    const keys = Object.keys(fields);
+
+    if (keys.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="2" class="metadata-empty">No metadata found in this file.</td></tr>';
+      countEl.textContent = '(none)';
+    } else {
+      countEl.textContent = `(${keys.length} field${keys.length !== 1 ? 's' : ''})`;
+      tbody.innerHTML = keys.map(k => {
+        const val = typeof fields[k] === 'object' ? JSON.stringify(fields[k]) : String(fields[k]);
+        return `<tr><td class="meta-key">${escapeHtml(k)}</td><td class="meta-val">${escapeHtml(val)}</td></tr>`;
+      }).join('');
+    }
+  } catch (_) {
+    tbody.innerHTML = '<tr><td colspan="2" class="metadata-empty">Could not read metadata.</td></tr>';
+  }
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
 
 /* ─── Utilities ──────────────────────────────────────────── */
 function formatBytes(bytes) {

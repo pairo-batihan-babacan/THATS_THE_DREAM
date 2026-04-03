@@ -1,3 +1,4 @@
+import io
 import os
 import sys
 import shutil
@@ -227,12 +228,39 @@ def strip_pdf_metadata(input_path: str, job_id: str) -> str:
         writer = PdfWriter()
         for page in reader.pages:
             writer.add_page(page)
-        writer.add_metadata({})  # clears all metadata
+        # Clear Info dictionary
+        writer.add_metadata({})
+        # Remove XMP metadata stream from the document catalog
+        writer._root_object.pop("/Metadata", None)
         with open(output_path, "wb") as f:
             writer.write(f)
     except Exception as e:
         raise RuntimeError(f"Failed to strip PDF metadata: {e}")
     return output_filename
+
+
+def inspect_pdf_metadata(content: bytes) -> dict:
+    """Return a dict of Info-dict and XMP presence from PDF bytes."""
+    try:
+        reader = PdfReader(io.BytesIO(content))
+    except Exception as e:
+        raise RuntimeError(f"Failed to read PDF: {e}")
+
+    result = {}
+    if reader.metadata:
+        for key, value in reader.metadata.items():
+            clean_key = key.lstrip("/")
+            result[clean_key] = str(value)
+
+    # Check for XMP stream
+    try:
+        xmp = reader.xmp_metadata
+        if xmp:
+            result["XMP"] = "Present (XML metadata stream)"
+    except Exception:
+        pass
+
+    return result
 
 
 def _libreoffice_to_pdf(input_path: str, job_id: str) -> str:

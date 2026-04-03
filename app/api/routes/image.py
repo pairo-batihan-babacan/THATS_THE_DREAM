@@ -4,6 +4,7 @@ from app.api.deps import allowed_file, save_upload_file, save_multiple_files
 from app.core.database import get_session
 from app.core.celery_app import celery_app
 from app.crud.job import create_job
+from app.services.image_service import inspect_image_metadata
 
 router = APIRouter(prefix="/api/image", tags=["Image"])
 
@@ -82,6 +83,19 @@ async def strip_image_metadata(
         args=[saved_path, job_id],
     )
     return {"job_id": job_id, "status": "queued"}
+
+
+@router.post("/inspect-metadata")
+async def inspect_image_metadata_endpoint(file: UploadFile = File(...)):
+    """Read EXIF/metadata fields from an image without creating a job."""
+    if not allowed_file(file.filename, IMAGE_EXTS):
+        raise HTTPException(400, "Unsupported image format")
+    content = await file.read()
+    try:
+        metadata = inspect_image_metadata(content)
+    except RuntimeError as e:
+        raise HTTPException(400, str(e))
+    return {"metadata": metadata, "count": len(metadata)}
 
 
 @router.post("/to-pdf")
