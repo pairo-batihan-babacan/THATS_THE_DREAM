@@ -1668,6 +1668,8 @@ function FileToolInterface({
   const [outputUrl, setOutputUrl]   = useState('')
   const [outputExt, setOutputExt]   = useState('')
   const [errorMsg, setErrorMsg]     = useState('')
+  const [ocrText, setOcrText]       = useState<string | null>(null)
+  const [ocrCopied, setOcrCopied]   = useState(false)
   const progressInterval = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
@@ -1853,6 +1855,9 @@ function FileToolInterface({
       setOutputUrl(url)
       setOutputExt(extFromMime(blob.type))
       setProgress(100)
+      if (tool.id === 'ocr-image-to-text' || tool.id === 'pdf-ocr') {
+        blob.text().then(setOcrText)
+      }
       setTimeout(() => setStage('done'), 250)
     } catch (err) {
       setErrorMsg((err as Error).message || 'An unexpected error occurred.')
@@ -1872,6 +1877,8 @@ function FileToolInterface({
     setOutputUrl('')
     setOutputExt('')
     setErrorMsg('')
+    setOcrText(null)
+    setOcrCopied(false)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [outputUrl])
 
@@ -2171,24 +2178,74 @@ function FileToolInterface({
                   </p>
                 )}
                 {!outputBlob && <div className="mb-7" />}
+
+                {/* ── OCR result: text preview + copy ── */}
+                {ocrText !== null && (
+                  <div className="mt-4 mb-6 text-left">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-xs text-gray-500 font-medium uppercase tracking-wide">Extracted text</span>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(ocrText)
+                          setOcrCopied(true)
+                          setTimeout(() => setOcrCopied(false), 2000)
+                        }}
+                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-gray-700/60 transition-colors"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                        {ocrCopied ? 'Copied!' : 'Copy'}
+                      </button>
+                    </div>
+                    <textarea
+                      readOnly
+                      value={ocrText}
+                      rows={10}
+                      className="w-full rounded-xl bg-gray-950 border border-gray-700 text-gray-200 text-sm font-mono p-4 resize-y focus:outline-none focus:border-gray-500 leading-relaxed"
+                    />
+                  </div>
+                )}
+
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-                  <a
-                    href={outputUrl || '#'}
-                    download={outputName}
-                    onClick={!outputUrl ? (e) => e.preventDefault() : undefined}
-                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl text-white font-bold text-sm transition-all hover:opacity-90 active:scale-[0.98]"
-                    style={{ background: tool.color, boxShadow: `0 4px 24px rgba(${rgb}, 0.3)` }}
-                  >
-                    <Download className="w-4 h-4" />
-                    Download {outputName}
-                  </a>
-                  <button
-                    onClick={reset}
-                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl border border-gray-700 text-gray-400 hover:text-white hover:border-gray-600 text-sm font-semibold transition-colors"
-                  >
-                    <RotateCcw className="w-4 h-4" />
-                    Process another
-                  </button>
+                  {ocrText !== null ? (
+                    <>
+                      <a
+                        href={outputUrl || '#'}
+                        download={outputName}
+                        onClick={!outputUrl ? (e) => e.preventDefault() : undefined}
+                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl border border-gray-700 text-gray-400 hover:text-white hover:border-gray-600 text-sm font-semibold transition-colors"
+                      >
+                        <Download className="w-4 h-4" />
+                        Download .txt
+                      </a>
+                      <button
+                        onClick={reset}
+                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl border border-gray-700 text-gray-400 hover:text-white hover:border-gray-600 text-sm font-semibold transition-colors"
+                      >
+                        <RotateCcw className="w-4 h-4" />
+                        Process another
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <a
+                        href={outputUrl || '#'}
+                        download={outputName}
+                        onClick={!outputUrl ? (e) => e.preventDefault() : undefined}
+                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl text-white font-bold text-sm transition-all hover:opacity-90 active:scale-[0.98]"
+                        style={{ background: tool.color, boxShadow: `0 4px 24px rgba(${rgb}, 0.3)` }}
+                      >
+                        <Download className="w-4 h-4" />
+                        Download {outputName}
+                      </a>
+                      <button
+                        onClick={reset}
+                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl border border-gray-700 text-gray-400 hover:text-white hover:border-gray-600 text-sm font-semibold transition-colors"
+                      >
+                        <RotateCcw className="w-4 h-4" />
+                        Process another
+                      </button>
+                    </>
+                  )}
                 </div>
               </motion.div>
             )}
