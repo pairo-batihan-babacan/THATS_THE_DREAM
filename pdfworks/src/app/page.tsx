@@ -76,14 +76,14 @@ function HeroSection() {
   const showDropdown = open && results.length > 0
 
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
+    const handler = (e: PointerEvent) => {
       if (
         !inputRef.current?.contains(e.target as Node) &&
         !dropdownRef.current?.contains(e.target as Node)
       ) setOpen(false)
     }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
+    document.addEventListener('pointerdown', handler)
+    return () => document.removeEventListener('pointerdown', handler)
   }, [])
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -108,7 +108,7 @@ function HeroSection() {
   }
 
   return (
-    <section className="relative min-h-[92vh] flex items-center justify-center overflow-hidden bg-gray-50 dark:bg-gray-950 px-4 py-20">
+    <section className="relative min-h-[92vh] flex items-center justify-center overflow-x-hidden bg-gray-50 dark:bg-gray-950 px-4 py-20">
       {/* Dot grid */}
       <div
         className="absolute inset-0 opacity-[0.06] dark:opacity-[0.035]"
@@ -221,6 +221,8 @@ function HeroSection() {
             <input
               ref={inputRef}
               type="text"
+              inputMode="search"
+              autoComplete="off"
               placeholder={`Search ${totalToolCount} tools…`}
               value={query}
               onChange={e => { setQuery(e.target.value); setActiveIdx(-1); setOpen(true) }}
@@ -290,7 +292,7 @@ function HeroSection() {
         >
           <Link
             href="/tools"
-            className="group inline-flex items-center justify-center gap-2.5 w-full sm:w-auto px-8 py-3.5 rounded-xl font-semibold text-white text-base transition-all duration-200 hover:scale-[1.03] hover:shadow-2xl hover:shadow-red-500/20 active:scale-100"
+            className="group inline-flex items-center justify-center gap-2.5 w-full sm:w-auto px-8 py-3.5 rounded-xl font-semibold text-white text-base transition-all duration-200 hover:scale-[1.03] hover:shadow-2xl hover:shadow-red-500/20 active:scale-[0.97]"
             style={{ background: 'linear-gradient(135deg, #e74c3c 0%, #c0392b 100%)' }}
           >
             Explore All Tools
@@ -298,7 +300,7 @@ function HeroSection() {
           </Link>
           <Link
             href="/about"
-            className="inline-flex items-center justify-center gap-2 w-full sm:w-auto px-8 py-3.5 rounded-xl font-semibold text-gray-700 dark:text-gray-200 text-base border border-gray-300 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-500 hover:bg-gray-100 dark:hover:bg-white/5 hover:scale-[1.02] transition-all duration-200"
+            className="inline-flex items-center justify-center gap-2 w-full sm:w-auto px-8 py-3.5 rounded-xl font-semibold text-gray-700 dark:text-gray-200 text-base border border-gray-300 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-500 hover:bg-gray-100 dark:hover:bg-white/5 hover:scale-[1.02] active:scale-[0.97] transition-all duration-200"
           >
             Learn About Us
           </Link>

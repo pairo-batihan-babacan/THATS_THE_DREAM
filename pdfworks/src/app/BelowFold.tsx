@@ -2,7 +2,7 @@
 
 import React, { Fragment, useRef, useEffect } from 'react'
 import Link from 'next/link'
-import { motion, animate, useInView } from 'framer-motion'
+import { motion, animate, useInView, useReducedMotion } from 'framer-motion'
 import type { MotionProps } from 'framer-motion'
 import type { LucideIcon } from 'lucide-react'
 import {
@@ -279,6 +279,7 @@ function CategoriesSection() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function HowItWorksSection() {
+  const prefersReduced = useReducedMotion()
   return (
     <section className="py-16 sm:py-20 lg:py-28 px-4 bg-gray-100/60 dark:bg-gray-900/40 border-y border-gray-200 dark:border-gray-800/60">
       <div className="max-w-5xl mx-auto">
@@ -307,7 +308,7 @@ function HowItWorksSection() {
                 </span>
                 <div className="relative w-16 h-16 mx-auto mb-6">
                   <motion.div
-                    animate={{ scale: [1, 1.15, 1], opacity: [0.3, 0.6, 0.3] }}
+                    animate={prefersReduced ? {} : { scale: [1, 1.15, 1], opacity: [0.3, 0.6, 0.3] }}
                     transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut', delay: i * 0.8 }}
                     className="absolute inset-0 rounded-full bg-purple-500/20"
                   />
@@ -320,19 +321,26 @@ function HowItWorksSection() {
               </motion.div>
 
               {i < HOW_STEPS.length - 1 && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  whileInView={{ opacity: 1 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: 0.35 + i * 0.14 }}
-                  className="hidden md:flex items-center flex-shrink-0 w-10 justify-center"
-                >
-                  <div className="flex items-center">
-                    <div className="w-4 h-px bg-gray-300 dark:bg-gray-700" />
-                    <div className="w-2 h-px bg-gray-400 dark:bg-gray-600" />
-                    <ChevronRight className="w-4 h-4 text-gray-400 dark:text-gray-600 -ml-0.5" />
+                <>
+                  {/* Desktop: horizontal arrow */}
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    whileInView={{ opacity: 1 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: 0.35 + i * 0.14 }}
+                    className="hidden md:flex items-center flex-shrink-0 w-10 justify-center"
+                  >
+                    <div className="flex items-center">
+                      <div className="w-4 h-px bg-gray-300 dark:bg-gray-700" />
+                      <div className="w-2 h-px bg-gray-400 dark:bg-gray-600" />
+                      <ChevronRight className="w-4 h-4 text-gray-400 dark:text-gray-600 -ml-0.5" />
+                    </div>
+                  </motion.div>
+                  {/* Mobile: vertical down arrow */}
+                  <div className="flex md:hidden items-center justify-center py-1 text-gray-400 dark:text-gray-600">
+                    <ChevronRight className="w-5 h-5 rotate-90" />
                   </div>
-                </motion.div>
+                </>
               )}
             </Fragment>
           ))}
@@ -441,7 +449,7 @@ function PopularToolsSection() {
         </motion.div>
 
         <div
-          className="flex md:grid md:grid-cols-4 gap-4 overflow-x-auto pb-4 md:pb-0 -mx-4 px-4 md:mx-0 md:px-0 snap-x snap-mandatory md:snap-none scrollbar-hide"
+          className="flex md:grid md:grid-cols-4 gap-4 overflow-x-auto pb-4 md:pb-0 -mx-4 pl-4 pr-8 md:mx-0 md:pl-0 md:pr-0 snap-x snap-mandatory md:snap-none scrollbar-hide"
           style={{ WebkitOverflowScrolling: 'touch' } as React.CSSProperties}
         >
           {popularTools.map((tool, i) => {

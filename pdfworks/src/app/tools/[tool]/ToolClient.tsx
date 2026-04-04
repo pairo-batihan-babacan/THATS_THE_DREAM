@@ -408,25 +408,25 @@ function Breadcrumb({ tool, category }: { tool: Tool; category: ToolCategory | u
   return (
     <div className="border-b border-gray-200 dark:border-gray-800/60 bg-gray-100/50 dark:bg-gray-900/30">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
-        <nav className="flex items-center gap-1.5 text-xs text-gray-500 overflow-x-auto scrollbar-hide whitespace-nowrap">
-          <Link href="/" className="hover:text-gray-300 transition-colors flex items-center gap-1">
+        <nav className="flex items-center gap-0.5 text-xs text-gray-500 overflow-x-auto scrollbar-hide whitespace-nowrap">
+          <Link href="/" className="flex items-center gap-1 py-2 px-1.5 rounded hover:text-gray-900 dark:hover:text-gray-300 transition-colors active:opacity-70">
             <Home className="w-3 h-3" />
             Home
           </Link>
-          <ChevronRight className="w-3 h-3 text-gray-700" />
-          <Link href="/tools" className="hover:text-gray-300 transition-colors">
+          <ChevronRight className="w-3 h-3 text-gray-700 flex-shrink-0" />
+          <Link href="/tools" className="py-2 px-1.5 rounded hover:text-gray-900 dark:hover:text-gray-300 transition-colors active:opacity-70">
             All Tools
           </Link>
           {category && (
             <>
-              <ChevronRight className="w-3 h-3 text-gray-700" />
-              <Link href="/tools" className="hover:text-gray-300 transition-colors">
+              <ChevronRight className="w-3 h-3 text-gray-700 flex-shrink-0" />
+              <Link href="/tools" className="py-2 px-1.5 rounded hover:text-gray-900 dark:hover:text-gray-300 transition-colors active:opacity-70">
                 {category.name}
               </Link>
             </>
           )}
-          <ChevronRight className="w-3 h-3 text-gray-700" />
-          <span className="text-gray-300">{tool.name}</span>
+          <ChevronRight className="w-3 h-3 text-gray-700 flex-shrink-0" />
+          <span className="text-gray-900 dark:text-gray-300 py-2 px-1.5">{tool.name}</span>
         </nav>
       </div>
     </div>
@@ -1113,12 +1113,13 @@ function AIToolInterface({
                     <FileText className="w-4 h-4 text-red-400" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-white font-medium truncate">{pdfFile.name}</p>
+                    <p className="text-sm text-gray-900 dark:text-white font-medium truncate">{pdfFile.name}</p>
                     <p className="text-xs text-gray-500">{formatBytes(pdfFile.size)}</p>
                   </div>
                   <button
                     onClick={() => { setPdfFile(null); setMessages([]) }}
-                    className="p-1.5 rounded text-gray-600 hover:text-gray-300 transition-colors"
+                    className="flex items-center justify-center w-9 h-9 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex-shrink-0"
+                    aria-label="Remove file"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -1176,19 +1177,24 @@ function AIToolInterface({
                 </div>
 
                 {/* Input */}
-                <div className="px-4 py-3 border-t border-gray-800 flex gap-2">
+                <div
+                  className="px-4 pt-3 border-t border-gray-200 dark:border-gray-800 flex gap-2"
+                  style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 0px))' }}
+                >
                   <input
                     type="text"
+                    inputMode="text"
+                    autoComplete="off"
                     placeholder="Ask anything about your PDF…"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-                    className="flex-1 bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-purple-500 transition-colors"
+                    className="flex-1 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none focus:border-purple-500 transition-colors"
                   />
                   <button
                     onClick={sendMessage}
                     disabled={!input.trim() || isTyping}
-                    className="p-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                    className="flex items-center justify-center w-11 h-11 flex-shrink-0 rounded-xl bg-purple-600 hover:bg-purple-500 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                   >
                     <Send className="w-4 h-4 text-white" />
                   </button>
@@ -1493,20 +1499,20 @@ function BatchModePanel({
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
-      <div className="flex items-center gap-4 mb-8">
+      <div className="flex flex-wrap items-center gap-3 mb-8">
         <div
           className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
           style={{ background: `rgba(${rgb}, 0.15)`, color: tool.color }}
         >
           <ToolIcon name={tool.icon} className="w-6 h-6" />
         </div>
-        <div>
-          <h1 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">{tool.name}</h1>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white tracking-tight truncate">{tool.name}</h1>
           <p className="text-gray-500 dark:text-gray-400 text-sm">Batch mode — process multiple files at once</p>
         </div>
         <button
           onClick={onBack}
-          className="ml-auto inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-700 text-gray-400 hover:text-white hover:border-gray-600 text-sm font-semibold transition-colors"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:border-gray-400 dark:hover:border-gray-600 text-sm font-semibold transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
           Single file
@@ -1536,7 +1542,7 @@ function BatchModePanel({
           {items.length > 0 && (
             <div className="space-y-2 mb-5 max-h-80 overflow-y-auto pr-0.5">
               {items.map((item) => (
-                <div key={item.id} className="flex items-center gap-3 bg-gray-800 rounded-xl px-4 py-3">
+                <div key={item.id} className="flex items-center gap-3 bg-gray-100 dark:bg-gray-800 rounded-xl px-4 py-3">
                   <div
                     className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
                     style={{ background: `rgba(${rgb}, 0.12)` }}
@@ -1552,7 +1558,7 @@ function BatchModePanel({
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-white font-medium truncate">{item.file.name}</p>
+                    <p className="text-sm text-gray-900 dark:text-white font-medium truncate">{item.file.name}</p>
                     {item.status === 'processing' ? (
                       <div className="mt-1">
                         <div className="h-1 bg-gray-700 rounded-full overflow-hidden">
@@ -1587,7 +1593,7 @@ function BatchModePanel({
                   {!running && item.status !== 'processing' && (
                     <button
                       onClick={() => removeItem(item.id)}
-                      className="p-1.5 rounded text-gray-600 hover:text-gray-400 transition-colors flex-shrink-0"
+                      className="flex items-center justify-center w-9 h-9 rounded-lg text-gray-400 dark:text-gray-600 hover:text-gray-700 dark:hover:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors flex-shrink-0"
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -1965,7 +1971,7 @@ function FileToolInterface({
               >
                 <div
                   {...getRootProps()}
-                  className={`rounded-xl p-10 sm:p-16 text-center cursor-pointer transition-colors duration-200 ${
+                  className={`rounded-xl p-8 sm:p-14 text-center cursor-pointer transition-colors duration-200 ${
                     isDragActive
                       ? 'border-march bg-purple-500/5'
                       : 'border-2 border-dashed border-gray-300 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-600 hover:bg-gray-100/60 dark:hover:bg-gray-800/20'
@@ -2021,7 +2027,7 @@ function FileToolInterface({
                       initial={{ opacity: 0, x: -14 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ duration: 0.24, delay: i * 0.05 }}
-                      className="flex items-center gap-3 bg-gray-800 rounded-xl px-4 py-3"
+                      className="flex items-center gap-3 bg-gray-100 dark:bg-gray-800 rounded-xl px-4 py-3"
                     >
                       <motion.div
                         initial={{ scale: 0.55, rotate: -10 }}
@@ -2033,12 +2039,12 @@ function FileToolInterface({
                         <FileText className="w-4 h-4" />
                       </motion.div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm text-white font-medium truncate">{file.name}</p>
+                        <p className="text-sm text-gray-900 dark:text-white font-medium truncate">{file.name}</p>
                         <p className="text-xs text-gray-500">{formatBytes(file.size)}</p>
                       </div>
                       <button
                         onClick={() => removeFile(i)}
-                        className="p-1.5 rounded text-gray-600 hover:text-gray-400 transition-colors"
+                        className="flex items-center justify-center w-9 h-9 rounded-lg text-gray-400 dark:text-gray-600 hover:text-gray-700 dark:hover:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                       >
                         <X className="w-4 h-4" />
                       </button>

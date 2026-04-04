@@ -136,6 +136,8 @@ export default function AllToolsPage() {
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
           <input
             type="text"
+            inputMode="search"
+            autoComplete="off"
             placeholder={`Search ${totalToolCount} tools by name or description…`}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -157,7 +159,12 @@ export default function AllToolsPage() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.4, delay: 0.18 }}
-          className="flex gap-2 overflow-x-auto pb-1 mb-8 -mx-4 px-4 lg:mx-0 lg:px-0 scrollbar-hide"
+          className="relative mb-8"
+        >
+        {/* Right-edge fade hint — indicates more pills to scroll to on mobile */}
+        <div className="pointer-events-none absolute right-0 inset-y-0 w-12 bg-gradient-to-l from-gray-50 dark:from-gray-950 to-transparent z-10 lg:hidden" />
+        <div
+          className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 lg:mx-0 lg:px-0 scrollbar-hide"
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
           {/* "All" pill */}
@@ -207,6 +214,7 @@ export default function AllToolsPage() {
               </span>
             </button>
           ))}
+        </div>
         </motion.div>
 
         {/* ── Result summary ─────────────────────────────────────────────── */}

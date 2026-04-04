@@ -22,11 +22,11 @@ function hexToRgb(hex: string) {
 // ─── Hover-dropdown nav data (unchanged from original) ───────────────────────
 
 interface NavTool { label: string; slug: string }
-interface NavCategory { label: string; cols: number; tools: NavTool[] }
+interface NavCategory { label: string; slug: string; cols: number; tools: NavTool[] }
 
 const navData: NavCategory[] = [
   {
-    label: 'PDF Tools', cols: 3,
+    label: 'PDF Tools', slug: 'pdf', cols: 3,
     tools: [
       { label: 'Compress PDF',       slug: 'compress-pdf'      },
       { label: 'PDF Converter',      slug: 'pdf-converter'     },
@@ -66,7 +66,7 @@ const navData: NavCategory[] = [
     ],
   },
   {
-    label: 'Image Tools', cols: 2,
+    label: 'Image Tools', slug: 'image', cols: 2,
     tools: [
       { label: 'Compress Image',     slug: 'image-compress'    },
       { label: 'HEIC to JPG',        slug: 'heic-to-jpg'       },
@@ -78,7 +78,7 @@ const navData: NavCategory[] = [
     ],
   },
   {
-    label: 'Audio Tools', cols: 1,
+    label: 'Audio Tools', slug: 'audio', cols: 1,
     tools: [
       { label: 'Audio Converter',        slug: 'audio-convert'        },
       { label: 'Compress Audio',         slug: 'compress-audio'       },
@@ -87,7 +87,7 @@ const navData: NavCategory[] = [
     ],
   },
   {
-    label: 'Video Tools', cols: 1,
+    label: 'Video Tools', slug: 'video', cols: 1,
     tools: [
       { label: 'Video Converter',   slug: 'video-convert'  },
       { label: 'Compress Video',    slug: 'compress-video' },
@@ -96,7 +96,7 @@ const navData: NavCategory[] = [
     ],
   },
   {
-    label: 'Document Tools', cols: 1,
+    label: 'Document Tools', slug: 'document', cols: 1,
     tools: [
       { label: 'OCR: Image to Text', slug: 'ocr-image-to-text' },
       { label: 'Markdown to PDF',    slug: 'markdown-to-pdf'   },
@@ -520,7 +520,7 @@ export default function Navbar() {
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
               transition={{ type: 'tween', duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
-              className="fixed top-0 right-0 z-[110] h-full w-[320px] max-w-[calc(100vw-2rem)] bg-white dark:bg-gray-900 shadow-2xl flex flex-col"
+              className="fixed top-0 right-0 z-[110] h-full w-full sm:w-[340px] bg-white dark:bg-gray-900 shadow-2xl flex flex-col"
             >
               {/* Drawer header */}
               <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-800 flex-shrink-0">
@@ -563,25 +563,45 @@ export default function Navbar() {
                 <div className="space-y-0.5">
                 {navData.map((category) => (
                   <div key={category.label}>
-                    <button
-                      onClick={() =>
-                        setOpenMobileCategory(
-                          openMobileCategory === category.label ? null : category.label
-                        )
-                      }
-                      className={`w-full flex items-center justify-between px-3 py-3 rounded-lg text-sm font-medium transition-colors ${
+                    {/* Row: tappable link to category page + separate chevron toggle */}
+                    <div
+                      className={`flex items-center rounded-lg transition-colors ${
                         openMobileCategory === category.label
-                          ? 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20'
-                          : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/5'
+                          ? 'bg-purple-50 dark:bg-purple-900/20'
+                          : 'hover:bg-gray-100 dark:hover:bg-white/5'
                       }`}
                     >
-                      {category.label}
-                      <ChevronDown
-                        className={`w-4 h-4 transition-transform duration-200 ${
-                          openMobileCategory === category.label ? 'rotate-180' : ''
+                      <Link
+                        href={`/tools?cat=${category.slug}`}
+                        className={`flex-1 flex items-center px-3 py-3 text-sm font-medium transition-colors ${
+                          openMobileCategory === category.label
+                            ? 'text-purple-600 dark:text-purple-400'
+                            : 'text-gray-700 dark:text-gray-200'
                         }`}
-                      />
-                    </button>
+                        onClick={closeMobile}
+                      >
+                        {category.label}
+                      </Link>
+                      <button
+                        onClick={() =>
+                          setOpenMobileCategory(
+                            openMobileCategory === category.label ? null : category.label
+                          )
+                        }
+                        className={`flex items-center justify-center w-11 h-11 flex-shrink-0 transition-colors ${
+                          openMobileCategory === category.label
+                            ? 'text-purple-600 dark:text-purple-400'
+                            : 'text-gray-400 dark:text-gray-500'
+                        }`}
+                        aria-label={`${openMobileCategory === category.label ? 'Collapse' : 'Expand'} ${category.label}`}
+                      >
+                        <ChevronDown
+                          className={`w-4 h-4 transition-transform duration-200 ${
+                            openMobileCategory === category.label ? 'rotate-180' : ''
+                          }`}
+                        />
+                      </button>
+                    </div>
 
                     <AnimatePresence initial={false}>
                       {openMobileCategory === category.label && (
@@ -598,7 +618,7 @@ export default function Navbar() {
                               <Link
                                 key={tool.slug}
                                 href={`/tools/${tool.slug}`}
-                                className="block px-3 py-2 rounded-lg text-sm text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
+                                className="block px-3 py-2.5 rounded-lg text-sm text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
                                 onClick={closeMobile}
                               >
                                 {tool.label}
@@ -614,7 +634,10 @@ export default function Navbar() {
               </div>
 
               {/* Drawer footer — link to all-tools page */}
-              <div className="px-4 py-4 border-t border-gray-100 dark:border-gray-800 flex-shrink-0 space-y-2">
+              <div
+                className="px-4 pt-4 border-t border-gray-100 dark:border-gray-800 flex-shrink-0 space-y-2"
+                style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 0px))' }}
+              >
                 <Link
                   href="/tools"
                   className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 transition-all shadow-sm"
