@@ -28,7 +28,7 @@ export const tools: Tool[] = [
     category: 'pdf',
     icon: 'RefreshCw',
     color: '#e74c3c',
-    comingSoon: false,
+    comingSoon: true,
     route: '/tools/pdf-converter',
   },
   {
@@ -128,7 +128,7 @@ export const tools: Tool[] = [
     category: 'pdf',
     icon: 'EyeOff',
     color: '#e74c3c',
-    comingSoon: false,
+    comingSoon: true,
     route: '/tools/redact-pdf',
   },
   {
@@ -188,7 +188,7 @@ export const tools: Tool[] = [
     category: 'pdf',
     icon: 'PenSquare',
     color: '#e74c3c',
-    comingSoon: false,
+    comingSoon: true,
     route: '/tools/sign-pdf',
   },
   {
@@ -198,7 +198,7 @@ export const tools: Tool[] = [
     category: 'pdf',
     icon: 'BookOpen',
     color: '#e74c3c',
-    comingSoon: false,
+    comingSoon: true,
     route: '/tools/pdf-reader',
   },
   {
@@ -208,7 +208,7 @@ export const tools: Tool[] = [
     category: 'pdf',
     icon: 'Highlighter',
     color: '#e74c3c',
-    comingSoon: false,
+    comingSoon: true,
     route: '/tools/pdf-annotator',
   },
   {
@@ -218,7 +218,7 @@ export const tools: Tool[] = [
     category: 'pdf',
     icon: 'ClipboardType',
     color: '#e74c3c',
-    comingSoon: false,
+    comingSoon: true,
     route: '/tools/pdf-form-filler',
   },
   {
