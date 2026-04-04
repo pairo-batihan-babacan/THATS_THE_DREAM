@@ -9,6 +9,8 @@ import {
   ChevronRight, Home, ArrowLeft, Send, Bot, RotateCcw, RotateCw,
   Loader2, FileText, Zap, Shield, Trash2, Plus, Copy, Eye,
   MapPin, Camera, SlidersHorizontal, CalendarDays, ImageIcon, AlertTriangle, Info,
+  Pen, ExternalLink,
+  ClipboardList, PenSquare, BookOpen, EyeOff, RefreshCw, ArrowRight,
 } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import type { Tool } from '@/lib/tools-registry'
@@ -18,6 +20,7 @@ import { submitJob } from '@/lib/api'
 import type { ProgressFn } from '@/lib/api'
 
 const PDFEditor = dynamic(() => import('@/components/pdf-editor/PDFEditor'), { ssr: false })
+const SignaturePad = dynamic(() => import('@/components/pdf-editor/SignaturePad'), { ssr: false })
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -5395,6 +5398,916 @@ function StripExifInterface({
   )
 }
 
+// ─── PDF Reader Interface ─────────────────────────────────────────────────────
+
+function PdfReaderInterface({ tool, category }: { tool: Tool; category: ToolCategory | undefined; relatedTools: Tool[] }) {
+  const [fileUrl, setFileUrl] = useState('')
+  const [fileName, setFileName] = useState('')
+
+  const onDrop = useCallback((files: File[]) => {
+    if (!files[0]) return
+    if (fileUrl) URL.revokeObjectURL(fileUrl)
+    setFileName(files[0].name)
+    setFileUrl(URL.createObjectURL(files[0]))
+  }, [fileUrl])
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    accept: { 'application/pdf': ['.pdf'] },
+    maxFiles: 1,
+    onDrop,
+  })
+
+  useEffect(() => () => { if (fileUrl) URL.revokeObjectURL(fileUrl) }, [fileUrl])
+
+  if (!fileUrl) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col">
+        <Breadcrumb tool={tool} category={category} />
+        <div className="flex-1 flex items-center justify-center px-4 py-16">
+          <div className="w-full max-w-lg">
+            <div className="text-center mb-8">
+              <div className="w-16 h-16 rounded-2xl bg-red-50 dark:bg-red-500/10 flex items-center justify-center mx-auto mb-4">
+                <BookOpen className="w-8 h-8 text-red-500" />
+              </div>
+              <h1 className="text-2xl font-black text-gray-900 dark:text-white mb-2">PDF Reader</h1>
+              <p className="text-gray-500">Open and read any PDF directly in your browser — no install required.</p>
+            </div>
+            <div
+              {...getRootProps()}
+              className={`border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer transition-colors ${
+                isDragActive
+                  ? 'border-red-400 bg-red-50 dark:bg-red-500/10'
+                  : 'border-gray-300 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-900/50'
+              }`}
+            >
+              <input {...getInputProps()} />
+              <Upload className={`w-8 h-8 mx-auto mb-3 ${isDragActive ? 'text-red-400' : 'text-gray-400'}`} />
+              <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                {isDragActive ? 'Drop your PDF here' : 'Drop a PDF or click to browse'}
+              </p>
+              <p className="text-xs text-gray-400">Files stay in your browser — nothing is uploaded</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="h-screen flex flex-col bg-gray-100 dark:bg-gray-950">
+      <div className="flex-shrink-0 flex items-center gap-3 px-4 py-2.5 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <BookOpen className="w-4 h-4 text-red-500 flex-shrink-0" />
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">{fileName}</span>
+        </div>
+        <a
+          href={fileUrl}
+          download={fileName}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white text-xs font-semibold transition-colors"
+        >
+          <Download className="w-3.5 h-3.5" /> Download
+        </a>
+        <a
+          href={fileUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white text-xs font-semibold transition-colors"
+        >
+          <ExternalLink className="w-3.5 h-3.5" /> New tab
+        </a>
+        <button
+          onClick={() => { URL.revokeObjectURL(fileUrl); setFileUrl(''); setFileName('') }}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white text-xs font-semibold transition-colors"
+        >
+          Open another
+        </button>
+      </div>
+      <iframe
+        src={fileUrl}
+        className="flex-1 w-full border-0"
+        title="PDF Viewer"
+      />
+    </div>
+  )
+}
+
+// ─── Sign PDF Interface ───────────────────────────────────────────────────────
+
+interface SigPlacement {
+  pageIndex: number   // 0-based
+  xFrac: number; yFrac: number; wFrac: number; hFrac: number
+  dataUrl: string
+}
+
+function SignPdfInterface({ tool, category }: { tool: Tool; category: ToolCategory | undefined; relatedTools: Tool[] }) {
+  const [file, setFile]               = useState<File | null>(null)
+  const [pageCanvases, setPageCanvases] = useState<string[]>([])  // data URLs
+  const [numPages, setNumPages]       = useState(0)
+  const [loading, setLoading]         = useState(false)
+  const [showSigPad, setShowSigPad]   = useState(false)
+  const [sigDataUrl, setSigDataUrl]   = useState('')
+  const [placements, setPlacements]   = useState<SigPlacement[]>([])
+  const [placing, setPlacing]         = useState(false)
+  const [saving, setSaving]           = useState(false)
+  const [done, setDone]               = useState(false)
+  const [outputUrl, setOutputUrl]     = useState('')
+  const [outputName, setOutputName]   = useState('')
+  const viewerRef = useRef<HTMLDivElement>(null)
+
+  const onDrop = useCallback(async (files: File[]) => {
+    if (!files[0]) return
+    setFile(files[0])
+    setLoading(true)
+    setPageCanvases([])
+    setPlacements([])
+    setDone(false)
+    try {
+      const pdfjsLib = await import('pdfjs-dist')
+      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`
+      const buf = await files[0].arrayBuffer()
+      const doc = await pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise
+      setNumPages(doc.numPages)
+      const urls: string[] = []
+      for (let i = 1; i <= doc.numPages; i++) {
+        const page = await doc.getPage(i)
+        const vp = page.getViewport({ scale: 1 })
+        const scale = Math.min(1.5, 900 / vp.width)
+        const svp = page.getViewport({ scale })
+        const cv = document.createElement('canvas')
+        cv.width = svp.width; cv.height = svp.height
+        await page.render({ canvasContext: cv.getContext('2d')!, viewport: svp }).promise
+        urls.push(cv.toDataURL('image/jpeg', 0.92))
+        page.cleanup()
+      }
+      setPageCanvases(urls)
+      doc.destroy()
+    } catch { /* ignore */ }
+    setLoading(false)
+  }, [])
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    accept: { 'application/pdf': ['.pdf'] },
+    maxFiles: 1,
+    onDrop,
+  })
+
+  const handleInsertSig = (dataUrl: string) => {
+    setSigDataUrl(dataUrl)
+    setShowSigPad(false)
+    setPlacing(true)
+  }
+
+  const handlePageClick = (e: React.MouseEvent<HTMLDivElement>, pageIdx: number) => {
+    if (!placing || !sigDataUrl) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    const xFrac = (e.clientX - rect.left) / rect.width
+    const yFrac = (e.clientY - rect.top) / rect.height
+    const wFrac = 0.25
+    const hFrac = wFrac * (rect.width / rect.height) * 0.25
+    setPlacements(prev => [...prev, { pageIndex: pageIdx, xFrac: Math.max(0, xFrac - wFrac/2), yFrac: Math.max(0, yFrac - hFrac/2), wFrac, hFrac, dataUrl: sigDataUrl }])
+    setPlacing(false)
+  }
+
+  const removePlacement = (idx: number) => setPlacements(prev => prev.filter((_, i) => i !== idx))
+
+  const applyAndDownload = async () => {
+    if (!file || placements.length === 0) return
+    setSaving(true)
+    try {
+      const { PDFDocument } = await import('pdf-lib')
+      const buf = await file.arrayBuffer()
+      const pdfDoc = await PDFDocument.load(buf)
+      const pages = pdfDoc.getPages()
+
+      for (const pl of placements) {
+        const page = pages[pl.pageIndex]
+        if (!page) continue
+        const { width: pw, height: ph } = page.getSize()
+        const imgBytes = await fetch(pl.dataUrl).then(r => r.arrayBuffer())
+        const img = await pdfDoc.embedPng(imgBytes)
+        const x = pl.xFrac * pw
+        const y = ph - (pl.yFrac + pl.hFrac) * ph
+        const w = pl.wFrac * pw
+        const h = pl.hFrac * ph
+        page.drawImage(img, { x, y, width: w, height: h })
+      }
+
+      const bytes = await pdfDoc.save()
+      const blob = new Blob([bytes.buffer as ArrayBuffer], { type: 'application/pdf' })
+      const url = URL.createObjectURL(blob)
+      const name = file.name.replace(/\.pdf$/i, '') + '_signed.pdf'
+      setOutputUrl(url)
+      setOutputName(name)
+      setDone(true)
+    } catch { /* ignore */ }
+    setSaving(false)
+  }
+
+  if (!file) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col">
+        <Breadcrumb tool={tool} category={category} />
+        <div className="flex-1 flex items-center justify-center px-4 py-16">
+          <div className="w-full max-w-lg">
+            <div className="text-center mb-8">
+              <div className="w-16 h-16 rounded-2xl bg-red-50 dark:bg-red-500/10 flex items-center justify-center mx-auto mb-4">
+                <PenSquare className="w-8 h-8 text-red-500" />
+              </div>
+              <h1 className="text-2xl font-black text-gray-900 dark:text-white mb-2">Sign PDF</h1>
+              <p className="text-gray-500">Draw or type your signature and place it anywhere on your PDF.</p>
+            </div>
+            <div
+              {...getRootProps()}
+              className={`border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer transition-colors ${
+                isDragActive ? 'border-red-400 bg-red-50 dark:bg-red-500/10' : 'border-gray-300 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-900/50'
+              }`}
+            >
+              <input {...getInputProps()} />
+              <Upload className={`w-8 h-8 mx-auto mb-3 ${isDragActive ? 'text-red-400' : 'text-gray-400'}`} />
+              <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">{isDragActive ? 'Drop your PDF here' : 'Drop a PDF or click to browse'}</p>
+              <p className="text-xs text-gray-400">Signing happens in your browser — file is never uploaded</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-red-500 mx-auto mb-3" />
+          <p className="text-gray-500 text-sm">Loading PDF…</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (done) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col">
+        <Breadcrumb tool={tool} category={category} />
+        <div className="flex-1 flex items-center justify-center px-4">
+          <div className="text-center">
+            <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
+            <h2 className="text-2xl font-black text-gray-900 dark:text-white mb-2">Signed!</h2>
+            <p className="text-gray-500 mb-8">Your signature has been applied to the PDF.</p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <a href={outputUrl} download={outputName}
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-red-600 text-white font-semibold hover:bg-red-500 transition-colors">
+                <Download className="w-4 h-4" /> Download Signed PDF
+              </a>
+              <button onClick={() => { setFile(null); setPageCanvases([]); setPlacements([]); setDone(false); setOutputUrl(''); setSigDataUrl('') }}
+                className="px-6 py-3 rounded-xl border border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 font-semibold hover:border-gray-400 transition-colors">
+                Sign another
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col">
+      <Breadcrumb tool={tool} category={category} />
+      <div className="max-w-5xl mx-auto w-full px-4 sm:px-6 py-6">
+        {/* Toolbar */}
+        <div className="flex flex-wrap items-center gap-3 mb-6">
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl font-black text-gray-900 dark:text-white truncate">{file.name}</h1>
+            <p className="text-xs text-gray-500">{numPages} page{numPages !== 1 ? 's' : ''}</p>
+          </div>
+          {placements.length === 0 ? (
+            <button
+              onClick={() => setShowSigPad(true)}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-600 text-white font-semibold text-sm hover:bg-red-500 transition-colors"
+            >
+              <Pen className="w-4 h-4" /> Create Signature
+            </button>
+          ) : (
+            <>
+              <button onClick={() => setShowSigPad(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 text-sm font-semibold hover:border-gray-400 transition-colors">
+                <Pen className="w-4 h-4" /> New Signature
+              </button>
+              <button onClick={applyAndDownload} disabled={saving}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-600 text-white font-semibold text-sm hover:bg-red-500 disabled:opacity-50 transition-colors">
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                {saving ? 'Saving…' : 'Apply & Download'}
+              </button>
+            </>
+          )}
+        </div>
+
+        {placing && (
+          <div className="mb-4 px-4 py-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 text-amber-700 dark:text-amber-400 text-sm font-medium">
+            Click anywhere on a page to place your signature
+          </div>
+        )}
+
+        {/* Pages */}
+        <div ref={viewerRef} className="space-y-6">
+          {pageCanvases.map((src, pageIdx) => (
+            <div key={pageIdx}>
+              <p className="text-xs text-gray-400 mb-2 font-medium">Page {pageIdx + 1}</p>
+              <div
+                className={`relative inline-block rounded-lg overflow-hidden shadow-md w-full ${placing ? 'cursor-crosshair' : 'cursor-default'}`}
+                onClick={(e) => handlePageClick(e, pageIdx)}
+              >
+                <img src={src} alt={`Page ${pageIdx + 1}`} className="w-full block" draggable={false} />
+                {/* Signature overlays on this page */}
+                {placements.filter(p => p.pageIndex === pageIdx).map((pl, plIdx) => {
+                  const globalIdx = placements.indexOf(pl)
+                  return (
+                    <div
+                      key={plIdx}
+                      className="absolute border-2 border-blue-500 group"
+                      style={{
+                        left: `${pl.xFrac * 100}%`,
+                        top: `${pl.yFrac * 100}%`,
+                        width: `${pl.wFrac * 100}%`,
+                        height: `${pl.hFrac * 100}%`,
+                      }}
+                    >
+                      <img src={pl.dataUrl} alt="Signature" className="w-full h-full object-contain" />
+                      <button
+                        onClick={(e) => { e.stopPropagation(); removePlacement(globalIdx) }}
+                        className="absolute -top-3 -right-3 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {showSigPad && (
+        <SignaturePad
+          onInsert={handleInsertSig}
+          onClose={() => setShowSigPad(false)}
+        />
+      )}
+    </div>
+  )
+}
+
+// ─── PDF Form Filler Interface ────────────────────────────────────────────────
+
+interface FormFieldData {
+  name: string
+  type: 'text' | 'checkbox' | 'dropdown' | 'radio' | 'unknown'
+  value: string
+  options?: string[]
+}
+
+function PdfFormFillerInterface({ tool, category }: { tool: Tool; category: ToolCategory | undefined; relatedTools: Tool[] }) {
+  const [file, setFile]       = useState<File | null>(null)
+  const [fields, setFields]   = useState<FormFieldData[]>([])
+  const [values, setValues]   = useState<Record<string, string>>({})
+  const [loading, setLoading] = useState(false)
+  const [saving, setSaving]   = useState(false)
+  const [done, setDone]       = useState(false)
+  const [outputUrl, setOutputUrl] = useState('')
+  const [outputName, setOutputName] = useState('')
+  const [noFields, setNoFields] = useState(false)
+
+  const onDrop = useCallback(async (files: File[]) => {
+    if (!files[0]) return
+    setFile(files[0])
+    setLoading(true)
+    setFields([]); setValues({}); setDone(false); setNoFields(false)
+    try {
+      const { PDFDocument, PDFTextField, PDFCheckBox, PDFDropdown, PDFRadioGroup } = await import('pdf-lib')
+      const buf = await files[0].arrayBuffer()
+      const pdfDoc = await PDFDocument.load(buf)
+      const form = pdfDoc.getForm()
+      const rawFields = form.getFields()
+      if (rawFields.length === 0) { setNoFields(true); setLoading(false); return }
+      const parsed: FormFieldData[] = rawFields.map(f => {
+        const name = f.getName()
+        if (f instanceof PDFTextField) {
+          return { name, type: 'text', value: f.getText() ?? '' }
+        }
+        if (f instanceof PDFCheckBox) {
+          return { name, type: 'checkbox', value: f.isChecked() ? 'true' : 'false' }
+        }
+        if (f instanceof PDFDropdown) {
+          return { name, type: 'dropdown', value: f.getSelected()[0] ?? '', options: f.getOptions() }
+        }
+        if (f instanceof PDFRadioGroup) {
+          return { name, type: 'radio', value: f.getSelected() ?? '', options: f.getOptions() }
+        }
+        return { name, type: 'unknown', value: '' }
+      })
+      setFields(parsed)
+      const init: Record<string, string> = {}
+      for (const f of parsed) init[f.name] = f.value
+      setValues(init)
+    } catch { setNoFields(true) }
+    setLoading(false)
+  }, [])
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    accept: { 'application/pdf': ['.pdf'] },
+    maxFiles: 1,
+    onDrop,
+  })
+
+  const handleFill = async () => {
+    if (!file) return
+    setSaving(true)
+    try {
+      const { PDFDocument, PDFTextField, PDFCheckBox, PDFDropdown, PDFRadioGroup } = await import('pdf-lib')
+      const buf = await file.arrayBuffer()
+      const pdfDoc = await PDFDocument.load(buf)
+      const form = pdfDoc.getForm()
+      for (const f of form.getFields()) {
+        const name = f.getName()
+        const val = values[name] ?? ''
+        try {
+          if (f instanceof PDFTextField) f.setText(val)
+          else if (f instanceof PDFCheckBox) { if (val === 'true') { f.check() } else { f.uncheck() } }
+          else if (f instanceof PDFDropdown && val) f.select(val)
+          else if (f instanceof PDFRadioGroup && val) f.select(val)
+        } catch { /* skip unsupported field */ }
+      }
+      form.flatten()
+      const bytes = await pdfDoc.save()
+      const blob = new Blob([bytes.buffer as ArrayBuffer], { type: 'application/pdf' })
+      const url = URL.createObjectURL(blob)
+      const name = file.name.replace(/\.pdf$/i, '') + '_filled.pdf'
+      setOutputUrl(url)
+      setOutputName(name)
+      setDone(true)
+    } catch { /* ignore */ }
+    setSaving(false)
+  }
+
+  if (!file) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col">
+        <Breadcrumb tool={tool} category={category} />
+        <div className="flex-1 flex items-center justify-center px-4 py-16">
+          <div className="w-full max-w-lg">
+            <div className="text-center mb-8">
+              <div className="w-16 h-16 rounded-2xl bg-red-50 dark:bg-red-500/10 flex items-center justify-center mx-auto mb-4">
+                <ClipboardList className="w-8 h-8 text-red-500" />
+              </div>
+              <h1 className="text-2xl font-black text-gray-900 dark:text-white mb-2">PDF Form Filler</h1>
+              <p className="text-gray-500">Fill out any interactive PDF form right in your browser.</p>
+            </div>
+            <div
+              {...getRootProps()}
+              className={`border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer transition-colors ${
+                isDragActive ? 'border-red-400 bg-red-50 dark:bg-red-500/10' : 'border-gray-300 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-900/50'
+              }`}
+            >
+              <input {...getInputProps()} />
+              <Upload className={`w-8 h-8 mx-auto mb-3 ${isDragActive ? 'text-red-400' : 'text-gray-400'}`} />
+              <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">{isDragActive ? 'Drop your PDF here' : 'Drop a PDF form or click to browse'}</p>
+              <p className="text-xs text-gray-400">Works with any interactive PDF form (AcroForm)</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-red-500 mx-auto mb-3" />
+          <p className="text-gray-500 text-sm">Reading form fields…</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (noFields) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col">
+        <Breadcrumb tool={tool} category={category} />
+        <div className="flex-1 flex items-center justify-center px-4">
+          <div className="text-center max-w-sm">
+            <AlertTriangle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">No fillable fields found</h2>
+            <p className="text-gray-500 text-sm mb-6">This PDF doesn&apos;t have interactive form fields. Try using the PDF Editor to add text manually.</p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <button onClick={() => { setFile(null); setNoFields(false) }}
+                className="px-5 py-2.5 rounded-xl bg-red-600 text-white font-semibold text-sm hover:bg-red-500 transition-colors">
+                Try another PDF
+              </button>
+              <Link href="/tools/edit-pdf"
+                className="px-5 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 font-semibold text-sm hover:border-gray-400 transition-colors text-center">
+                Open PDF Editor
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (done) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col">
+        <Breadcrumb tool={tool} category={category} />
+        <div className="flex-1 flex items-center justify-center px-4">
+          <div className="text-center">
+            <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
+            <h2 className="text-2xl font-black text-gray-900 dark:text-white mb-2">Form Filled!</h2>
+            <p className="text-gray-500 mb-8">Your completed PDF is ready to download.</p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <a href={outputUrl} download={outputName}
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-red-600 text-white font-semibold hover:bg-red-500 transition-colors">
+                <Download className="w-4 h-4" /> Download Filled PDF
+              </a>
+              <button onClick={() => { setFile(null); setFields([]); setValues({}); setDone(false); setOutputUrl('') }}
+                className="px-6 py-3 rounded-xl border border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 font-semibold hover:border-gray-400 transition-colors">
+                Fill another
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col">
+      <Breadcrumb tool={tool} category={category} />
+      <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 py-8">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-xl font-black text-gray-900 dark:text-white truncate">{file.name}</h1>
+            <p className="text-xs text-gray-500">{fields.length} fillable field{fields.length !== 1 ? 's' : ''} found</p>
+          </div>
+          <button onClick={() => { setFile(null); setFields([]); setValues({}) }}
+            className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+            Change file
+          </button>
+        </div>
+
+        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 space-y-5 mb-6">
+          {fields.map((field) => (
+            <div key={field.name}>
+              <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5 truncate" title={field.name}>
+                {field.name}
+              </label>
+              {field.type === 'text' && (
+                <input
+                  type="text"
+                  value={values[field.name] ?? ''}
+                  onChange={e => setValues(v => ({ ...v, [field.name]: e.target.value }))}
+                  className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-red-500 transition-colors"
+                />
+              )}
+              {field.type === 'checkbox' && (
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={values[field.name] === 'true'}
+                    onChange={e => setValues(v => ({ ...v, [field.name]: e.target.checked ? 'true' : 'false' }))}
+                    className="w-4 h-4 accent-red-500"
+                  />
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Checked</span>
+                </label>
+              )}
+              {(field.type === 'dropdown' || field.type === 'radio') && field.options && (
+                <select
+                  value={values[field.name] ?? ''}
+                  onChange={e => setValues(v => ({ ...v, [field.name]: e.target.value }))}
+                  className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-red-500 transition-colors"
+                >
+                  <option value="">— select —</option>
+                  {field.options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                </select>
+              )}
+              {field.type === 'unknown' && (
+                <p className="text-xs text-gray-400 italic">Unsupported field type</p>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <button
+          onClick={handleFill}
+          disabled={saving}
+          className="w-full py-3.5 rounded-xl bg-red-600 text-white font-bold text-sm hover:bg-red-500 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+        >
+          {saving ? <><Loader2 className="w-4 h-4 animate-spin" /> Filling…</> : <><Download className="w-4 h-4" /> Fill & Download PDF</>}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Redact PDF Interface ─────────────────────────────────────────────────────
+
+interface RedactBox {
+  pageIndex: number
+  xFrac: number; yFrac: number; wFrac: number; hFrac: number
+}
+
+function RedactPdfInterface({ tool, category }: { tool: Tool; category: ToolCategory | undefined; relatedTools: Tool[] }) {
+  const [file, setFile]               = useState<File | null>(null)
+  const [pageImages, setPageImages]   = useState<string[]>([])
+  const [numPages, setNumPages]       = useState(0)
+  const [loading, setLoading]         = useState(false)
+  const [boxes, setBoxes]             = useState<RedactBox[]>([])
+  const [drawing, setDrawing]         = useState(false)
+  const [draft, setDraft]             = useState<{x:number;y:number;w:number;h:number;page:number} | null>(null)
+  const [saving, setSaving]           = useState(false)
+  const [done, setDone]               = useState(false)
+  const [outputUrl, setOutputUrl]     = useState('')
+  const [outputName, setOutputName]   = useState('')
+
+  const onDrop = useCallback(async (files: File[]) => {
+    if (!files[0]) return
+    setFile(files[0]); setLoading(true); setBoxes([]); setDone(false)
+    try {
+      const pdfjsLib = await import('pdfjs-dist')
+      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`
+      const buf = await files[0].arrayBuffer()
+      const doc = await pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise
+      setNumPages(doc.numPages)
+      const imgs: string[] = []
+      for (let i = 1; i <= doc.numPages; i++) {
+        const page = await doc.getPage(i)
+        const vp = page.getViewport({ scale: 1 })
+        const scale = Math.min(1.5, 900 / vp.width)
+        const svp = page.getViewport({ scale })
+        const cv = document.createElement('canvas')
+        cv.width = svp.width; cv.height = svp.height
+        await page.render({ canvasContext: cv.getContext('2d')!, viewport: svp }).promise
+        imgs.push(cv.toDataURL('image/jpeg', 0.9))
+        page.cleanup()
+      }
+      setPageImages(imgs); doc.destroy()
+    } catch { /* ignore */ }
+    setLoading(false)
+  }, [])
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    accept: { 'application/pdf': ['.pdf'] },
+    maxFiles: 1,
+    onDrop,
+  })
+
+  const startDraw = (e: React.PointerEvent<HTMLDivElement>, pageIdx: number) => {
+    e.currentTarget.setPointerCapture(e.pointerId)
+    const rect = e.currentTarget.getBoundingClientRect()
+    const x = (e.clientX - rect.left) / rect.width
+    const y = (e.clientY - rect.top) / rect.height
+    setDraft({ x, y, w: 0, h: 0, page: pageIdx })
+    setDrawing(true)
+  }
+
+  const moveDraw = (e: React.PointerEvent<HTMLDivElement>, pageIdx: number) => {
+    if (!drawing || !draft || draft.page !== pageIdx) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    const cx = (e.clientX - rect.left) / rect.width
+    const cy = (e.clientY - rect.top) / rect.height
+    setDraft(d => d ? { ...d, w: cx - d.x, h: cy - d.y } : null)
+  }
+
+  const endDraw = () => {
+    if (draft && Math.abs(draft.w) > 0.01 && Math.abs(draft.h) > 0.01) {
+      const xFrac = draft.w < 0 ? draft.x + draft.w : draft.x
+      const yFrac = draft.h < 0 ? draft.y + draft.h : draft.y
+      setBoxes(prev => [...prev, { pageIndex: draft.page, xFrac, yFrac, wFrac: Math.abs(draft.w), hFrac: Math.abs(draft.h) }])
+    }
+    setDraft(null); setDrawing(false)
+  }
+
+  const removeBox = (idx: number) => setBoxes(prev => prev.filter((_, i) => i !== idx))
+
+  const applyRedactions = async () => {
+    if (!file || boxes.length === 0) return
+    setSaving(true)
+    try {
+      const { PDFDocument, rgb } = await import('pdf-lib')
+      const buf = await file.arrayBuffer()
+      const pdfDoc = await PDFDocument.load(buf)
+      const pages = pdfDoc.getPages()
+      for (const box of boxes) {
+        const page = pages[box.pageIndex]
+        if (!page) continue
+        const { width: pw, height: ph } = page.getSize()
+        page.drawRectangle({
+          x: box.xFrac * pw,
+          y: ph - (box.yFrac + box.hFrac) * ph,
+          width: box.wFrac * pw,
+          height: box.hFrac * ph,
+          color: rgb(0, 0, 0),
+        })
+      }
+      const bytes = await pdfDoc.save()
+      const blob = new Blob([bytes.buffer as ArrayBuffer], { type: 'application/pdf' })
+      const url = URL.createObjectURL(blob)
+      setOutputUrl(url)
+      setOutputName(file.name.replace(/\.pdf$/i, '') + '_redacted.pdf')
+      setDone(true)
+    } catch { /* ignore */ }
+    setSaving(false)
+  }
+
+  if (!file) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col">
+        <Breadcrumb tool={tool} category={category} />
+        <div className="flex-1 flex items-center justify-center px-4 py-16">
+          <div className="w-full max-w-lg">
+            <div className="text-center mb-8">
+              <div className="w-16 h-16 rounded-2xl bg-red-50 dark:bg-red-500/10 flex items-center justify-center mx-auto mb-4">
+                <EyeOff className="w-8 h-8 text-red-500" />
+              </div>
+              <h1 className="text-2xl font-black text-gray-900 dark:text-white mb-2">Redact PDF</h1>
+              <p className="text-gray-500">Draw black boxes over sensitive content to permanently remove it.</p>
+            </div>
+            <div
+              {...getRootProps()}
+              className={`border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer transition-colors ${
+                isDragActive ? 'border-red-400 bg-red-50 dark:bg-red-500/10' : 'border-gray-300 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-900/50'
+              }`}
+            >
+              <input {...getInputProps()} />
+              <Upload className={`w-8 h-8 mx-auto mb-3 ${isDragActive ? 'text-red-400' : 'text-gray-400'}`} />
+              <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">{isDragActive ? 'Drop your PDF here' : 'Drop a PDF or click to browse'}</p>
+              <p className="text-xs text-gray-400">Redaction is permanent — the original content is replaced with solid black</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-red-500 mx-auto mb-3" />
+          <p className="text-gray-500 text-sm">Loading PDF…</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (done) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col">
+        <Breadcrumb tool={tool} category={category} />
+        <div className="flex-1 flex items-center justify-center px-4">
+          <div className="text-center">
+            <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
+            <h2 className="text-2xl font-black text-gray-900 dark:text-white mb-2">Redacted!</h2>
+            <p className="text-gray-500 mb-2">Sensitive areas have been permanently blacked out.</p>
+            <p className="text-xs text-amber-600 dark:text-amber-400 mb-8">Note: text under redaction boxes may still exist in the PDF data layer. For maximum security, combine with Flatten PDF.</p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <a href={outputUrl} download={outputName}
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-red-600 text-white font-semibold hover:bg-red-500 transition-colors">
+                <Download className="w-4 h-4" /> Download Redacted PDF
+              </a>
+              <button onClick={() => { setFile(null); setPageImages([]); setBoxes([]); setDone(false); setOutputUrl('') }}
+                className="px-6 py-3 rounded-xl border border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 font-semibold hover:border-gray-400 transition-colors">
+                Redact another
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col">
+      <Breadcrumb tool={tool} category={category} />
+      <div className="max-w-5xl mx-auto w-full px-4 sm:px-6 py-6">
+        <div className="flex flex-wrap items-center gap-3 mb-4">
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl font-black text-gray-900 dark:text-white truncate">{file.name}</h1>
+            <p className="text-xs text-gray-500">{numPages} page{numPages !== 1 ? 's' : ''} · {boxes.length} redaction{boxes.length !== 1 ? 's' : ''}</p>
+          </div>
+          {boxes.length > 0 && (
+            <button onClick={() => setBoxes([])}
+              className="text-xs text-gray-400 hover:text-red-500 transition-colors">
+              Clear all
+            </button>
+          )}
+          <button onClick={applyRedactions} disabled={saving || boxes.length === 0}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-600 text-white font-semibold text-sm hover:bg-red-500 disabled:opacity-50 transition-colors">
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+            {saving ? 'Applying…' : 'Apply & Download'}
+          </button>
+        </div>
+
+        <div className="mb-4 px-4 py-3 rounded-xl bg-gray-100 dark:bg-gray-800/60 text-gray-600 dark:text-gray-400 text-sm">
+          Click and drag on any page to draw a redaction box. Boxes will be permanently filled with black when you download.
+        </div>
+
+        <div className="space-y-6">
+          {pageImages.map((src, pageIdx) => (
+            <div key={pageIdx}>
+              <p className="text-xs text-gray-400 mb-2 font-medium">Page {pageIdx + 1}</p>
+              <div
+                className="relative inline-block w-full rounded-lg overflow-hidden shadow-md cursor-crosshair select-none"
+                onPointerDown={e => startDraw(e, pageIdx)}
+                onPointerMove={e => moveDraw(e, pageIdx)}
+                onPointerUp={endDraw}
+              >
+                <img src={src} alt={`Page ${pageIdx + 1}`} className="w-full block" draggable={false} />
+                {/* Existing boxes */}
+                {boxes.filter(b => b.pageIndex === pageIdx).map((box, bi) => {
+                  const globalIdx = boxes.indexOf(box)
+                  return (
+                    <div key={bi} className="absolute bg-black group"
+                      style={{ left: `${box.xFrac*100}%`, top: `${box.yFrac*100}%`, width: `${box.wFrac*100}%`, height: `${box.hFrac*100}%` }}>
+                      <button
+                        onClick={() => removeBox(globalIdx)}
+                        className="absolute -top-3 -right-3 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )
+                })}
+                {/* Draft box while drawing on this page */}
+                {draft && draft.page === pageIdx && (
+                  <div className="absolute bg-black/80 pointer-events-none"
+                    style={{
+                      left: `${Math.min(draft.x, draft.x + draft.w) * 100}%`,
+                      top: `${Math.min(draft.y, draft.y + draft.h) * 100}%`,
+                      width: `${Math.abs(draft.w) * 100}%`,
+                      height: `${Math.abs(draft.h) * 100}%`,
+                    }}
+                  />
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── PDF Converter Hub ────────────────────────────────────────────────────────
+
+function PdfConverterHub({ tool, category }: { tool: Tool; category: ToolCategory | undefined; relatedTools: Tool[] }) {
+  const converters = [
+    { id: 'word-to-pdf',   icon: 'FileText',   label: 'Word → PDF',   desc: 'Convert .docx / .doc to PDF',          color: '#3b82f6' },
+    { id: 'ppt-to-pdf',    icon: 'FileText',   label: 'PPT → PDF',    desc: 'Convert .pptx / .ppt to PDF',           color: '#f97316' },
+    { id: 'excel-to-pdf',  icon: 'FileText',   label: 'Excel → PDF',  desc: 'Convert .xlsx / .xls to PDF',           color: '#22c55e' },
+    { id: 'pdf-to-word',   icon: 'FileText',   label: 'PDF → Word',   desc: 'Extract PDF content to .docx',          color: '#3b82f6' },
+    { id: 'pdf-to-jpg',    icon: 'ImageIcon',  label: 'PDF → Images', desc: 'Export each page as a JPEG image',       color: '#a855f7' },
+    { id: 'jpg-to-pdf',    icon: 'FileText',   label: 'Images → PDF', desc: 'Combine JPEG images into one PDF',      color: '#ec4899' },
+    { id: 'html-to-pdf',   icon: 'FileText',   label: 'HTML → PDF',   desc: 'Render an HTML file as PDF',            color: '#f59e0b' },
+    { id: 'markdown-to-pdf', icon: 'FileText', label: 'Markdown → PDF', desc: 'Convert Markdown to a formatted PDF', color: '#6366f1' },
+  ]
+
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col">
+      <Breadcrumb tool={tool} category={category} />
+      <div className="max-w-4xl mx-auto w-full px-4 sm:px-6 py-10">
+        <div className="text-center mb-10">
+          <div className="w-16 h-16 rounded-2xl bg-red-50 dark:bg-red-500/10 flex items-center justify-center mx-auto mb-4">
+            <RefreshCw className="w-8 h-8 text-red-500" />
+          </div>
+          <h1 className="text-3xl font-black text-gray-900 dark:text-white mb-3">PDF Converter</h1>
+          <p className="text-gray-500 max-w-lg mx-auto">Choose a conversion to get started. All conversions run securely on our server.</p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {converters.map((conv) => (
+            <Link
+              key={conv.id}
+              href={`/tools/${conv.id}`}
+              className="flex items-center gap-4 p-5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl hover:border-gray-400 dark:hover:border-gray-600 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 group"
+            >
+              <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{ background: `${conv.color}18`, color: conv.color }}>
+                <ToolIcon name={conv.icon} className="w-5 h-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-gray-900 dark:text-white text-sm">{conv.label}</p>
+                <p className="text-xs text-gray-500 truncate">{conv.desc}</p>
+              </div>
+              <ArrowRight className="w-4 h-4 text-gray-300 dark:text-gray-700 group-hover:text-gray-500 dark:group-hover:text-gray-400 transition-colors flex-shrink-0" />
+            </Link>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Default export ───────────────────────────────────────────────────────────
 
 export default function ToolClient({
@@ -5421,5 +6334,12 @@ export default function ToolClient({
   if (tool.id === 'edit-pdf')      return <PDFEditor            tool={tool} category={category} relatedTools={relatedTools} />
   if (tool.id === 'strip-exif')     return <StripExifInterface     tool={tool} category={category} relatedTools={relatedTools} />
   if (tool.id === 'strip-metadata') return <StripMetadataInterface tool={tool} category={category} relatedTools={relatedTools} />
+  // Newly implemented tools
+  if (tool.id === 'pdf-reader')      return <PdfReaderInterface      tool={tool} category={category} relatedTools={relatedTools} />
+  if (tool.id === 'sign-pdf')        return <SignPdfInterface        tool={tool} category={category} relatedTools={relatedTools} />
+  if (tool.id === 'pdf-form-filler') return <PdfFormFillerInterface  tool={tool} category={category} relatedTools={relatedTools} />
+  if (tool.id === 'redact-pdf')      return <RedactPdfInterface      tool={tool} category={category} relatedTools={relatedTools} />
+  if (tool.id === 'pdf-annotator')   return <PDFEditor               tool={tool} category={category} relatedTools={relatedTools} />
+  if (tool.id === 'pdf-converter')   return <PdfConverterHub         tool={tool} category={category} relatedTools={relatedTools} />
   return <FileToolInterface tool={tool} category={category} relatedTools={relatedTools} />
 }
