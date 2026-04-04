@@ -224,7 +224,7 @@ export const tools: Tool[] = [
   {
     id: 'strip-metadata',
     name: 'Strip PDF Metadata',
-    description: 'Remove hidden metadata from your PDFs',
+    description: 'View and remove hidden author, date, and application metadata from PDFs',
     category: 'pdf',
     icon: 'ShieldOff',
     color: '#e74c3c',

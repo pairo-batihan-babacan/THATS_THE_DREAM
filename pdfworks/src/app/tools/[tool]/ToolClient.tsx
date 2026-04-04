@@ -8,7 +8,7 @@ import {
   Upload, X, CheckCircle, Download, AlertCircle, Clock,
   ChevronRight, Home, ArrowLeft, Send, Bot, RotateCcw, RotateCw,
   Loader2, FileText, Zap, Shield, Trash2, Plus, Copy, Eye,
-  MapPin, Camera, SlidersHorizontal, CalendarDays, ImageIcon, AlertTriangle,
+  MapPin, Camera, SlidersHorizontal, CalendarDays, ImageIcon, AlertTriangle, Info,
 } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import type { Tool } from '@/lib/tools-registry'
@@ -168,7 +168,6 @@ const SIZE_CHANGE_TOOLS = new Set([
 const BATCH_SUPPORTED = new Set([
   'compress-pdf', 'flatten-pdf',
   'pdf-to-word', 'word-to-pdf', 'ppt-to-pdf', 'excel-to-pdf', 'pdf-to-excel',
-  'strip-metadata',
   'image-compress', 'image-resize', 'image-convert',
   'png-to-jpg', 'heic-to-jpg',
   'audio-convert', 'compress-audio', 'extract-audio',
@@ -4602,7 +4601,406 @@ function WatermarkInterface({
   )
 }
 
+// ─── Strip PDF Metadata Interface ────────────────────────────────────────────
+
+const PDF_META_HINTS: Record<string, string> = {
+  'Title':     'The document\'s title. May reveal a confidential project name, client name, or internal document purpose.',
+  'Author':    'The full name or username of whoever created the document. Directly identifies the creator.',
+  'Subject':   'A subject or description line. Can reveal sensitive project, case, or topic information.',
+  'Keywords':  'Search tags attached to the document. May contain internal classification terms or project codes.',
+  'Creator':   'The application that originally created the document (e.g. Microsoft Word 16.0). Reveals your software stack and version.',
+  'Producer':  'The library or tool that converted it to PDF (e.g. Adobe PDF Library). Reveals your software environment.',
+  'Created':   'When the document was first created. Reveals your working timeline and may correlate with sensitive events.',
+  'Modified':  'When the document was last edited. Reveals your editing history and timeline.',
+}
+
+type PdfMetaField   = { label: string; value: string; sensitive?: boolean }
+type PdfMetaSection = { id: string; label: string; Icon: React.FC<{ className?: string }>; fields: PdfMetaField[] }
+
+function buildPdfMetaSections(
+  title?: string, author?: string, subject?: string, keywords?: string,
+  creator?: string, producer?: string, created?: Date, modified?: Date,
+): PdfMetaSection[] {
+  const sections: PdfMetaSection[] = []
+
+  const fmtDate = (d: Date) => d.toLocaleString()
+
+  const doc: PdfMetaField[] = []
+  if (title)    doc.push({ label: 'Title',    value: title })
+  if (author)   doc.push({ label: 'Author',   value: author,   sensitive: true })
+  if (subject)  doc.push({ label: 'Subject',  value: subject })
+  if (keywords) doc.push({ label: 'Keywords', value: keywords })
+  if (doc.length) sections.push({ id: 'document', label: 'Document Info', Icon: FileText, fields: doc })
+
+  const app: PdfMetaField[] = []
+  if (creator)  app.push({ label: 'Creator',  value: creator,  sensitive: true })
+  if (producer) app.push({ label: 'Producer', value: producer })
+  if (app.length) sections.push({ id: 'application', label: 'Application', Icon: SlidersHorizontal, fields: app })
+
+  const dt: PdfMetaField[] = []
+  if (created)  dt.push({ label: 'Created',  value: fmtDate(created),  sensitive: true })
+  if (modified) dt.push({ label: 'Modified', value: fmtDate(modified) })
+  if (dt.length) sections.push({ id: 'dates', label: 'Dates', Icon: CalendarDays, fields: dt })
+
+  return sections
+}
+
+function StripMetadataInterface({
+  tool,
+  category,
+  relatedTools,
+}: {
+  tool: Tool
+  category: ToolCategory | undefined
+  relatedTools: Tool[]
+}) {
+  const rgb = hexToRgb(tool.color)
+  const [file,         setFile]         = useState<File | null>(null)
+  const [stage,        setStage]        = useState<'idle' | 'loading' | 'ready' | 'processing' | 'done' | 'error'>('idle')
+  const [sections,     setSections]     = useState<PdfMetaSection[]>([])
+  const [outputBlob,   setOutputBlob]   = useState<Blob | null>(null)
+  const [outputUrl,    setOutputUrl]    = useState('')
+  const [errorMsg,     setErrorMsg]     = useState('')
+  const [progress,     setProgress]     = useState(0)
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    accept: { 'application/pdf': ['.pdf'] },
+    maxFiles: 1,
+    disabled: stage === 'loading' || stage === 'processing',
+    onDrop: async (accepted) => {
+      const f = accepted[0]
+      if (!f) return
+      setFile(f)
+      setStage('loading')
+      setSections([])
+      try {
+        const { PDFDocument } = await import('pdf-lib')
+        const buf = await f.arrayBuffer()
+        const doc = await PDFDocument.load(buf, { ignoreEncryption: true })
+        setSections(buildPdfMetaSections(
+          doc.getTitle(), doc.getAuthor(), doc.getSubject(), doc.getKeywords(),
+          doc.getCreator(), doc.getProducer(), doc.getCreationDate(), doc.getModificationDate(),
+        ))
+      } catch {
+        setSections([])
+      }
+      setStage('ready')
+    },
+  })
+
+  const strip = useCallback(async () => {
+    if (!file) return
+    setStage('processing')
+    setProgress(0)
+    try {
+      const blob = await runServerTool(
+        'strip-metadata', [file], DEFAULT_OPTIONS,
+        (pct) => setProgress(pct),
+      )
+      const url = URL.createObjectURL(blob)
+      setOutputBlob(blob)
+      setOutputUrl(url)
+      setStage('done')
+    } catch (err) {
+      setErrorMsg((err as Error).message || 'Failed to strip metadata.')
+      setStage('error')
+    }
+  }, [file])
+
+  const reset = useCallback(() => {
+    if (outputUrl) URL.revokeObjectURL(outputUrl)
+    setFile(null); setStage('idle'); setSections([])
+    setOutputBlob(null); setOutputUrl(''); setErrorMsg(''); setProgress(0)
+  }, [outputUrl])
+
+  const totalFields    = sections.reduce((n, s) => n + s.fields.length, 0)
+  const sensitiveCount = sections.reduce((n, s) => n + s.fields.filter(f => f.sensitive).length, 0)
+  const outputName     = file ? file.name.replace(/\.pdf$/i, '_clean.pdf') : 'clean.pdf'
+
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+      <Breadcrumb tool={tool} category={category} />
+
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        {/* Header */}
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
+          className="flex items-center gap-4 mb-8">
+          <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ background: `rgba(${rgb}, 0.15)`, color: tool.color }}>
+            <ToolIcon name={tool.icon} className="w-6 h-6" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-black text-gray-900 dark:text-white">{tool.name}</h1>
+            <p className="text-gray-500 text-sm mt-0.5">View and remove hidden author, date, and application data from PDFs</p>
+          </div>
+        </motion.div>
+
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.08 }}
+          className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl">
+
+          <AnimatePresence mode="wait">
+
+            {/* ── IDLE ── */}
+            {stage === 'idle' && (
+              <motion.div key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <div
+                  {...getRootProps()}
+                  className={`p-10 sm:p-14 flex flex-col items-center justify-center text-center cursor-pointer transition-colors rounded-2xl ${
+                    isDragActive ? 'bg-red-500/5' : 'hover:bg-gray-50 dark:hover:bg-gray-800/30'
+                  }`}
+                >
+                  <input {...getInputProps()} />
+                  <div className="w-16 h-16 rounded-2xl mb-5 flex items-center justify-center"
+                    style={{ background: `rgba(${rgb}, 0.1)`, color: tool.color }}>
+                    <Upload className="w-7 h-7" />
+                  </div>
+                  <p className="text-gray-900 dark:text-white font-bold text-lg mb-1">
+                    {isDragActive ? 'Drop PDF here' : 'Upload a PDF'}
+                  </p>
+                  <p className="text-gray-500 text-sm mb-5">
+                    We&apos;ll scan for hidden metadata before you decide to strip it
+                  </p>
+                  <span className="px-5 py-2.5 rounded-xl text-white text-sm font-bold"
+                    style={{ background: tool.color }}>
+                    Choose PDF
+                  </span>
+                </div>
+              </motion.div>
+            )}
+
+            {/* ── LOADING ── */}
+            {stage === 'loading' && (
+              <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                className="p-14 flex flex-col items-center justify-center text-center">
+                <Loader2 className="w-10 h-10 animate-spin mb-4" style={{ color: tool.color }} />
+                <p className="text-gray-900 dark:text-white font-semibold">Reading metadata…</p>
+                <p className="text-gray-500 text-sm mt-1">Scanning title, author, dates, and application data</p>
+              </motion.div>
+            )}
+
+            {/* ── READY: metadata viewer ── */}
+            {stage === 'ready' && file && (
+              <motion.div key="ready" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+
+                {/* File header bar */}
+                <div className="flex items-center gap-4 px-6 py-4 border-b border-gray-100 dark:border-gray-800">
+                  <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                    style={{ background: `rgba(${rgb}, 0.1)`, color: tool.color }}>
+                    <FileText className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-gray-900 dark:text-white font-semibold text-sm truncate">{file.name}</p>
+                    <p className="text-gray-500 text-xs mt-0.5">{formatBytes(file.size)}</p>
+                  </div>
+                  {totalFields > 0 ? (
+                    <div className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold"
+                      style={{ background: `rgba(${rgb}, 0.1)`, color: tool.color }}>
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                      {totalFields} metadata field{totalFields !== 1 ? 's' : ''} found
+                    </div>
+                  ) : (
+                    <div className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-green-500/10 text-green-500">
+                      <CheckCircle className="w-3.5 h-3.5" />
+                      No metadata found
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-6">
+                  {totalFields > 0 ? (
+                    <>
+                      {/* Sensitive field summary */}
+                      {sensitiveCount > 0 && (
+                        <div className="flex items-start gap-3 mb-5 px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                          <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                          <p className="text-sm text-amber-400 font-medium">
+                            {sensitiveCount} field{sensitiveCount > 1 ? 's' : ''} may contain personal information — author name, creation software, or timestamps.
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Metadata sections */}
+                      <div className="space-y-4 mb-6">
+                        {sections.map(section => (
+                          <div key={section.id} className="rounded-xl border border-gray-100 dark:border-gray-800">
+                            <div className="flex items-center gap-2 px-4 py-2.5 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-800 rounded-t-xl">
+                              <section.Icon className="w-3.5 h-3.5 text-gray-500" />
+                              <span className="text-xs font-bold uppercase tracking-wide text-gray-500">{section.label}</span>
+                            </div>
+                            <div className="divide-y divide-gray-100 dark:divide-gray-800/60">
+                              {section.fields.map((field) => (
+                                <div key={field.label} className="flex items-center justify-between px-4 py-2.5 gap-4">
+                                  <span className="text-xs text-gray-500 flex-shrink-0 flex items-center">
+                                    {field.label}
+                                    {PDF_META_HINTS[field.label] && <ExifHint text={PDF_META_HINTS[field.label]} />}
+                                  </span>
+                                  <span className={`text-sm font-mono text-right truncate max-w-[60%] ${
+                                    field.sensitive ? 'text-amber-600 dark:text-amber-400' : 'text-gray-900 dark:text-gray-200'
+                                  }`}>{field.value}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-center py-10">
+                      <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-3" />
+                      <p className="text-gray-900 dark:text-white font-bold mb-1">No metadata found</p>
+                      <p className="text-gray-500 text-sm">This PDF is already clean — no author, dates, or application data.</p>
+                    </div>
+                  )}
+
+                  {/* Actions */}
+                  <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                    <button
+                      onClick={strip}
+                      className="flex-1 inline-flex items-center justify-center gap-2 py-3.5 rounded-xl text-white text-sm font-bold transition-all hover:opacity-90 active:scale-[0.98]"
+                      style={{ background: tool.color, boxShadow: `0 4px 20px rgba(${rgb}, 0.3)` }}
+                    >
+                      <Shield className="w-4 h-4" />
+                      {totalFields > 0 ? 'Strip All Metadata' : 'Clean & Download Anyway'}
+                    </button>
+                    <button
+                      onClick={reset}
+                      className="sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl border border-gray-700 text-gray-400 hover:text-white hover:border-gray-600 text-sm font-semibold transition-colors"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                      Try another
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* ── PROCESSING ── */}
+            {stage === 'processing' && (
+              <motion.div key="processing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                className="p-14 flex flex-col items-center justify-center text-center">
+                <Loader2 className="w-10 h-10 animate-spin mb-4" style={{ color: tool.color }} />
+                <p className="text-gray-900 dark:text-white font-semibold">Stripping metadata…</p>
+                <p className="text-gray-500 text-sm mt-1">Processing on server — your file will be ready shortly</p>
+                {progress > 0 && progress < 100 && (
+                  <div className="mt-4 w-48 h-1.5 rounded-full bg-gray-200 dark:bg-gray-800 overflow-hidden">
+                    <motion.div className="h-full rounded-full" style={{ background: tool.color }}
+                      animate={{ width: `${progress}%` }} transition={{ duration: 0.3, ease: 'easeOut' }} />
+                  </div>
+                )}
+              </motion.div>
+            )}
+
+            {/* ── DONE ── */}
+            {stage === 'done' && outputBlob && file && (
+              <motion.div key="done" initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
+                className="p-10 sm:p-14 text-center">
+                <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}
+                  transition={{ type: 'spring', stiffness: 220, damping: 16 }}
+                  className="w-16 h-16 rounded-full bg-green-500/15 flex items-center justify-center mx-auto mb-5">
+                  <CheckCircle className="w-8 h-8 text-green-400" />
+                </motion.div>
+                <h2 className="text-gray-900 dark:text-white font-black text-xl mb-2">All clean!</h2>
+                <p className="text-gray-400 text-sm mb-1">All metadata has been removed from your PDF.</p>
+                <p className="text-xs text-gray-600 mb-8 flex items-center justify-center gap-1.5">
+                  <span>{formatBytes(file.size)}</span>
+                  <span className="text-gray-700">→</span>
+                  <span className="text-gray-400">{formatBytes(outputBlob.size)}</span>
+                </p>
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                  <a href={outputUrl} download={outputName}
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl text-white font-bold text-sm transition-all hover:opacity-90 active:scale-[0.98]"
+                    style={{ background: tool.color, boxShadow: `0 4px 24px rgba(${rgb}, 0.3)` }}>
+                    <Download className="w-4 h-4" />
+                    Download {outputName}
+                  </a>
+                  <button onClick={reset}
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl border border-gray-700 text-gray-400 hover:text-white hover:border-gray-600 text-sm font-semibold transition-colors">
+                    <RotateCcw className="w-4 h-4" />
+                    Process another
+                  </button>
+                </div>
+              </motion.div>
+            )}
+
+            {/* ── ERROR ── */}
+            {stage === 'error' && (
+              <motion.div key="error" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                className="p-14 text-center">
+                <div className="w-16 h-16 rounded-2xl bg-red-500/10 flex items-center justify-center mx-auto mb-5">
+                  <AlertCircle className="w-8 h-8 text-red-400" />
+                </div>
+                <p className="text-white font-semibold mb-2">Something went wrong</p>
+                <p className="text-gray-500 text-sm mb-6 max-w-sm mx-auto">{errorMsg || 'Please try with a different file.'}</p>
+                <button onClick={reset}
+                  className="px-6 py-3 rounded-xl bg-gray-800 text-gray-300 text-sm font-semibold hover:bg-gray-700 transition-colors">
+                  Try again
+                </button>
+              </motion.div>
+            )}
+
+          </AnimatePresence>
+        </motion.div>
+
+        <RelatedTools tools={relatedTools} />
+      </div>
+    </div>
+  )
+}
+
 // ─── Strip EXIF Interface ─────────────────────────────────────────────────────
+
+const EXIF_HINTS: Record<string, string> = {
+  'Latitude':      'Exact north-south GPS coordinate. Together with longitude it reveals precisely where the photo was taken — down to a few metres.',
+  'Longitude':     'Exact east-west GPS coordinate. Together with latitude it pinpoints the capture location for anyone who receives the file.',
+  'Altitude':      'Height above sea level at capture time. Can narrow down the floor of a building or an outdoor elevation.',
+  'Make':          'The brand of your camera or phone (e.g. Samsung, Apple). Reveals what device you own.',
+  'Model':         'Exact device model. Combined with Make, it can help identify you — especially with less common models.',
+  'Lens':          'Lens model used. Mostly harmless, but reveals equipment details.',
+  'Software':      'App, firmware, or OS that processed the image. Can be used for device fingerprinting across platforms.',
+  'Artist':        'Name embedded by your camera or editing app — often your real name, username, or the device\'s registered owner.',
+  'Copyright':     'Copyright notice embedded in the image. May contain your name or organisation.',
+  'Shutter':       'How long the camera sensor was exposed. Harmless technical data about your shooting conditions.',
+  'Aperture':      'The lens opening (f-stop) used. Harmless technical metadata.',
+  'ISO':           'Camera light sensitivity setting. Harmless technical data.',
+  'Focal Length':  'Focal length of the lens used. Can help identify your specific equipment.',
+  'Flash':         'Whether the flash fired. Harmless — just reveals lighting conditions.',
+  'White Balance': 'How the camera interpreted colour temperature. Harmless technical data.',
+  'Taken':         'Exact date and time the photo was captured in your local time zone. Can reveal your routine, time zone, and location patterns.',
+  'Created':       'When the image file was first created — usually matches the capture time.',
+  'Modified':      'When the image was last edited. Reveals whether and when you post-processed the photo.',
+  'Dimensions':    'Pixel width and height of the image. Harmless technical information.',
+  'Resolution':    'Intended print resolution (DPI). Harmless metadata.',
+  'Color Space':   'The colour encoding standard used (e.g. sRGB). Harmless technical metadata.',
+  'Orientation':   'Physical rotation of the camera when the shot was taken. Harmless.',
+}
+
+function ExifHint({ text }: { text: string }) {
+  const [show, setShow] = useState(false)
+  return (
+    <div className="relative inline-flex items-center"
+      onMouseEnter={() => setShow(true)}
+      onMouseLeave={() => setShow(false)}
+    >
+      <Info className="w-3 h-3 text-gray-400/60 hover:text-gray-400 cursor-default ml-1 flex-shrink-0 transition-colors" />
+      <AnimatePresence>
+        {show && (
+          <motion.div
+            initial={{ opacity: 0, y: 4, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 4, scale: 0.96 }}
+            transition={{ duration: 0.1 }}
+            className="absolute bottom-full left-0 mb-2 w-56 px-3 py-2 bg-gray-800 text-gray-300 text-xs rounded-lg pointer-events-none border border-gray-700 shadow-xl z-50 leading-relaxed"
+          >
+            {text}
+            <div className="absolute top-full left-2.5 border-4 border-transparent border-t-gray-800" />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
 
 type ExifField   = { label: string; value: string; sensitive?: boolean }
 type ExifSection = { id: string; label: string; Icon: React.FC<{ className?: string }>; fields: ExifField[] }
@@ -4772,7 +5170,7 @@ function StripExifInterface({
 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.08 }}
-          className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl overflow-hidden">
+          className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl">
 
           <AnimatePresence mode="wait">
 
@@ -4867,9 +5265,9 @@ function StripExifInterface({
                       {/* EXIF sections */}
                       <div className="space-y-4 mb-6">
                         {sections.map(section => (
-                          <div key={section.id} className="rounded-xl border border-gray-100 dark:border-gray-800 overflow-hidden">
+                          <div key={section.id} className="rounded-xl border border-gray-100 dark:border-gray-800">
                             {/* Section header */}
-                            <div className="flex items-center gap-2 px-4 py-2.5 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-800">
+                            <div className="flex items-center gap-2 px-4 py-2.5 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-800 rounded-t-xl">
                               <section.Icon className="w-3.5 h-3.5 text-gray-500" />
                               <span className="text-xs font-bold uppercase tracking-wide text-gray-500">{section.label}</span>
                               {section.id === 'location' && (
@@ -4880,7 +5278,10 @@ function StripExifInterface({
                             <div className="divide-y divide-gray-100 dark:divide-gray-800/60">
                               {section.fields.map((field) => (
                                 <div key={field.label} className="flex items-center justify-between px-4 py-2.5 gap-4">
-                                  <span className="text-xs text-gray-500 flex-shrink-0">{field.label}</span>
+                                  <span className="text-xs text-gray-500 flex-shrink-0 flex items-center">
+                                    {field.label}
+                                    {EXIF_HINTS[field.label] && <ExifHint text={EXIF_HINTS[field.label]} />}
+                                  </span>
                                   <span className={`text-sm font-mono text-right truncate max-w-[60%] ${
                                     field.sensitive ? 'text-amber-600 dark:text-amber-400' : 'text-gray-900 dark:text-gray-200'
                                   }`}>{field.value}</span>
@@ -5012,6 +5413,7 @@ export default function ToolClient({
   if (tool.id === 'number-pages')  return <NumberPagesInterface tool={tool} category={category} relatedTools={relatedTools} />
   if (tool.id === 'watermark-pdf') return <WatermarkInterface   tool={tool} category={category} relatedTools={relatedTools} />
   if (tool.id === 'edit-pdf')      return <PDFEditor            tool={tool} category={category} relatedTools={relatedTools} />
-  if (tool.id === 'strip-exif')    return <StripExifInterface   tool={tool} category={category} relatedTools={relatedTools} />
+  if (tool.id === 'strip-exif')     return <StripExifInterface     tool={tool} category={category} relatedTools={relatedTools} />
+  if (tool.id === 'strip-metadata') return <StripMetadataInterface tool={tool} category={category} relatedTools={relatedTools} />
   return <FileToolInterface tool={tool} category={category} relatedTools={relatedTools} />
 }
