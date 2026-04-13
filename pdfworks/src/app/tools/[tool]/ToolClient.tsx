@@ -18,6 +18,7 @@ import type { ToolCategory } from '@/lib/tool-categories'
 import { ToolIcon } from '@/components/ToolIcon'
 import { submitJob } from '@/lib/api'
 import type { ProgressFn } from '@/lib/api'
+import { getToolSeo } from '@/lib/seo-data'
 
 const PDFEditor = dynamic(() => import('@/components/pdf-editor/PDFEditor'), { ssr: false })
 const SignaturePad = dynamic(() => import('@/components/pdf-editor/SignaturePad'), { ssr: false })
@@ -1238,6 +1239,7 @@ function AIToolInterface({
           </div>
         </div>
 
+        <ToolFaqSection toolId={tool.id} color={tool.color} />
         {relatedTools.length > 0 && <RelatedTools tools={relatedTools} />}
       </div>
     </div>
@@ -1406,6 +1408,7 @@ function MarkdownEditorTool({
           </div>
         </motion.div>
 
+        <ToolFaqSection toolId={tool.id} color={tool.color} />
         {relatedTools.length > 0 && <RelatedTools tools={relatedTools} />}
       </div>
     </div>
@@ -2363,7 +2366,37 @@ function FileToolInterface({
 
         <HowToSection steps={howToSteps} color={tool.color} />
 
+        <ToolFaqSection toolId={tool.id} color={tool.color} />
+
         {relatedTools.length > 0 && <RelatedTools tools={relatedTools} />}
+      </div>
+    </div>
+  )
+}
+
+// ─── Tool FAQ Section ─────────────────────────────────────────────────────────
+
+function ToolFaqSection({ toolId, color }: { toolId: string; color: string }) {
+  const seo = getToolSeo(toolId)
+  if (!seo?.faqs?.length) return null
+  const rgb = hexToRgb(color)
+
+  return (
+    <div className="mb-12">
+      <h2 className="text-xl font-black text-white mb-6">Frequently asked questions</h2>
+      <div className="space-y-3">
+        {seo.faqs.map((faq, i) => (
+          <div key={i} className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+            <div
+              className="w-5 h-5 rounded-md flex items-center justify-center text-xs font-black mb-3"
+              style={{ background: `rgba(${rgb}, 0.12)`, color }}
+            >
+              Q
+            </div>
+            <h3 className="text-white font-semibold text-sm mb-2">{faq.question}</h3>
+            <p className="text-gray-400 text-xs leading-relaxed">{faq.answer}</p>
+          </div>
+        ))}
       </div>
     </div>
   )
@@ -3018,6 +3051,7 @@ function OrganizePdfInterface({
                 <p className="text-gray-700 dark:text-gray-200 font-semibold text-lg mb-1">Drop your PDF here</p>
                 <p className="text-gray-400 dark:text-gray-500 text-sm">or click to select</p>
               </div>
+              <ToolFaqSection toolId={tool.id} color={tool.color} />
               {relatedTools.length > 0 && <RelatedTools tools={relatedTools} />}
             </motion.div>
           )}
@@ -3406,6 +3440,7 @@ function AISummarizerInterface({
                 <p className="text-gray-700 dark:text-gray-200 font-semibold text-lg mb-1">Drop your PDF here</p>
                 <p className="text-gray-400 dark:text-gray-500 text-sm">The AI will summarize it in the document&apos;s own language</p>
               </div>
+              <ToolFaqSection toolId={tool.id} color={tool.color} />
               {relatedTools.length > 0 && <RelatedTools tools={relatedTools} />}
             </motion.div>
           )}
@@ -3668,6 +3703,7 @@ function PageCanvasInterface({
                 </p>
                 <p className="text-gray-400 text-sm">or click to select · processed locally in your browser</p>
               </div>
+              <ToolFaqSection toolId={tool.id} color={tool.color} />
               {relatedTools.length > 0 && <RelatedTools tools={relatedTools} />}
             </motion.div>
           )}
@@ -4063,6 +4099,7 @@ function NumberPagesInterface({
                 <p className="text-gray-700 dark:text-gray-200 font-semibold text-lg mb-1">Drop your PDF here</p>
                 <p className="text-gray-400 text-sm">or click to select</p>
               </div>
+              <ToolFaqSection toolId={tool.id} color={tool.color} />
               {relatedTools.length > 0 && <RelatedTools tools={relatedTools} />}
             </motion.div>
           )}
@@ -4400,6 +4437,7 @@ function WatermarkInterface({
                 <p className="text-gray-700 dark:text-gray-200 font-semibold text-lg mb-1">Drop your PDF here</p>
                 <p className="text-gray-400 text-sm">or click to select</p>
               </div>
+              <ToolFaqSection toolId={tool.id} color={tool.color} />
               {relatedTools.length > 0 && <RelatedTools tools={relatedTools} />}
             </motion.div>
           )}
