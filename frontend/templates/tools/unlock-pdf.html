@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Unlock PDF — Remove Password from PDF Free Online — PDFWorks{% endblock %}
+{% block meta_description %}Remove password protection from your own PDF files online for free. Unlock PDFs you own to edit, copy, or print freely. No account needed.{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebApplication","name":"PDFWorks Unlock PDF","url":"https://pdfworks.io/tools/unlock-pdf","description":"Free online PDF unlocker. Remove password protection from PDF files you own.","applicationCategory":"Utility","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="tool-detail-page">
+  <nav class="breadcrumb">
+    <a href="/">Home</a><span class="sep">›</span>
+    <a href="/pdf">PDF Tools</a><span class="sep">›</span>
+    <span>Unlock PDF</span>
+  </nav>
+
+  <h1>Unlock PDF</h1>
+  <p class="tool-lead">Remove the password from a PDF file you own. Upload the protected PDF, provide the correct password, and receive an unlocked version you can open, edit, and share freely.</p>
+
+  <div class="tool-action-bar">
+    <p>Unlock your PDF now — free, secure, files deleted in 30 minutes.</p>
+    <a href="/pdf" class="btn btn-primary" style="padding:.55rem 1.25rem;border-radius:8px;background:var(--accent);color:#fff;font-weight:600;text-decoration:none;white-space:nowrap">Open Unlock PDF →</a>
+  </div>
+
+  <div class="prose">
+    <h2>What This Tool Does</h2>
+    <p>The Unlock PDF tool removes password protection from a PDF file. To use it, you must already know the correct password — this tool does not crack or bypass passwords on files you don't own. It simply provides a convenient way to produce an unlocked copy of a PDF you have legitimate access to, so you don't need to enter the password every time you open it.</p>
+
+    <h2>How to Unlock a PDF on PDFWorks</h2>
+    <ol class="steps-list">
+      <li>Go to <a href="/pdf">PDF Tools</a> and select <strong>Unlock PDF</strong> in the sidebar.</li>
+      <li>Upload your password-protected PDF file.</li>
+      <li>Enter the password for the file when prompted.</li>
+      <li>Click <strong>Convert</strong>. The tool verifies the password and produces an unlocked PDF.</li>
+      <li>Download the password-free version.</li>
+    </ol>
+
+    <h2>Common Legitimate Use Cases</h2>
+    <ul>
+      <li><strong>Archived documents</strong> — You password-protected a document years ago and want to remove the password from your own archive.</li>
+      <li><strong>Workflow simplification</strong> — You receive password-protected PDFs from a specific supplier and have the password — you want unlocked versions for your document management system.</li>
+      <li><strong>Editing your own work</strong> — You previously locked a PDF to prevent edits, but now you need to update it. Unlock it first, then re-lock after editing.</li>
+      <li><strong>Printing restrictions</strong> — The PDF has print restrictions (an owner/permissions password) that prevent printing. If you own the document, unlocking it removes these restrictions.</li>
+    </ul>
+
+    <h2>Important: Ethical and Legal Use Only</h2>
+    <p>This tool is provided for legitimate use by document owners. Using it to bypass password protection on documents you do not own or have permission to access may constitute unauthorised computer access under applicable law (including the Computer Misuse Act in the UK, the Computer Fraud and Abuse Act in the US, and equivalent legislation elsewhere). PDFWorks does not condone or support misuse of this tool.</p>
+
+    <h2>Two Types of PDF Passwords</h2>
+    <p>PDFs can have two different types of password protection:</p>
+    <ul>
+      <li><strong>User/Open password</strong> — Required to open and view the document at all. You must provide this password to use the Unlock PDF tool.</li>
+      <li><strong>Owner/Permissions password</strong> — Controls editing, printing, and copying rights. May not be required to open the file in a viewer.</li>
+    </ul>
+    <p>Both types can be removed with this tool when you provide the correct password.</p>
+
+    <p style="margin-top:2rem"><strong>Related tools:</strong></p>
+    <div class="related-tools">
+      <a href="/tools/strip-pdf-metadata" class="related-tool-link">Strip PDF Metadata</a>
+      <a href="/tools/compress-pdf" class="related-tool-link">Compress PDF</a>
+      <a href="/tools/merge-pdf" class="related-tool-link">Merge PDFs</a>
+    </div>
+    <p style="margin-top:1.5rem"><strong>Further reading:</strong> <a href="/blog/pdf-security-encryption-guide">PDF Security and Encryption Guide</a></p>
+  </div>
+</div>
+{% endblock %}

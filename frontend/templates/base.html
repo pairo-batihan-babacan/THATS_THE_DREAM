@@ -3,18 +3,39 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>{% block title %}FileConvert{% endblock %} — Convert. Compress. Clean.</title>
-  <meta name="description" content="Free online file converter. PDF, image, audio, video tools. No account required. Files deleted automatically." />
+  <title>{% block title %}PDFWorks — Free Online PDF Tools{% endblock %}</title>
+  <meta name="description" content="{% block meta_description %}Free online PDF tools — compress, convert, merge, split and protect PDF files instantly. No account needed. Files auto-deleted after 30 minutes.{% endblock %}" />
+  <link rel="canonical" href="https://pdfworks.io{{ request.url.path }}" />
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="{% block og_title %}PDFWorks — Free Online PDF & File Tools{% endblock %}" />
+  <meta property="og:description" content="{% block og_description %}Free online PDF tools. Compress, convert, merge, split PDFs instantly. No account required.{% endblock %}" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://pdfworks.io{{ request.url.path }}" />
+  <meta property="og:site_name" content="PDFWorks" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="{% block twitter_title %}PDFWorks — Free Online PDF & File Tools{% endblock %}" />
+  <meta name="twitter:description" content="{% block twitter_description %}Free online PDF tools. No account required. Files auto-deleted.{% endblock %}" />
+
+  <!-- Structured Data -->
+  {% block structured_data %}
+  <script type="application/ld+json">
+  {"@context":"https://schema.org","@type":"WebSite","name":"PDFWorks","url":"https://pdfworks.io"}
+  </script>
+  {% endblock %}
+
   <link rel="stylesheet" href="/static/css/style.css" />
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📄</text></svg>" />
 </head>
 <body>
 
   <nav class="nav">
     <div class="nav-inner">
       <a href="/" class="logo">
-        <span class="logo-icon">⚡</span>
-        <span class="logo-text">FileConvert</span>
+        <span class="logo-icon">📄</span>
+        <span class="logo-text">PDFWorks</span>
       </a>
       <div class="nav-links">
         <a href="/pdf">PDF</a>
@@ -22,6 +43,8 @@
         <a href="/audio">Audio</a>
         <a href="/video">Video</a>
         <a href="/document">Document</a>
+        <a href="/blog">Blog</a>
+        <a href="/faq">FAQ</a>
       </div>
       <button class="nav-hamburger" id="navToggle" aria-label="Toggle navigation" aria-expanded="false">
         <span class="hamburger-icon">&#9776;</span>
@@ -39,17 +62,44 @@
 
   <footer class="footer">
     <div class="footer-inner">
-      <p class="footer-brand"><span class="logo-icon">⚡</span> FileConvert</p>
-      <p class="footer-privacy">
-        Files are automatically deleted after 30 minutes.
-        No account required. No data sold. Ever.
-      </p>
-      <div class="footer-links">
-        <a href="/pdf">PDF</a>
-        <a href="/image">Image</a>
-        <a href="/audio">Audio</a>
-        <a href="/video">Video</a>
-        <a href="/document">Document</a>
+      <div class="footer-top">
+        <div class="footer-brand-col">
+          <p class="footer-brand"><span class="logo-icon">📄</span> PDFWorks</p>
+          <p class="footer-tagline">Free online PDF and file tools.<br>No account. No tracking. Files deleted in 30 min.</p>
+        </div>
+        <div class="footer-nav-cols">
+          <div class="footer-col">
+            <p class="footer-col-title">Tools</p>
+            <a href="/pdf">PDF Tools</a>
+            <a href="/image">Image Tools</a>
+            <a href="/audio">Audio Tools</a>
+            <a href="/video">Video Tools</a>
+            <a href="/document">Document Tools</a>
+          </div>
+          <div class="footer-col">
+            <p class="footer-col-title">Popular</p>
+            <a href="/tools/compress-pdf">Compress PDF</a>
+            <a href="/tools/pdf-to-word">PDF to Word</a>
+            <a href="/tools/merge-pdf">Merge PDF</a>
+            <a href="/tools/unlock-pdf">Unlock PDF</a>
+            <a href="/tools/strip-pdf-metadata">Strip Metadata</a>
+          </div>
+          <div class="footer-col">
+            <p class="footer-col-title">Resources</p>
+            <a href="/blog">Blog</a>
+            <a href="/faq">FAQ</a>
+            <a href="/about">About Us</a>
+            <a href="/contact">Contact</a>
+          </div>
+          <div class="footer-col">
+            <p class="footer-col-title">Legal</p>
+            <a href="/privacy">Privacy Policy</a>
+            <a href="/terms">Terms of Service</a>
+          </div>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p>© 2024 PDFWorks. Files are automatically deleted after 30 minutes. No data sold. Ever.</p>
       </div>
     </div>
   </footer>
@@ -65,7 +115,6 @@
         toggle.setAttribute('aria-expanded', open);
         toggle.querySelector('.hamburger-icon').textContent = open ? '\u00D7' : '\u2630';
       });
-      // Close menu when a nav link is clicked
       links.addEventListener('click', function (e) {
         if (e.target.tagName === 'A') {
           links.classList.remove('open');

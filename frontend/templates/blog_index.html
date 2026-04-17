@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Blog — PDF Tips, Guides & Tutorials — PDFWorks{% endblock %}
+{% block meta_description %}The PDFWorks blog: practical guides on PDF compression, conversion, security, accessibility, and more. Expert tips to get the most from your documents.{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"Blog","name":"PDFWorks Blog","url":"https://pdfworks.io/blog","description":"Guides, tips, and tutorials on PDF tools, file conversion, and document management."}
+</script>
+{% endblock %}
+
+{% block content %}
+<section class="blog-hero">
+  <h1>PDFWorks Blog</h1>
+  <p>Practical guides on PDF compression, conversion, security, and more — written to help you get the most from your documents.</p>
+</section>
+
+<section class="blog-section">
+  <div class="blog-grid">
+    {% for post in posts %}
+    <a href="/blog/{{ post.slug }}" class="blog-card">
+      <div class="blog-card-meta">
+        <span>{{ post.date }}</span>
+        <span>{{ post.reading_time }}</span>
+      </div>
+      <h2>{{ post.title }}</h2>
+      <p>{{ post.description }}</p>
+      <span class="blog-card-link">Read article →</span>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

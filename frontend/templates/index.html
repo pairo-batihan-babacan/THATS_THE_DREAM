@@ -1,5 +1,12 @@
 {% extends "base.html" %}
-{% block title %}FileConvert{% endblock %}
+{% block title %}PDFWorks — Free Online PDF & File Conversion Tools{% endblock %}
+{% block meta_description %}Free online PDF tools — compress, convert, merge, split, and secure PDFs instantly. Also image, audio, video, and document tools. No account. Files auto-deleted in 30 min.{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebApplication","name":"PDFWorks","url":"https://pdfworks.io","description":"Free online PDF and file conversion tools. Compress, convert, merge, split, strip metadata. No account required.","applicationCategory":"Utility","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"featureList":["PDF Compression","PDF to Word Conversion","Merge PDFs","Split PDF","PDF Metadata Removal","Image Format Conversion","Audio Conversion","Video Conversion"]}
+</script>
+{% endblock %}
 
 {% block content %}
 <section class="hero">

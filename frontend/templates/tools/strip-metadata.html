@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Strip PDF Metadata — Remove Hidden Data from PDFs Free — PDFWorks{% endblock %}
+{% block meta_description %}Remove hidden metadata from PDF files — author name, creation software, edit history, and more. Protect your privacy before sharing documents. Free, no account needed.{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebApplication","name":"PDFWorks Strip PDF Metadata","url":"https://pdfworks.io/tools/strip-pdf-metadata","description":"Free online tool to remove hidden metadata from PDF files — author, creation date, software, and more.","applicationCategory":"Utility","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="tool-detail-page">
+  <nav class="breadcrumb">
+    <a href="/">Home</a><span class="sep">›</span>
+    <a href="/pdf">PDF Tools</a><span class="sep">›</span>
+    <span>Strip PDF Metadata</span>
+  </nav>
+
+  <h1>Strip PDF Metadata</h1>
+  <p class="tool-lead">Remove hidden metadata from PDF files before sharing them. Metadata can reveal your name, the software you used, your company, editing history, and more — information you may not want recipients to see.</p>
+
+  <div class="tool-action-bar">
+    <p>Strip metadata from your PDF now — free and instant.</p>
+    <a href="/pdf" class="btn btn-primary" style="padding:.55rem 1.25rem;border-radius:8px;background:var(--accent);color:#fff;font-weight:600;text-decoration:none;white-space:nowrap">Open Strip Metadata →</a>
+  </div>
+
+  <div class="prose">
+    <h2>What Metadata Is Hidden in Your PDF?</h2>
+    <p>Every PDF file contains metadata — structured data stored within the file that describes when it was created, who created it, and how. This information is invisible in the normal view of the document, but can be read by anyone who checks the document properties or uses a metadata analysis tool.</p>
+    <p>Common metadata stored in PDFs includes:</p>
+    <ul>
+      <li><strong>Author name</strong> — Your full name, as stored in the operating system user account used to create the document.</li>
+      <li><strong>Creation date and time</strong> — Exact timestamp when the document was first created.</li>
+      <li><strong>Modification date and time</strong> — When the document was last edited.</li>
+      <li><strong>Creator application</strong> — The software used to create the document (e.g., "Microsoft Word for Microsoft 365" or "Adobe Acrobat Pro 2023").</li>
+      <li><strong>Company or organisation name</strong> — If your Word installation is configured with a company name, this appears in the document metadata.</li>
+      <li><strong>Document title, subject, and keywords</strong> — If set by the document author.</li>
+      <li><strong>Revision history</strong> — Number of times the document has been saved.</li>
+      <li><strong>Embedded thumbnail</strong> — A small image preview of the document's first page.</li>
+    </ul>
+
+    <h2>Why Remove PDF Metadata?</h2>
+    <p>There are several legitimate reasons to strip metadata before sharing a PDF:</p>
+    <ul>
+      <li><strong>Academic blind review</strong> — Journals that conduct anonymous peer review require documents with no author identification. Metadata can reveal authorship even if the name is removed from the visible text.</li>
+      <li><strong>Competitive tender submissions</strong> — Some procurement processes require anonymous submissions. Metadata can inadvertently identify the submitting organisation.</li>
+      <li><strong>Journalism and source protection</strong> — A journalist publishing a document received from a source may need to remove metadata that could identify the source.</li>
+      <li><strong>Personal privacy</strong> — Your full name and employer should not necessarily be embedded in every document you share publicly.</li>
+      <li><strong>Professional polish</strong> — "Created with Word Trial" in your document properties is not a great look for client-facing materials.</li>
+    </ul>
+
+    <h2>How to Strip PDF Metadata on PDFWorks</h2>
+    <ol class="steps-list">
+      <li>Go to <a href="/pdf">PDF Tools</a> and select <strong>Strip Metadata</strong> in the sidebar.</li>
+      <li>Upload your PDF file.</li>
+      <li>After uploading, PDFWorks shows you a preview of the metadata currently embedded in your document.</li>
+      <li>Click <strong>Convert</strong> to remove all metadata and produce a clean PDF.</li>
+      <li>Download the metadata-free PDF.</li>
+    </ol>
+
+    <h2>What the Tool Removes</h2>
+    <p>Our metadata stripper removes the following from PDF files:</p>
+    <ul>
+      <li>XMP metadata (Dublin Core, XAP, PDF-specific namespaces)</li>
+      <li>DocInfo dictionary entries (Author, Creator, Producer, Title, Subject, Keywords, Creation Date, Modification Date)</li>
+      <li>Embedded document thumbnail</li>
+      <li>Revision counter</li>
+    </ul>
+
+    <h2>What the Tool Does NOT Change</h2>
+    <p>The visible content of your PDF is not modified in any way. Text, images, formatting, fonts, hyperlinks, bookmarks, and all other document content remain exactly as they were.</p>
+
+    <p style="margin-top:2rem"><strong>Related tools:</strong></p>
+    <div class="related-tools">
+      <a href="/tools/compress-pdf" class="related-tool-link">Compress PDF</a>
+      <a href="/tools/unlock-pdf" class="related-tool-link">Unlock PDF</a>
+      <a href="/tools/merge-pdf" class="related-tool-link">Merge PDFs</a>
+    </div>
+    <p style="margin-top:1.5rem"><strong>Further reading:</strong> <a href="/blog/pdf-security-encryption-guide">PDF Security and Encryption Guide</a></p>
+  </div>
+</div>
+{% endblock %}

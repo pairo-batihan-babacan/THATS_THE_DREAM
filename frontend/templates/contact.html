@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Contact Us — PDFWorks{% endblock %}
+{% block meta_description %}Get in touch with the PDFWorks team. We're here to help with questions, bug reports, feature requests, and business enquiries.{% endblock %}
+
+{% block content %}
+<div class="content-page">
+  <nav class="breadcrumb">
+    <a href="/">Home</a>
+    <span class="sep">›</span>
+    <span>Contact</span>
+  </nav>
+
+  <h1>Contact Us</h1>
+  <p class="page-lead">Have a question, spotted a bug, or want to suggest a new feature? We'd love to hear from you. Choose the most relevant contact option below.</p>
+
+  <div class="contact-grid">
+    <div class="contact-card">
+      <h3>📧 General Support</h3>
+      <p>For questions about how to use PDFWorks, conversion issues, or anything related to the tools, email us at:</p>
+      <p><a href="mailto:support@pdfworks.io">support@pdfworks.io</a></p>
+      <p>We aim to respond within 2 business days. Please include details of the file type, size, and tool you were using.</p>
+    </div>
+    <div class="contact-card">
+      <h3>🐛 Bug Reports</h3>
+      <p>If you've found a bug or a conversion that produces unexpected results, please send details to:</p>
+      <p><a href="mailto:bugs@pdfworks.io">bugs@pdfworks.io</a></p>
+      <p>Include the tool name, your browser and OS version, and what you expected to happen vs. what actually happened.</p>
+    </div>
+    <div class="contact-card">
+      <h3>💼 Business & Press</h3>
+      <p>For partnership enquiries, advertising questions, or press / media requests, please contact:</p>
+      <p><a href="mailto:hello@pdfworks.io">hello@pdfworks.io</a></p>
+      <p>We are open to discussions about API access, white-label arrangements, and editorial collaborations.</p>
+    </div>
+    <div class="contact-card">
+      <h3>🔒 Privacy & GDPR</h3>
+      <p>For questions about our data handling practices, to make a Subject Access Request, or to exercise your GDPR rights, contact our privacy team:</p>
+      <p><a href="mailto:privacy@pdfworks.io">privacy@pdfworks.io</a></p>
+      <p>See our <a href="/privacy">Privacy Policy</a> for full details of how we handle data.</p>
+    </div>
+  </div>
+
+  <div class="prose" style="margin-top:2.5rem">
+    <h2>Before You Write</h2>
+    <p>Many common questions are already answered in our <a href="/faq">FAQ page</a>. Check there first — it covers topics like file size limits, supported formats, how long files are stored, and how the Pro token works.</p>
+
+    <h2>Response Times</h2>
+    <p>We are a small, focused team. We read every email and aim to reply to all genuine support requests within 2 business days (Monday–Friday, excluding public holidays). Complex technical issues may take a little longer, but we will always acknowledge receipt promptly.</p>
+
+    <h2>What We Cannot Help With</h2>
+    <p>Please note that we are unable to:</p>
+    <ul>
+      <li>Recover files that have been deleted from our servers (files are removed within 30 minutes of upload — this is by design and cannot be undone).</li>
+      <li>Unlock or decrypt PDF files that belong to third parties — we can only help you unlock files you own.</li>
+      <li>Provide legal advice about copyright or data protection.</li>
+    </ul>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}PDF to Word Converter — Convert PDF to Editable DOCX Free — PDFWorks{% endblock %}
+{% block meta_description %}Convert PDF to editable Word documents (DOCX) online for free. Works with digital and scanned PDFs. No sign-up required. Files auto-deleted after 30 minutes.{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebApplication","name":"PDFWorks PDF to Word","url":"https://pdfworks.io/tools/pdf-to-word","description":"Free online PDF to Word converter. Convert PDF files to editable DOCX documents.","applicationCategory":"Utility","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="tool-detail-page">
+  <nav class="breadcrumb">
+    <a href="/">Home</a><span class="sep">›</span>
+    <a href="/pdf">PDF Tools</a><span class="sep">›</span>
+    <span>PDF to Word</span>
+  </nav>
+
+  <h1>PDF to Word Converter</h1>
+  <p class="tool-lead">Convert any PDF document to an editable Microsoft Word file (.docx) in seconds. Preserve text, tables, and layout structure — then edit freely in Word, Google Docs, or LibreOffice.</p>
+
+  <div class="tool-action-bar">
+    <p>Convert your PDF to Word now — free, no sign-up needed.</p>
+    <a href="/pdf" class="btn btn-primary" style="padding:.55rem 1.25rem;border-radius:8px;background:var(--accent);color:#fff;font-weight:600;text-decoration:none;white-space:nowrap">Open PDF to Word →</a>
+  </div>
+
+  <div class="prose">
+    <h2>What Is PDF to Word Conversion?</h2>
+    <p>PDF to Word conversion takes the fixed, print-ready layout of a PDF document and transforms it into an editable DOCX file. The converted document preserves the original text content, basic formatting (headings, bold, italic), tables, and where possible, images and layout structure. The output can be opened and edited in Microsoft Word, Google Docs, LibreOffice Writer, or any compatible word processor.</p>
+
+    <h2>How to Convert PDF to Word on PDFWorks</h2>
+    <ol class="steps-list">
+      <li>Go to <a href="/pdf">PDF Tools</a> and click <strong>PDF → Word</strong> in the left sidebar.</li>
+      <li>Upload your PDF by dragging it onto the upload zone or clicking to browse. Maximum size: 20 MB free (50 MB Pro).</li>
+      <li>Click <strong>Convert</strong>. Conversion takes 5–60 seconds depending on document length and complexity.</li>
+      <li>Download the resulting <strong>.docx</strong> file.</li>
+      <li>Open in your preferred word processor and review the formatting.</li>
+    </ol>
+
+    <h2>What Converts Well</h2>
+    <p>Our converter works best with digitally-created PDFs (not scanned images). It accurately preserves:</p>
+    <ul>
+      <li>Paragraph text and basic formatting (bold, italic, underline)</li>
+      <li>Heading levels</li>
+      <li>Bulleted and numbered lists</li>
+      <li>Simple tables</li>
+      <li>Hyperlinks</li>
+      <li>Page layout (margins and columns in many cases)</li>
+    </ul>
+
+    <h2>Limitations to Be Aware Of</h2>
+    <p>PDF-to-Word conversion is technically challenging — PDF stores visual output, not document structure. Some elements may need manual correction:</p>
+    <ul>
+      <li>Complex multi-column layouts may be simplified</li>
+      <li>Custom fonts may be substituted if not installed on your system</li>
+      <li>Complex tables with merged cells may need reformatting</li>
+      <li>Scanned PDFs (image-only) require OCR first — use our Document → OCR tool</li>
+    </ul>
+
+    <h2>Use Cases</h2>
+    <ul>
+      <li>Editing a contract or document received as PDF</li>
+      <li>Recovering a document when the original Word file was lost</li>
+      <li>Repurposing content from reports or publications</li>
+      <li>Adding tracked changes or comments for collaboration</li>
+      <li>Updating templates that were only saved as PDF</li>
+    </ul>
+
+    <h2>Privacy</h2>
+    <p>Files are processed securely over HTTPS and permanently deleted within 30 minutes. No account required. Nothing is stored or shared.</p>
+
+    <p style="margin-top:2rem"><strong>Related tools:</strong></p>
+    <div class="related-tools">
+      <a href="/tools/word-to-pdf" class="related-tool-link">Word to PDF</a>
+      <a href="/tools/compress-pdf" class="related-tool-link">Compress PDF</a>
+      <a href="/tools/merge-pdf" class="related-tool-link">Merge PDFs</a>
+    </div>
+    <p style="margin-top:1.5rem"><strong>Further reading:</strong> <a href="/blog/pdf-to-word-guide">PDF to Word: The Complete Guide</a> · <a href="/blog/pdf-vs-docx">PDF vs DOCX</a></p>
+  </div>
+</div>
+{% endblock %}

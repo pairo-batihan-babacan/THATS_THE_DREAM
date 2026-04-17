@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}How to Create Fillable PDF Forms — PDFWorks{% endblock %}
+{% block meta_description %}Learn how to create interactive PDF forms with text fields, checkboxes, radio buttons, dropdowns, and signature fields from scratch or from existing documents.{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","headline":"How to Create Fillable PDF Forms","datePublished":"2024-03-12","author":{"@type":"Organization","name":"PDFWorks"},"publisher":{"@type":"Organization","name":"PDFWorks","url":"https://pdfworks.io"},"description":"How to create interactive PDF forms with text fields, checkboxes, dropdowns, and signature fields.","mainEntityOfPage":"https://pdfworks.io/blog/create-fillable-pdf-forms"}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="blog-post-page">
+  <nav class="breadcrumb">
+    <a href="/">Home</a><span class="sep">›</span>
+    <a href="/blog">Blog</a><span class="sep">›</span>
+    <span>Create Fillable PDF Forms</span>
+  </nav>
+  <article>
+    <header class="post-header">
+      <h1>How to Create Fillable PDF Forms</h1>
+      <div class="post-meta"><span>March 12, 2024</span><span>8 min read</span></div>
+    </header>
+    <div class="post-divider"></div>
+    <div class="prose">
+      <p>Fillable PDF forms allow recipients to type information directly into the document, check boxes, select from dropdowns, and even add digital signatures — all within a standard PDF viewer. They're used everywhere: job applications, medical intake forms, tax documents, event registrations, surveys, and order forms. This guide explains the types of form fields available, how to create them, and best practices for distributing forms.</p>
+
+      <h2>What Is a Fillable PDF Form?</h2>
+      <p>A fillable PDF form uses a technology called <strong>AcroForms</strong> (introduced in PDF 1.2) or the newer <strong>XFA (XML Forms Architecture)</strong>. AcroForms is the widely supported standard — it works in Adobe Reader, most PDF viewers, and browsers. XFA is an Adobe proprietary technology that's being phased out and should generally be avoided for new forms.</p>
+      <p>From the user's perspective, a fillable form looks like a static PDF but has interactive fields: you click on them and type. The form data is stored within the PDF structure. You can submit the completed form by email, print it, or save it locally.</p>
+
+      <h2>Types of Form Fields</h2>
+
+      <h3>Text Fields</h3>
+      <p>The most common form field type. Text fields accept typed input: names, addresses, dates, comments, amounts. They can be single-line or multi-line, with optional character limits, number formatting (for currency fields), date validation, or custom validation rules.</p>
+
+      <h3>Checkboxes</h3>
+      <p>Boolean fields — checked or unchecked. Used for yes/no answers, acknowledgement statements, opt-in/opt-out choices, and feature selection lists. Each checkbox is independent and multiple checkboxes in a group can all be checked simultaneously.</p>
+
+      <h3>Radio Buttons</h3>
+      <p>Like checkboxes, but grouped so that only one option in a group can be selected at a time. Used for mutually exclusive choices: Yes/No, gender options, payment method, satisfaction rating. Always provide at least two options in a radio button group.</p>
+
+      <h3>Dropdown Lists (Combo Boxes)</h3>
+      <p>Present a list of predefined options in a compact dropdown. Users select exactly one option. Can optionally allow custom input if the predefined options don't cover every case. Best for standardising input when there are 5+ options — for 2–4 options, radio buttons are usually more user-friendly.</p>
+
+      <h3>List Boxes</h3>
+      <p>Similar to dropdowns but display multiple options at once, and can allow multi-select. Best for displaying longer lists where users need to see multiple options simultaneously.</p>
+
+      <h3>Buttons</h3>
+      <p>Clickable buttons that trigger actions: submit the form via email, reset all fields to default values, print the form, or trigger JavaScript actions. "Submit" and "Reset" buttons are the most common uses.</p>
+
+      <h3>Signature Fields</h3>
+      <p>Placeholder fields where users can apply a digital signature (using their saved digital ID in Acrobat) or a drawn/typed signature. Signed PDFs can carry legally binding digital signatures when using qualified electronic signatures under eIDAS (EU) or comparable frameworks.</p>
+
+      <h2>Methods for Creating Fillable PDF Forms</h2>
+
+      <h3>Adobe Acrobat Pro (Most Capable)</h3>
+      <p>The gold standard for creating PDF forms. Acrobat Pro's form creation tools allow you to:</p>
+      <ul>
+        <li>Automatically detect form areas in an existing PDF and convert them to fields.</li>
+        <li>Manually place any type of field precisely where you want it.</li>
+        <li>Set validation rules, formatting, calculation formulas, and conditional logic.</li>
+        <li>Add JavaScript for complex interactions (automatically calculate totals, show/hide fields based on selection, etc.).</li>
+        <li>Set tab order for keyboard navigation.</li>
+        <li>Prepare the form for digital signatures.</li>
+      </ul>
+      <p>Cost: Around €20/month for Acrobat Pro. Justified for organisations that create forms regularly.</p>
+
+      <h3>LibreOffice Writer + Export</h3>
+      <p>LibreOffice Writer can create basic fillable forms using its form controls toolbar. Export as PDF with "Export form fields" checked. Supports text fields, checkboxes, and radio buttons. Free and cross-platform, though less polished than Acrobat Pro.</p>
+
+      <h3>Microsoft Word + Save as PDF</h3>
+      <p>Word's Developer tab includes form controls (content controls) that can be exported to basic interactive PDF forms. The conversion quality is limited — complex Word form controls don't always translate perfectly to PDF fields. Better suited for simple text entry forms than complex interactive documents.</p>
+
+      <h3>Google Forms + PDF Export</h3>
+      <p>Google Forms creates web-based forms that can be printed or saved as PDFs, but the result is typically a static printed form rather than a true fillable PDF. For simple data collection, Google Forms itself is easier than creating a fillable PDF.</p>
+
+      <h2>Practical Form Design Tips</h2>
+      <ul>
+        <li><strong>Label every field clearly.</strong> Users should never wonder what to enter in a field. Place labels directly above or to the left of each field.</li>
+        <li><strong>Use field sizes that match expected input.</strong> A first name field should be narrower than a mailing address field. This gives users visual cues about how much text is expected.</li>
+        <li><strong>Set a logical tab order.</strong> Users navigating by keyboard (including screen reader users) Tab through fields in order. Ensure this order follows the visual reading order (top to bottom, left to right).</li>
+        <li><strong>Validate input where possible.</strong> Use number formatting for numeric fields, date validation for date fields, and character limits where appropriate. This prevents data entry errors without frustrating users.</li>
+        <li><strong>Test your form</strong> in multiple PDF viewers — Adobe Reader, browser-based viewers (Chrome, Firefox), and on mobile — before distributing.</li>
+        <li><strong>Flatten before archiving.</strong> After receiving a completed form, flatten it (convert interactive fields to static content) before archiving to prevent unintended further editing.</li>
+      </ul>
+
+      <h2>Distributing Forms and Collecting Responses</h2>
+      <p>Once created, there are several ways to distribute a fillable PDF form and collect responses:</p>
+      <ul>
+        <li><strong>Email attachment</strong> — Send the form as an attachment. Respondents complete it, save it, and return it by email. Simple but can result in incomplete forms from users unfamiliar with PDF form filling.</li>
+        <li><strong>Submit button with email action</strong> — A Submit button in the PDF can automatically send the form data (or the whole PDF) to a specified email address when clicked. This requires Adobe Reader (not all viewers support this).</li>
+        <li><strong>Download link on a website</strong> — Host the PDF and link to it. Visitors download, complete, and return it.</li>
+        <li><strong>Adobe Acrobat Send &amp; Track</strong> — Send for signature and track completion status through Adobe's cloud service.</li>
+        <li><strong>DocuSign or similar</strong> — For legally binding e-signature workflows, dedicated signature platforms offer better tracking and legal compliance than basic PDF form submission.</li>
+      </ul>
+
+      <h2>Converting Static PDFs to Fillable Forms</h2>
+      <p>If you have a static PDF with form-like appearance (e.g., a scanned paper form) that you want to make fillable, you have two options: use Adobe Acrobat Pro's "Prepare Form" tool (which attempts to auto-detect and create fields from existing form areas), or manually add fields over the static content. The result is a PDF with interactive fields sitting on top of the static background image.</p>
+
+      <p style="margin-top:2rem"><strong>Related articles:</strong> <a href="/blog/pdf-accessibility-guide">PDF Accessibility Guide</a> · <a href="/blog/pdf-security-encryption-guide">PDF Security Guide</a> · <a href="/blog/pdf-vs-docx">PDF vs DOCX</a></p>
+    </div>
+  </article>
+</div>
+{% endblock %}

@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}About Us — PDFWorks{% endblock %}
+{% block meta_description %}Learn about PDFWorks: our mission to make file conversion fast, private, and free. No account required. Files deleted automatically in 30 minutes.{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"Organization","name":"PDFWorks","url":"https://pdfworks.io","description":"Free online PDF and file conversion tools with a focus on privacy.","sameAs":[],"contactPoint":{"@type":"ContactPoint","contactType":"customer support","email":"support@pdfworks.io"}}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="content-page">
+  <nav class="breadcrumb">
+    <a href="/">Home</a>
+    <span class="sep">›</span>
+    <span>About Us</span>
+  </nav>
+
+  <h1>About PDFWorks</h1>
+  <p class="page-lead">PDFWorks is a free, privacy-first file conversion platform built for people who need fast, reliable PDF and file tools — without signing up, handing over personal data, or worrying about where their files end up.</p>
+
+  <div class="prose">
+    <h2>Our Mission</h2>
+    <p>We believe that basic file conversion should be free, instant, and private. Too many online tools make you create an account, display intrusive ads, store your files indefinitely, or charge for features that should be available to everyone. PDFWorks exists to be the tool you can trust: open, transparent, and built around your privacy from day one.</p>
+    <p>Our goal is simple: you upload a file, we process it, you download the result, and then we delete everything. No login required. No watermarks. No hidden catches.</p>
+
+    <h2>What We Do</h2>
+    <p>PDFWorks provides a comprehensive suite of file conversion and manipulation tools across five categories:</p>
+    <ul>
+      <li><strong>PDF Tools</strong> — compress, convert to/from Word and Excel, merge, split, remove passwords, strip hidden metadata, convert presentations, and extract images.</li>
+      <li><strong>Image Tools</strong> — convert between formats (JPEG, PNG, WebP, HEIC, BMP, TIFF), compress photos, resize images, and strip EXIF location data.</li>
+      <li><strong>Audio Tools</strong> — convert between audio formats (MP3, WAV, OGG, FLAC, AAC, M4A), compress audio, extract audio from video files, and remove ID3 metadata.</li>
+      <li><strong>Video Tools</strong> — convert video files between popular formats (MP4, MKV, MOV, AVI, WebM) and compress video files to reduce storage.</li>
+      <li><strong>Document Tools</strong> — OCR (optical character recognition) to extract text from images, convert Markdown and HTML to PDF, and transform CSV and JSON data.</li>
+    </ul>
+    <p>Every tool is accessible directly from your browser — no software installation needed, no plugins, no desktop apps to update.</p>
+
+    <h2>Privacy by Design</h2>
+    <p>Privacy is not an afterthought at PDFWorks — it is the foundation of how we built the platform. Here is exactly what happens to your files:</p>
+    <ul>
+      <li><strong>Automatic deletion:</strong> All uploaded files and conversion results are permanently deleted from our servers within 30 minutes of upload. We do not keep copies.</li>
+      <li><strong>No account required:</strong> You never need to provide an email address or create a login. We do not know who you are.</li>
+      <li><strong>No tracking cookies:</strong> We do not use behavioral tracking cookies or sell user data to third parties.</li>
+      <li><strong>Metadata stripping:</strong> Our metadata removal tools can help you scrub hidden data — like GPS coordinates in photos or author information in PDFs — before you share files with others.</li>
+      <li><strong>Encrypted transfer:</strong> All file uploads and downloads use HTTPS encryption in transit.</li>
+    </ul>
+    <p>We display non-personalised ads to cover server costs. These ads do not require us to collect or share personal information about you.</p>
+
+    <h2>How It Works</h2>
+    <p>PDFWorks is built on a modern, open-source technology stack. When you upload a file, it is queued for processing on our secure server infrastructure. Our conversion engine handles the transformation using industry-standard libraries — PyMuPDF for PDF work, FFmpeg for audio and video, Pillow for images, and Tesseract for OCR. The converted file is stored temporarily for you to download, then wiped automatically.</p>
+    <p>All processing happens server-side, which means it works equally well on any device — desktop, tablet, or phone — with no dependency on the processing power of your own hardware. Large video files or complex PDF conversions that would take minutes on a phone complete quickly on our dedicated servers.</p>
+
+    <h2>Who Uses PDFWorks?</h2>
+    <p>PDFWorks is used by a wide range of people every day:</p>
+    <ul>
+      <li><strong>Students and educators</strong> — converting lecture notes, compressing large PDF textbooks for email, or turning scanned handwritten notes into searchable text via OCR.</li>
+      <li><strong>Business professionals</strong> — converting Word documents to PDF for client delivery, merging multiple contracts, or removing metadata before sharing sensitive documents.</li>
+      <li><strong>Developers and designers</strong> — converting SVG files to PNG for use in apps, batch-converting image formats, or stripping GPS data from photos before publishing.</li>
+      <li><strong>Journalists and researchers</strong> — extracting images from reports, converting audio recordings, or unlocking their own password-protected archives.</li>
+      <li><strong>Everyday users</strong> — anyone who just needs to "make a PDF smaller" or "turn this image into a JPG" quickly without installing software.</li>
+    </ul>
+
+    <h2>Free to Use — Supported by Ads</h2>
+    <p>PDFWorks is completely free to use. Running servers, bandwidth, and maintaining the platform has real costs. We cover these costs through non-personalised display advertising. We have deliberately chosen an ad model that does not require us to build profiles on users or sell personal data.</p>
+    <p>We also offer a Pro token (optional, one-time purchase) for users who need higher file size limits or want an ad-free experience. There is no subscription, no recurring billing, and no account required even for the Pro option.</p>
+
+    <h2>Get in Touch</h2>
+    <p>Have a question, found a bug, or want to suggest a new tool? We would love to hear from you. Reach out via our <a href="/contact">contact page</a>. We aim to respond to all genuine enquiries within 2 business days.</p>
+    <p>You can also read our <a href="/faq">Frequently Asked Questions</a> for instant answers to the most common questions about how PDFWorks works.</p>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}PDF to Images — Convert PDF Pages to JPG/PNG Free — PDFWorks{% endblock %}
+{% block meta_description %}Convert every page of a PDF to a separate image file (JPG or PNG). Free online PDF to image converter. No account needed. Files deleted in 30 minutes.{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebApplication","name":"PDFWorks PDF to Images","url":"https://pdfworks.io/tools/pdf-to-images","description":"Free online PDF to image converter. Convert PDF pages to JPG or PNG files.","applicationCategory":"Utility","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="tool-detail-page">
+  <nav class="breadcrumb">
+    <a href="/">Home</a><span class="sep">›</span>
+    <a href="/pdf">PDF Tools</a><span class="sep">›</span>
+    <span>PDF to Images</span>
+  </nav>
+
+  <h1>PDF to Images</h1>
+  <p class="tool-lead">Convert each page of a PDF document into a separate image file (JPG). A 10-page PDF becomes 10 individual image files, packaged in a ZIP archive for easy download.</p>
+
+  <div class="tool-action-bar">
+    <p>Convert PDF pages to images now — free, no account needed.</p>
+    <a href="/pdf" class="btn btn-primary" style="padding:.55rem 1.25rem;border-radius:8px;background:var(--accent);color:#fff;font-weight:600;text-decoration:none;white-space:nowrap">Open PDF to Images →</a>
+  </div>
+
+  <div class="prose">
+    <h2>How It Works</h2>
+    <p>The PDF to Images tool renders each page of your PDF document as a raster image. The entire page — including text, images, backgrounds, and graphics — is converted into a single flat image file at a consistent resolution. Multi-page PDFs produce one image file per page, all collected in a ZIP archive.</p>
+
+    <h2>How to Convert PDF to Images on PDFWorks</h2>
+    <ol class="steps-list">
+      <li>Go to <a href="/pdf">PDF Tools</a> and select <strong>PDF → Images</strong> in the sidebar.</li>
+      <li>Upload your PDF file.</li>
+      <li>Click <strong>Convert</strong>. Processing time depends on number of pages and PDF complexity — typically 5–30 seconds.</li>
+      <li>Download the resulting ZIP file containing one image per PDF page.</li>
+    </ol>
+
+    <h2>Common Use Cases</h2>
+    <ul>
+      <li><strong>Creating preview thumbnails</strong> — Generate image previews of PDF pages for use on websites or in galleries.</li>
+      <li><strong>Embedding PDF content in presentations</strong> — Import PDF pages as images into PowerPoint or Keynote slides.</li>
+      <li><strong>Social media sharing</strong> — Share PDF content on platforms that don't support PDF uploads.</li>
+      <li><strong>Email previews</strong> — Include a visual preview of a PDF document in an email body.</li>
+      <li><strong>Asset extraction</strong> — Extract the visual content of specific PDF pages for use in design work.</li>
+      <li><strong>Converting e-books</strong> — Convert PDF pages to images for use in apps that display image-based content.</li>
+    </ul>
+
+    <h2>Image Quality</h2>
+    <p>Pages are rendered at 150 DPI, which is clear and sharp at normal screen viewing sizes. This produces smaller output files than 300 DPI while maintaining excellent visual quality for on-screen use. If you need higher resolution output for large-format printing, the source PDF itself should be at a higher quality.</p>
+
+    <h2>PDF to Images vs Extract Embedded Images</h2>
+    <p>The PDF to Images tool renders entire pages as flat images. This is different from extracting individual embedded images from within the PDF. For example, if a PDF page has text, a background, and one photo, the PDF to Images tool produces one image of the whole page. It does not separate the photo from the text. This is the right approach for most use cases; if you specifically need to extract only the embedded photo objects, a different tool (such as a Python script with PyMuPDF) is needed.</p>
+
+    <p style="margin-top:2rem"><strong>Related tools:</strong></p>
+    <div class="related-tools">
+      <a href="/tools/compress-pdf" class="related-tool-link">Compress PDF</a>
+      <a href="/tools/split-pdf" class="related-tool-link">Split PDF</a>
+      <a href="/tools/merge-pdf" class="related-tool-link">Merge PDFs</a>
+    </div>
+    <p style="margin-top:1.5rem"><strong>Further reading:</strong> <a href="/blog/extract-images-from-pdf">How to Extract Images from PDFs</a></p>
+  </div>
+</div>
+{% endblock %}

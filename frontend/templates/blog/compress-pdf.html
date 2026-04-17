@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}How to Compress PDF Files Without Losing Quality — PDFWorks{% endblock %}
+{% block meta_description %}Learn the best methods to shrink PDF file size — from image downsampling to metadata removal — while keeping your content sharp and readable.{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","headline":"How to Compress PDF Files Without Losing Quality","datePublished":"2024-04-10","dateModified":"2024-04-10","author":{"@type":"Organization","name":"PDFWorks"},"publisher":{"@type":"Organization","name":"PDFWorks","url":"https://pdfworks.io"},"description":"Learn the best methods to shrink PDF file size while keeping your content sharp and readable.","mainEntityOfPage":"https://pdfworks.io/blog/how-to-compress-pdf-files"}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="blog-post-page">
+  <nav class="breadcrumb">
+    <a href="/">Home</a><span class="sep">›</span>
+    <a href="/blog">Blog</a><span class="sep">›</span>
+    <span>Compress PDF Files</span>
+  </nav>
+  <article>
+    <header class="post-header">
+      <h1>How to Compress PDF Files Without Losing Quality</h1>
+      <div class="post-meta">
+        <span>April 10, 2024</span>
+        <span>6 min read</span>
+      </div>
+    </header>
+    <div class="post-divider"></div>
+    <div class="prose">
+      <p>PDF files can grow surprisingly large. A simple presentation sent by email, a product catalogue, a research report — before long you're trying to attach a 25 MB file to an email that only accepts 10 MB. Compressing a PDF solves this, but doing it carelessly can leave your document blurry and unprofessional. This guide explains exactly how PDF compression works and how to get maximum size reduction without noticeable quality loss.</p>
+
+      <h2>Why Are PDF Files So Large?</h2>
+      <p>The size of a PDF depends primarily on what's inside it. Text alone takes up very little space — a 50-page PDF that's entirely text might only be 200 KB. The bulk comes from images. A single high-resolution photograph embedded in a PDF can easily be 3–5 MB. A PDF with 20 such images can easily reach 60–100 MB.</p>
+      <p>Other contributors to large file sizes include:</p>
+      <ul>
+        <li><strong>Embedded fonts</strong> — fonts that are fully embedded (rather than subsetted) carry the entire font file, which can add several megabytes.</li>
+        <li><strong>Metadata</strong> — hidden document properties like revision history, author details, and embedded thumbnails add size.</li>
+        <li><strong>Uncompressed layers</strong> — PDFs created from certain design or CAD tools may have internal layers that are not optimally compressed.</li>
+        <li><strong>High-resolution scans</strong> — scanned PDFs often contain raw image data at 600 DPI or higher, which is far more than is needed for screen or standard-print use.</li>
+      </ul>
+
+      <h2>How PDF Compression Works</h2>
+      <p>When you compress a PDF, the tool applies one or more of the following techniques:</p>
+
+      <h3>1. Image Downsampling</h3>
+      <p>Most people view PDFs on screen, where anything above 150 DPI is imperceptible. Compression tools reduce embedded images from their original resolution (often 300–600 DPI) down to a screen-optimised resolution. For email and web, 96–120 DPI is usually perfectly clear. For print, 150–200 DPI is standard. The file size reduction from downsampling is often dramatic — a 20 MB PDF can shrink to 2–3 MB through image resolution reduction alone.</p>
+
+      <h3>2. Image Re-encoding (Lossy Compression)</h3>
+      <p>Images within PDFs can be stored using lossless formats (like PNG) or lossy formats (like JPEG at varying quality levels). Re-encoding images to JPEG with a quality setting of 70–85% is nearly indistinguishable to the human eye but can halve the storage required per image. The "quality" slider in PDF compression tools typically controls this JPEG re-encoding level.</p>
+
+      <h3>3. Metadata and Structure Optimisation</h3>
+      <p>PDFs can contain extensive metadata: document title, author, subject, keywords, creation/modification dates, software version, and revision history. Stripping this data and optimising the internal PDF structure (cross-reference tables, object streams) typically saves 1–10% of total file size — not dramatic, but useful.</p>
+
+      <h3>4. Font Subsetting</h3>
+      <p>Rather than embedding an entire font file, subsetting embeds only the characters actually used in the document. If your PDF uses a font that includes 2,000 glyphs but your document only uses 80 unique characters, subsetting can reduce font-related data by over 90%.</p>
+
+      <h2>Choosing the Right Compression Level</h2>
+      <p>PDFWorks offers three compression quality levels:</p>
+      <ul>
+        <li><strong>Low quality (maximum compression)</strong> — Reduces images to 72 DPI and JPEG quality 40. Best for files that will only ever be viewed on screen and where visual fidelity is not critical. Typical size reduction: 70–90%.</li>
+        <li><strong>Medium quality (recommended)</strong> — Reduces images to 120 DPI and JPEG quality 72. The right balance for most use cases: clear on screen, acceptable for desktop printing, and still significantly smaller. Typical size reduction: 50–75%.</li>
+        <li><strong>High quality (light compression)</strong> — Reduces images to 200 DPI and JPEG quality 85. Suitable for professional documents that need to look sharp when printed. Typical size reduction: 20–40%.</li>
+      </ul>
+
+      <h2>How to Compress a PDF on PDFWorks</h2>
+      <ol class="steps-list">
+        <li>Go to <a href="/pdf">PDF Tools</a> and select <strong>Compress PDF</strong> from the sidebar.</li>
+        <li>Upload your PDF file by dragging it onto the upload area or clicking to browse.</li>
+        <li>Choose your compression quality (Medium is recommended for most files).</li>
+        <li>Click <strong>Convert</strong> and wait a few seconds for processing.</li>
+        <li>Download your compressed PDF. The result panel shows you the final file size.</li>
+      </ol>
+
+      <h2>Tips for Best Results</h2>
+      <ul>
+        <li><strong>Always keep your original.</strong> Compression is lossy for image-heavy PDFs. Save the compressed version as a new file; never overwrite your master copy.</li>
+        <li><strong>Try medium first.</strong> Most documents look identical at medium quality but are 60–75% smaller. Only go to low quality if you need extreme size reduction and don't mind slightly softer images.</li>
+        <li><strong>Text-only PDFs won't shrink much.</strong> If your PDF is mostly text with no images, compression tools will have little to work with. A 500 KB text PDF might only shrink to 430 KB. That's still a win, but manage your expectations.</li>
+        <li><strong>Check the result before sending.</strong> Always open the compressed PDF and scroll through it before sharing. Zoom in on fine print and images to confirm quality is acceptable.</li>
+        <li><strong>For scanned PDFs</strong>, compression removes the "safety net" of high resolution. If you might need to print the document at a large size later, keep the high-resolution original.</li>
+      </ul>
+
+      <h2>How Much Smaller Can You Expect?</h2>
+      <p>File size reduction varies widely based on content type:</p>
+      <ul>
+        <li>A 20 MB photo-heavy PDF can often be compressed to under 2 MB at medium quality.</li>
+        <li>A 5 MB scanned document can typically be reduced to 1–2 MB.</li>
+        <li>A 2 MB Word-to-PDF conversion might only compress to 1.5 MB, since Word already optimises embedded images.</li>
+        <li>A 500 KB text-only PDF may reduce by only 5–15%.</li>
+      </ul>
+
+      <h2>Compress Your PDF Now</h2>
+      <p>Ready to shrink your PDF? Use our free online compressor — no sign-up required, files deleted automatically after 30 minutes.</p>
+      <p><a href="/pdf" class="btn btn-primary" style="display:inline-block;padding:.6rem 1.5rem;border-radius:8px;background:var(--accent);color:#fff;font-weight:600;text-decoration:none">Compress PDF Free →</a></p>
+
+      <p style="margin-top:2rem"><strong>Related tools:</strong> <a href="/tools/strip-pdf-metadata">Strip PDF Metadata</a> · <a href="/tools/pdf-to-images">PDF to Images</a> · <a href="/tools/merge-pdf">Merge PDFs</a></p>
+    </div>
+  </article>
+</div>
+{% endblock %}

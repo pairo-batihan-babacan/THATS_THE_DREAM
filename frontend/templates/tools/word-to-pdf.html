@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Word to PDF Converter — Convert DOCX to PDF Free — PDFWorks{% endblock %}
+{% block meta_description %}Convert Word documents (DOCX, DOC) to PDF online for free. Preserve formatting, fonts, and layout perfectly. No sign-up. Files deleted in 30 minutes.{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebApplication","name":"PDFWorks Word to PDF","url":"https://pdfworks.io/tools/word-to-pdf","description":"Free online Word to PDF converter. Convert DOCX files to PDF with perfect formatting preservation.","applicationCategory":"Utility","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="tool-detail-page">
+  <nav class="breadcrumb">
+    <a href="/">Home</a><span class="sep">›</span>
+    <a href="/pdf">PDF Tools</a><span class="sep">›</span>
+    <span>Word to PDF</span>
+  </nav>
+
+  <h1>Word to PDF Converter</h1>
+  <p class="tool-lead">Convert Microsoft Word documents (.docx, .doc) to PDF format online. Perfect layout preservation, embedded fonts, and universal compatibility — no software installation needed.</p>
+
+  <div class="tool-action-bar">
+    <p>Convert your Word document to PDF now — instant and free.</p>
+    <a href="/pdf" class="btn btn-primary" style="padding:.55rem 1.25rem;border-radius:8px;background:var(--accent);color:#fff;font-weight:600;text-decoration:none;white-space:nowrap">Open Word to PDF →</a>
+  </div>
+
+  <div class="prose">
+    <h2>Why Convert Word to PDF?</h2>
+    <p>Microsoft Word's DOCX format is excellent for editing but not ideal for sharing. When you send a DOCX file, the recipient's layout may differ from yours: fonts may be substituted if they don't have the same typefaces installed, line breaks may shift, and the document may reflow to different page lengths. Converting to PDF "locks" the layout — the recipient sees exactly what you see, on any device, with any PDF viewer.</p>
+
+    <h2>How to Convert Word to PDF on PDFWorks</h2>
+    <ol class="steps-list">
+      <li>Go to <a href="/pdf">PDF Tools</a> and select <strong>Word → PDF</strong> from the sidebar.</li>
+      <li>Upload your .docx or .doc file. Maximum: 20 MB free, 50 MB with Pro.</li>
+      <li>Click <strong>Convert</strong>. The conversion typically completes in 5–20 seconds.</li>
+      <li>Download your PDF file.</li>
+    </ol>
+
+    <h2>What Gets Preserved</h2>
+    <p>Our converter uses LibreOffice for high-fidelity conversion, preserving:</p>
+    <ul>
+      <li>All text content and paragraph formatting</li>
+      <li>Heading styles and document structure</li>
+      <li>Tables, lists, and columns</li>
+      <li>Images and their positions</li>
+      <li>Headers and footers</li>
+      <li>Page numbers and cross-references</li>
+      <li>Hyperlinks</li>
+    </ul>
+
+    <h2>Supported File Types</h2>
+    <p>The Word to PDF tool accepts <strong>.docx</strong> (Word 2007 and later, standard format) and <strong>.doc</strong> (older Word 97–2003 format). For best results, use DOCX as it's the current standard and converts more accurately.</p>
+
+    <h2>When to Use Word to PDF</h2>
+    <ul>
+      <li><strong>Sending final documents</strong> — Invoices, contracts, proposals, CVs: anything you're sending as a finished document should be PDF.</li>
+      <li><strong>Submitting to portals</strong> — Job applications, planning submissions, tender responses often require PDF format.</li>
+      <li><strong>Printing services</strong> — Print shops prefer PDF as it guarantees layout will be as intended.</li>
+      <li><strong>Archiving</strong> — PDFs are a better long-term archive format than DOCX, which depends on compatible software to render.</li>
+    </ul>
+
+    <p style="margin-top:2rem"><strong>Related tools:</strong></p>
+    <div class="related-tools">
+      <a href="/tools/pdf-to-word" class="related-tool-link">PDF to Word</a>
+      <a href="/tools/compress-pdf" class="related-tool-link">Compress PDF</a>
+      <a href="/tools/merge-pdf" class="related-tool-link">Merge PDFs</a>
+    </div>
+    <p style="margin-top:1.5rem"><strong>Further reading:</strong> <a href="/blog/pdf-vs-docx">PDF vs DOCX: Key Differences</a></p>
+  </div>
+</div>
+{% endblock %}

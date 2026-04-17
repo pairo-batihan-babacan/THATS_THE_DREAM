@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Compress PDF — Reduce PDF File Size Online Free — PDFWorks{% endblock %}
+{% block meta_description %}Compress PDF files online for free. Reduce PDF file size by up to 90% without losing readability. No account required. Files deleted in 30 minutes.{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebApplication","name":"PDFWorks Compress PDF","url":"https://pdfworks.io/tools/compress-pdf","description":"Free online PDF compressor. Reduce PDF file size by up to 90% with three quality levels. No account needed.","applicationCategory":"Utility","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="tool-detail-page">
+  <nav class="breadcrumb">
+    <a href="/">Home</a><span class="sep">›</span>
+    <a href="/pdf">PDF Tools</a><span class="sep">›</span>
+    <span>Compress PDF</span>
+  </nav>
+
+  <h1>Compress PDF</h1>
+  <p class="tool-lead">Reduce the file size of any PDF document by up to 90% using our free online compressor. Choose from three quality levels to balance file size against visual quality.</p>
+
+  <div class="tool-action-bar">
+    <p>Ready to compress your PDF? Use the tool directly from the PDF Tools page.</p>
+    <a href="/pdf" class="btn btn-primary" style="padding:.55rem 1.25rem;border-radius:8px;background:var(--accent);color:#fff;font-weight:600;text-decoration:none;white-space:nowrap">Open Compress PDF →</a>
+  </div>
+
+  <div class="prose">
+    <h2>What Does PDF Compression Do?</h2>
+    <p>PDF compression reduces the size of your PDF file by optimising its internal content. The primary technique is reducing the resolution and re-encoding quality of embedded images, which typically account for 80–95% of a PDF's file size. The process also strips unnecessary metadata and optimises the PDF's internal structure. The result is a smaller file that looks identical on screen and is perfectly suitable for email, web upload, or cloud storage.</p>
+
+    <h2>How to Compress a PDF on PDFWorks</h2>
+    <ol class="steps-list">
+      <li>Go to the <a href="/pdf">PDF Tools</a> page and click <strong>Compress PDF</strong> in the left sidebar.</li>
+      <li>Drag your PDF onto the upload zone, or click "click to browse" to select a file from your device. Maximum file size: 20 MB (50 MB with Pro).</li>
+      <li>Choose your compression quality level: <strong>Low</strong> (maximum compression), <strong>Medium</strong> (recommended), or <strong>High</strong> (light compression, best quality).</li>
+      <li>Click the <strong>Convert</strong> button. Processing typically takes 3–15 seconds depending on file size and content.</li>
+      <li>Once complete, click <strong>Download file</strong> to save your compressed PDF.</li>
+    </ol>
+
+    <h2>Compression Quality Levels Explained</h2>
+    <p>PDFWorks offers three quality levels to suit different use cases:</p>
+    <ul>
+      <li><strong>Low quality — Maximum compression:</strong> Images are reduced to 72 DPI and re-encoded at JPEG quality 40. Best for PDFs that will only be read on screen and where pixel-perfect image quality isn't required. Typical file size reduction: 70–90%. Ideal for: internal memos, email attachments, web uploads.</li>
+      <li><strong>Medium quality — Recommended:</strong> Images are reduced to 120 DPI and re-encoded at JPEG quality 72. The right balance for most documents — visually clean at normal viewing sizes, significantly smaller file size. Typical reduction: 50–75%. Ideal for: most professional documents, presentations, reports.</li>
+      <li><strong>High quality — Light compression:</strong> Images are reduced to 200 DPI and re-encoded at JPEG quality 85. Minimal visible quality difference from the original. Typical reduction: 20–40%. Ideal for: documents that may be printed professionally, client-facing materials where visual quality is important.</li>
+    </ul>
+
+    <h2>How Much Will My PDF Shrink?</h2>
+    <p>The actual compression ratio depends heavily on what's inside your PDF:</p>
+    <ul>
+      <li><strong>Photo-heavy PDFs</strong> (catalogues, portfolios): Often compress 70–90% at medium quality. A 20 MB product catalogue may compress to under 2 MB.</li>
+      <li><strong>Scanned documents</strong>: Typically compress 50–80%, depending on the original scan resolution.</li>
+      <li><strong>Presentation PDFs</strong> (from PowerPoint): Often compress 40–70%, depending on slide graphics density.</li>
+      <li><strong>Text-only PDFs</strong>: Minimal compression, typically 5–20%, since text takes up very little space.</li>
+    </ul>
+
+    <h2>Will Compression Damage My PDF?</h2>
+    <p>Compression is lossy for images within the PDF — there is a slight reduction in image sharpness at lower quality settings. However, at medium quality, this difference is typically invisible at normal screen zoom levels (100%). Text content is never damaged by PDF compression — only embedded images are affected.</p>
+    <p>Always keep a backup of the original high-resolution PDF. Compressed files cannot be "un-compressed" to recover the original quality.</p>
+
+    <h2>Technical Details</h2>
+    <p>PDFWorks uses PyMuPDF (a Python binding for MuPDF) to process PDF files. The compression algorithm applies downsampling to embedded images and re-encodes them using JPEG compression at the selected quality level. The PDF structure is then re-optimised to remove redundant data. No content beyond image quality is modified — text, fonts, layout, hyperlinks, and document structure are fully preserved.</p>
+
+    <h2>Privacy and Security</h2>
+    <p>Your PDF is uploaded over HTTPS and processed on our secure servers. The original file and the compressed result are automatically and permanently deleted within 30 minutes. We do not store, read, or share the content of your files. No account is required.</p>
+
+    <h2>Use Cases</h2>
+    <ul>
+      <li>Reducing PDF attachments to meet email size limits (typically 10–25 MB)</li>
+      <li>Compressing PDFs for upload to web portals with file size restrictions</li>
+      <li>Reducing storage consumption for PDF archives</li>
+      <li>Optimising PDFs for faster loading in web browsers or document viewers</li>
+      <li>Preparing PDFs for WhatsApp, Telegram, or other messaging platforms that limit attachment size</li>
+    </ul>
+
+    <p style="margin-top:2rem"><strong>Related tools:</strong></p>
+    <div class="related-tools">
+      <a href="/tools/strip-pdf-metadata" class="related-tool-link">Strip PDF Metadata</a>
+      <a href="/tools/merge-pdf" class="related-tool-link">Merge PDFs</a>
+      <a href="/tools/split-pdf" class="related-tool-link">Split PDF</a>
+      <a href="/tools/pdf-to-word" class="related-tool-link">PDF to Word</a>
+    </div>
+
+    <p style="margin-top:2rem"><strong>Further reading:</strong> <a href="/blog/how-to-compress-pdf-files">How to Compress PDF Files Without Losing Quality</a> · <a href="/blog/reduce-pdf-file-size">7 Ways to Reduce PDF File Size</a></p>
+  </div>
+</div>
+{% endblock %}

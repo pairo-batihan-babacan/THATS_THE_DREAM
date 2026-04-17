@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}FAQ — Frequently Asked Questions — PDFWorks{% endblock %}
+{% block meta_description %}Answers to the most common questions about PDFWorks: file formats, size limits, privacy, PDF compression, conversion quality, and more.{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {"@type":"Question","name":"Is PDFWorks free to use?","acceptedAnswer":{"@type":"Answer","text":"Yes, PDFWorks is completely free to use. All tools are available at no cost. We cover our operating expenses through non-personalised advertising."}},
+    {"@type":"Question","name":"Do I need to create an account?","acceptedAnswer":{"@type":"Answer","text":"No account is required. You can use every tool on PDFWorks without signing up or providing an email address."}},
+    {"@type":"Question","name":"Is my file safe?","acceptedAnswer":{"@type":"Answer","text":"Yes. Files are transferred using HTTPS encryption, processed on our secure servers, and automatically deleted within 30 minutes. We never read the content of your files."}},
+    {"@type":"Question","name":"How long are files stored on your servers?","acceptedAnswer":{"@type":"Answer","text":"All uploaded files and conversion outputs are automatically and permanently deleted within 30 minutes. This is not configurable — it is a core privacy guarantee."}},
+    {"@type":"Question","name":"What file formats are supported?","acceptedAnswer":{"@type":"Answer","text":"PDF tools support .pdf files. Image tools support .jpg, .jpeg, .png, .webp, .heic, .gif, .bmp, .tiff, and .svg. Audio tools support .mp3, .wav, .m4a, .ogg, .flac, and .aac. Video tools support .mp4, .mov, .mkv, .avi, and .webm. Document tools support .docx, .doc, .pptx, .ppt, .xlsx, .xls, .csv, .json, .md, and .html."}}
+  ]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="content-page">
+  <nav class="breadcrumb">
+    <a href="/">Home</a>
+    <span class="sep">›</span>
+    <span>FAQ</span>
+  </nav>
+
+  <h1>Frequently Asked Questions</h1>
+  <p class="page-lead">Everything you need to know about using PDFWorks. Can't find your answer? <a href="/contact" style="color:var(--accent)">Contact us</a>.</p>
+
+  <ul class="faq-list" id="faqList">
+
+    <li class="faq-item">
+      <button class="faq-question">Is PDFWorks free to use? <span class="faq-arrow">▼</span></button>
+      <div class="faq-answer">Yes, PDFWorks is completely free to use. All tools — PDF compression, conversion, merging, image editing, audio conversion, and more — are available at no cost. We cover our operating expenses through non-personalised display advertising.</div>
+    </li>
+
+    <li class="faq-item">
+      <button class="faq-question">Do I need to create an account? <span class="faq-arrow">▼</span></button>
+      <div class="faq-answer">No account is required. You can use every tool on PDFWorks without signing up, providing an email address, or logging in. Simply upload your file, process it, and download the result. There is nothing to install.</div>
+    </li>
+
+    <li class="faq-item">
+      <button class="faq-question">Is my file safe on your servers? <span class="faq-arrow">▼</span></button>
+      <div class="faq-answer">Yes. All file uploads and downloads are protected with HTTPS encryption in transit. Your files are processed on secure servers and never read, shared, or sold. Everything is automatically and permanently deleted within 30 minutes of upload. We have no interest in the content of your files.</div>
+    </li>
+
+    <li class="faq-item">
+      <button class="faq-question">How long are files stored on your servers? <span class="faq-arrow">▼</span></button>
+      <div class="faq-answer">All uploaded files and conversion outputs are automatically and permanently deleted within 30 minutes of upload. This applies to both the original file and the processed result. This deletion policy cannot be extended or paused — it is a core privacy feature, not a configurable option.</div>
+    </li>
+
+    <li class="faq-item">
+      <button class="faq-question">What file formats are supported? <span class="faq-arrow">▼</span></button>
+      <div class="faq-answer">
+        <strong>PDF tools:</strong> .pdf<br>
+        <strong>Image tools:</strong> .jpg, .jpeg, .png, .webp, .heic, .gif, .bmp, .tiff, .svg<br>
+        <strong>Audio tools:</strong> .mp3, .wav, .m4a, .ogg, .flac, .aac<br>
+        <strong>Video tools:</strong> .mp4, .mov, .mkv, .avi, .webm<br>
+        <strong>Document tools:</strong> .docx, .doc, .pptx, .ppt, .xlsx, .xls, .csv, .json, .md, .html
+      </div>
+    </li>
+
+    <li class="faq-item">
+      <button class="faq-question">What is the maximum file size? <span class="faq-arrow">▼</span></button>
+      <div class="faq-answer">Free users can upload files up to 20 MB. If you need to process larger files (up to 50 MB), you can purchase a one-time Pro token for $5 which is valid for 30 days. There is no account required even for the Pro option.</div>
+    </li>
+
+    <li class="faq-item">
+      <button class="faq-question">How does PDF compression work? <span class="faq-arrow">▼</span></button>
+      <div class="faq-answer">PDF compression works by reducing the quality and resolution of embedded images, removing redundant data, stripping metadata, and optimising the internal PDF structure. PDFWorks offers three quality levels: <strong>Low</strong> achieves maximum compression but may reduce image sharpness; <strong>Medium</strong> (recommended) balances file size with visual quality; <strong>High</strong> preserves maximum quality with modest file reduction. The actual size reduction depends on how many images your PDF contains — PDFs that are mostly text compress less dramatically than image-heavy files.</div>
+    </li>
+
+    <li class="faq-item">
+      <button class="faq-question">Can I convert a scanned PDF to Word? <span class="faq-arrow">▼</span></button>
+      <div class="faq-answer">It depends. If your PDF was created digitally (from Word, a web browser, etc.) it contains actual text and can be converted to an editable Word document quite accurately. If your PDF is a scanned image of a physical document, the text is embedded as an image and requires OCR (Optical Character Recognition) to extract. Our Document → OCR tool can help extract text from scanned images. For best results with scanned PDFs, ensure the scan is high resolution (300 DPI or above) and the text is clearly legible.</div>
+    </li>
+
+    <li class="faq-item">
+      <button class="faq-question">How do I merge multiple PDF files? <span class="faq-arrow">▼</span></button>
+      <div class="faq-answer">Go to <a href="/pdf">PDF Tools</a> and select "Merge PDFs". You can upload multiple PDF files at once and the tool will combine them into a single PDF in the order you upload them. The merged file retains all original pages from each source document.</div>
+    </li>
+
+    <li class="faq-item">
+      <button class="faq-question">What metadata does the "Strip Metadata" tool remove? <span class="faq-arrow">▼</span></button>
+      <div class="faq-answer">
+        <strong>From PDFs:</strong> Author name, creation date, modification date, application name (e.g. "Microsoft Word 2019"), operating system info, and custom properties.<br>
+        <strong>From images:</strong> EXIF data including GPS coordinates (location), camera make and model, lens information, date and time taken, photographer name, copyright strings, and thumbnail previews.<br>
+        <strong>From audio files:</strong> ID3 tags including artist, album, title, year, genre, and embedded artwork.
+      </div>
+    </li>
+
+    <li class="faq-item">
+      <button class="faq-question">Does PDFWorks work on mobile devices? <span class="faq-arrow">▼</span></button>
+      <div class="faq-answer">Yes, PDFWorks is fully responsive and works on smartphones and tablets. All processing happens on our servers, so even large or complex conversions work regardless of your device's processing power. For the best experience on mobile, use a modern browser such as Chrome, Safari, Firefox, or Edge.</div>
+    </li>
+
+    <li class="faq-item">
+      <button class="faq-question">Why isn't the PDF-to-Word conversion perfect? <span class="faq-arrow">▼</span></button>
+      <div class="faq-answer">PDF is a fixed-layout format that does not store information about text flow, styles, or layout intent — it just stores the final visual result. Converting a PDF back to an editable format is technically complex and involves reverse-engineering the original layout. Complex documents with columns, tables, headers, or unusual fonts may lose some formatting. For best results: use original Word or editable PDF source files where possible, and expect some manual cleanup after conversion. Scanned PDFs will need OCR first.</div>
+    </li>
+
+    <li class="faq-item">
+      <button class="faq-question">How do I unlock a password-protected PDF? <span class="faq-arrow">▼</span></button>
+      <div class="faq-answer">Go to <a href="/pdf">PDF Tools</a> and select "Unlock PDF". You can use this tool to remove the password from a PDF file that you own and have the original password for. Please note: this tool is intended for legitimate use cases such as unlocking your own archived files. Attempting to bypass passwords on files you do not own may violate copyright or computer misuse laws.</div>
+    </li>
+
+    <li class="faq-item">
+      <button class="faq-question">Is there an API available for developers? <span class="faq-arrow">▼</span></button>
+      <div class="faq-answer">An API is not publicly available at this time. If you are interested in API access for business use — for example, to integrate PDFWorks conversion tools into your own application — please <a href="/contact">contact us</a> to discuss options.</div>
+    </li>
+
+    <li class="faq-item">
+      <button class="faq-question">How does the Pro token work? <span class="faq-arrow">▼</span></button>
+      <div class="faq-answer">The Pro token is a one-time payment of $5 that unlocks higher file size limits (up to 50 MB per file) and removes ads for 30 days. Unlike a subscription, it is a single purchase — there is no recurring billing and no account required. The token is linked to your browser session.</div>
+    </li>
+
+    <li class="faq-item">
+      <button class="faq-question">Can I convert multiple files at once? <span class="faq-arrow">▼</span></button>
+      <div class="faq-answer">The Merge PDFs tool accepts multiple files simultaneously. Most other tools process one file at a time. Batch conversion for multiple individual files is on our roadmap. In the meantime, conversions are fast — typically a few seconds per file — so processing files one by one is usually practical for small batches.</div>
+    </li>
+
+  </ul>
+</div>
+
+<script>
+  document.getElementById('faqList').addEventListener('click', function(e) {
+    var btn = e.target.closest('.faq-question');
+    if (!btn) return;
+    var item = btn.closest('.faq-item');
+    var isOpen = item.classList.contains('open');
+    document.querySelectorAll('.faq-item.open').forEach(function(el) { el.classList.remove('open'); });
+    if (!isOpen) item.classList.add('open');
+  });
+</script>
+{% endblock %}

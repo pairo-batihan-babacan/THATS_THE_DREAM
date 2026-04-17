@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}How to Merge PDF Files: Step-by-Step Guide — PDFWorks{% endblock %}
+{% block meta_description %}Combine multiple PDF documents into one file easily. Learn how to reorder pages, organise multi-document workflows, and get the best results when merging PDFs.{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","headline":"How to Merge PDF Files: Step-by-Step Guide","datePublished":"2024-04-05","author":{"@type":"Organization","name":"PDFWorks"},"publisher":{"@type":"Organization","name":"PDFWorks","url":"https://pdfworks.io"},"description":"Combine multiple PDF documents into one file easily.","mainEntityOfPage":"https://pdfworks.io/blog/how-to-merge-pdf-files"}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="blog-post-page">
+  <nav class="breadcrumb">
+    <a href="/">Home</a><span class="sep">›</span>
+    <a href="/blog">Blog</a><span class="sep">›</span>
+    <span>How to Merge PDF Files</span>
+  </nav>
+  <article>
+    <header class="post-header">
+      <h1>How to Merge PDF Files: Step-by-Step Guide</h1>
+      <div class="post-meta"><span>April 5, 2024</span><span>5 min read</span></div>
+    </header>
+    <div class="post-divider"></div>
+    <div class="prose">
+      <p>Merging PDF files is one of the most common document tasks in any professional environment. Whether you're assembling a client proposal from separate sections, combining invoices for an accountant, or compiling a portfolio from individual project files, combining multiple PDFs into a single document makes sharing and filing much simpler. This guide shows you exactly how to do it and shares tips for getting the cleanest result.</p>
+
+      <h2>Why Merge PDF Files?</h2>
+      <p>Here are the most common reasons people need to combine PDFs:</p>
+      <ul>
+        <li><strong>Business proposals and reports</strong> — Cover pages, body sections, appendices, and CVs often exist as separate files that must be submitted as one document.</li>
+        <li><strong>Legal and contract documents</strong> — A signed contract, supporting annexes, and identification documents may each be separate PDFs that need to be bundled together.</li>
+        <li><strong>Accounting and invoicing</strong> — Monthly expense reports combining individual receipts and invoices into a single PDF for finance teams.</li>
+        <li><strong>Academic submissions</strong> — Research papers, supporting data sets, and ethics approvals submitted as one combined document.</li>
+        <li><strong>Photography and design portfolios</strong> — Multiple project files combined into a single presentation-ready PDF.</li>
+        <li><strong>Scanned document archives</strong> — Individual scanned pages combined into one multi-page document.</li>
+      </ul>
+
+      <h2>What Happens When You Merge PDFs?</h2>
+      <p>When you merge PDF files, all the pages from each source document are concatenated in the order you specify. The merged file contains every page from every source document. No content is changed, compressed, or lost during a standard merge — it's simply a repackaging operation.</p>
+      <p>The resulting file size is approximately the sum of all input file sizes (slightly more due to the merged PDF structure). If you want to reduce the size of the merged file, you can run it through the Compress PDF tool afterwards.</p>
+
+      <h2>Page Order Matters</h2>
+      <p>The order in which you upload files determines the page order in the merged PDF. If you upload File A, File B, then File C, the merged document will contain all pages of File A first, then all pages of File B, then all pages of File C. Take care to upload files in the exact order you want them to appear.</p>
+
+      <h2>How to Merge PDFs on PDFWorks</h2>
+      <ol class="steps-list">
+        <li>Go to <a href="/pdf">PDF Tools</a> and select <strong>Merge PDFs</strong> from the sidebar.</li>
+        <li>Upload your PDF files. You can select multiple files at once from your file browser, or drag them all onto the upload zone.</li>
+        <li>The files will be merged in the order they were selected. Check the order before proceeding.</li>
+        <li>Click <strong>Convert</strong>. The merge is very fast — usually under 5 seconds for most documents.</li>
+        <li>Download your merged PDF.</li>
+      </ol>
+
+      <h2>Tips for Merging PDFs</h2>
+      <ul>
+        <li><strong>Name your files with numbered prefixes</strong> before merging — e.g., "01_cover.pdf", "02_body.pdf", "03_appendix.pdf" — so the sort order when selecting files matches the intended document order.</li>
+        <li><strong>Check page orientation consistency.</strong> If some source PDFs are portrait and others are landscape, the merged document will alternate orientations. This is usually fine, but confirm it looks correct after merging.</li>
+        <li><strong>Compress after merging</strong> if the combined file is large and you need to email it. Use the <a href="/tools/compress-pdf">Compress PDF</a> tool on the merged output.</li>
+        <li><strong>Password-protected PDFs cannot be merged</strong> until they are unlocked. Use the <a href="/tools/unlock-pdf">Unlock PDF</a> tool first if needed.</li>
+        <li><strong>Verify the merged file</strong> before sending or archiving. Open it and scroll through every page to confirm nothing was missed or duplicated.</li>
+      </ul>
+
+      <h2>Merging vs Splitting</h2>
+      <p>The opposite of merging is splitting — extracting specific pages from a PDF to create a smaller document. PDFWorks also offers a <a href="/tools/split-pdf">Split PDF</a> tool for this purpose. You might split a 100-page PDF report into its individual sections, then remerge them in a different order, for example.</p>
+
+      <h2>File Size Considerations</h2>
+      <p>Merging PDFs does not change their internal content, so file sizes add together. A merge of four 5 MB PDFs will produce approximately a 20 MB output. If the resulting file is too large for email, run it through the Compress PDF tool. Medium quality compression on a 20 MB image-heavy merged PDF can often bring it down to 3–6 MB.</p>
+
+      <h2>Merge Your PDFs Now</h2>
+      <p>Combine your PDF files instantly — free, no account needed.</p>
+      <p><a href="/pdf" style="display:inline-block;padding:.6rem 1.5rem;border-radius:8px;background:var(--accent);color:#fff;font-weight:600;text-decoration:none">Merge PDFs Free →</a></p>
+
+      <p style="margin-top:2rem"><strong>Related tools:</strong> <a href="/tools/split-pdf">Split PDF</a> · <a href="/tools/compress-pdf">Compress PDF</a> · <a href="/tools/unlock-pdf">Unlock PDF</a></p>
+    </div>
+  </article>
+</div>
+{% endblock %}

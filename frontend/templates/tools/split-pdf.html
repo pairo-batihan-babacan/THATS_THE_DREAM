@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Split PDF — Extract Pages from PDF Free Online — PDFWorks{% endblock %}
+{% block meta_description %}Split a PDF by page range to extract specific pages or chapters. Free online PDF splitter — no account needed, files deleted in 30 minutes.{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebApplication","name":"PDFWorks Split PDF","url":"https://pdfworks.io/tools/split-pdf","description":"Free online PDF splitter. Extract specific pages from a PDF by specifying a page range.","applicationCategory":"Utility","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="tool-detail-page">
+  <nav class="breadcrumb">
+    <a href="/">Home</a><span class="sep">›</span>
+    <a href="/pdf">PDF Tools</a><span class="sep">›</span>
+    <span>Split PDF</span>
+  </nav>
+
+  <h1>Split PDF</h1>
+  <p class="tool-lead">Extract specific pages from a PDF by specifying a page range. Perfect for separating chapters, extracting sections, or creating smaller PDFs from a large document.</p>
+
+  <div class="tool-action-bar">
+    <p>Split your PDF now — free, instant, no sign-up needed.</p>
+    <a href="/pdf" class="btn btn-primary" style="padding:.55rem 1.25rem;border-radius:8px;background:var(--accent);color:#fff;font-weight:600;text-decoration:none;white-space:nowrap">Open Split PDF →</a>
+  </div>
+
+  <div class="prose">
+    <h2>How to Split a PDF on PDFWorks</h2>
+    <ol class="steps-list">
+      <li>Go to <a href="/pdf">PDF Tools</a> and select <strong>Split PDF</strong> in the sidebar.</li>
+      <li>Upload your PDF file.</li>
+      <li>Enter the page range you want to extract (e.g., "1-5" for pages 1 through 5, or "3,7,12" for specific pages).</li>
+      <li>Click <strong>Convert</strong>. The extracted pages are packaged as a new PDF.</li>
+      <li>Download your split PDF.</li>
+    </ol>
+
+    <h2>Page Range Formats</h2>
+    <p>You can specify pages in several formats:</p>
+    <ul>
+      <li><strong>Range:</strong> "1-10" extracts pages 1 through 10.</li>
+      <li><strong>Individual pages:</strong> "1,3,5" extracts pages 1, 3, and 5 only.</li>
+      <li><strong>Combined:</strong> "1-5,8,12-15" extracts pages 1–5, page 8, and pages 12–15.</li>
+    </ul>
+
+    <h2>Common Use Cases</h2>
+    <ul>
+      <li>Extracting a single chapter from a large PDF book or manual</li>
+      <li>Isolating specific pages from a report for sharing</li>
+      <li>Separating a multi-document PDF into its components</li>
+      <li>Removing unwanted pages from a scanned document</li>
+      <li>Creating a smaller preview version of a long PDF</li>
+    </ul>
+
+    <h2>Split vs Merge</h2>
+    <p>Split and Merge are complementary operations. Use Split to extract pages; use <a href="/tools/merge-pdf">Merge</a> to combine them. Together, you can reorganise any PDF: split out the parts you need, reorder them, and merge back into a new arrangement.</p>
+
+    <p style="margin-top:2rem"><strong>Related tools:</strong></p>
+    <div class="related-tools">
+      <a href="/tools/merge-pdf" class="related-tool-link">Merge PDFs</a>
+      <a href="/tools/compress-pdf" class="related-tool-link">Compress PDF</a>
+      <a href="/tools/pdf-to-images" class="related-tool-link">PDF to Images</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

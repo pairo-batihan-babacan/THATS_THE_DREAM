@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}How to Extract Images from PDF Files — PDFWorks{% endblock %}
+{% block meta_description %}Step-by-step guide to pulling images out of PDF documents while preserving quality. Includes tips on output format, resolution, and batch extraction.{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","headline":"How to Extract Images from PDF Files","datePublished":"2024-04-02","author":{"@type":"Organization","name":"PDFWorks"},"publisher":{"@type":"Organization","name":"PDFWorks","url":"https://pdfworks.io"},"description":"Step-by-step guide to pulling images out of PDF documents.","mainEntityOfPage":"https://pdfworks.io/blog/extract-images-from-pdf"}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="blog-post-page">
+  <nav class="breadcrumb">
+    <a href="/">Home</a><span class="sep">›</span>
+    <a href="/blog">Blog</a><span class="sep">›</span>
+    <span>Extract Images from PDF</span>
+  </nav>
+  <article>
+    <header class="post-header">
+      <h1>How to Extract Images from PDF Files</h1>
+      <div class="post-meta"><span>April 2, 2024</span><span>5 min read</span></div>
+    </header>
+    <div class="post-divider"></div>
+    <div class="prose">
+      <p>PDF files are excellent for sharing documents, but they're not always easy to work with when you need the images inside. Whether you want to reuse a product photo from a supplier's catalogue, extract charts from a research paper, or retrieve graphics from an old design file, extracting images from PDFs is a common need. This guide explains how to do it effectively and what to expect in terms of quality.</p>
+
+      <h2>Why Extract Images from PDFs?</h2>
+      <p>Common use cases for extracting images from PDFs include:</p>
+      <ul>
+        <li><strong>Content reuse</strong> — Repurposing images from reports, catalogues, or presentations for use in new documents.</li>
+        <li><strong>Asset recovery</strong> — Retrieving graphics when the original source files (Photoshop, Illustrator, etc.) have been lost.</li>
+        <li><strong>Presentation creation</strong> — Pulling charts and infographics from research papers to use in PowerPoint slides.</li>
+        <li><strong>Web publishing</strong> — Extracting product images from supplier PDFs to use on an e-commerce site.</li>
+        <li><strong>Archive and backup</strong> — Extracting and saving images from historical documents for long-term preservation.</li>
+        <li><strong>Design review</strong> — Viewing individual images from a PDF in an image editor for quality assessment.</li>
+      </ul>
+
+      <h2>Two Ways to Get Images from a PDF</h2>
+      <h3>Method 1: Export Each PDF Page as an Image</h3>
+      <p>This method converts every page of the PDF into an image file (JPG or PNG). The entire page layout — text, images, backgrounds — is rendered as a single flat image. This is useful when you want to capture the full page design, but you won't be able to separate individual image elements from the page content.</p>
+      <p>PDFWorks's <strong>PDF → Images</strong> tool uses this approach. It renders each page at a specified resolution and exports it as a separate image file. A 10-page PDF becomes 10 image files.</p>
+
+      <h3>Method 2: Extract Embedded Images Directly</h3>
+      <p>PDFs can contain images embedded as discrete resources within the document structure. Extracting these gives you each image as a standalone file — exactly as it was when it was placed in the document, without the surrounding page content. This preserves the original image quality.</p>
+
+      <h2>Quality Considerations</h2>
+      <p>The quality of extracted images depends on the quality of the original images in the PDF:</p>
+      <ul>
+        <li>If the PDF was created from high-resolution originals, extracted images will be high resolution.</li>
+        <li>If the PDF was previously compressed (e.g., shared via email and already reduced), extracted images will reflect that compressed quality — you cannot recover resolution that was lost during compression.</li>
+        <li>For page-rendering extraction, resolution is determined by the DPI setting. 150 DPI is suitable for screen use; 300 DPI produces print-quality images.</li>
+      </ul>
+
+      <h2>JPG vs PNG: Which Format Should I Choose?</h2>
+      <p>When extracting pages as images, you'll typically choose between JPG and PNG:</p>
+      <ul>
+        <li><strong>JPG</strong> — Lossy compression, smaller file sizes. Ideal for photographs and complex images where slight quality loss is acceptable. Best for web use.</li>
+        <li><strong>PNG</strong> — Lossless compression, larger file sizes, supports transparency. Ideal for screenshots, diagrams, text-heavy pages, or any content where sharpness is critical.</li>
+      </ul>
+      <p>For most PDF page extractions, PNG produces cleaner results for text and diagrams. Use JPG only when file size is a priority and the content is photographic.</p>
+
+      <h2>How to Extract PDF Pages as Images on PDFWorks</h2>
+      <ol class="steps-list">
+        <li>Go to <a href="/pdf">PDF Tools</a> and select <strong>PDF → Images</strong> from the sidebar.</li>
+        <li>Upload your PDF file.</li>
+        <li>Click <strong>Convert</strong>. Each page will be converted to a separate image file.</li>
+        <li>Download the resulting image files. Multi-page PDFs are returned as a ZIP archive containing one image per page.</li>
+      </ol>
+
+      <h2>Tips for Best Results</h2>
+      <ul>
+        <li><strong>Check the source PDF quality first.</strong> If the PDF is already compressed or low-resolution, the extracted images will be too. There's no way to add quality that wasn't there to begin with.</li>
+        <li><strong>For scanned PDFs</strong>, use the Document → OCR tool if you want text, not images. OCR converts the scanned image to actual searchable text in a Word document.</li>
+        <li><strong>For large PDFs</strong>, extracting all pages as images can produce many large files. Consider whether you need all pages or just specific ones — the Split PDF tool can help you isolate specific pages first.</li>
+        <li><strong>Post-processing in an image editor</strong> may be needed if you want to crop, resize, or further optimise the extracted images.</li>
+      </ul>
+
+      <h2>Extract Images from Your PDF Now</h2>
+      <p>Convert PDF pages to images instantly — free, no account needed.</p>
+      <p><a href="/pdf" style="display:inline-block;padding:.6rem 1.5rem;border-radius:8px;background:var(--accent);color:#fff;font-weight:600;text-decoration:none">PDF to Images Free →</a></p>
+
+      <p style="margin-top:2rem"><strong>Related tools:</strong> <a href="/tools/pdf-to-images">PDF to Images</a> · <a href="/tools/split-pdf">Split PDF</a> · <a href="/tools/compress-pdf">Compress PDF</a></p>
+    </div>
+  </article>
+</div>
+{% endblock %}
