@@ -209,9 +209,10 @@ const SERVER_TOOL_ENDPOINTS: Record<string, string> = {
   'pdf-to-excel':     '/api/pdf/to-excel',
   'heic-to-jpg':      '/api/image/convert',
   'png-to-jpg':       '/api/image/convert',
-  'audio-convert':    '/api/audio/convert',
-  'compress-audio':   '/api/audio/compress',
-  'extract-audio':    '/api/audio/extract-from-video',
+  'audio-convert':          '/api/audio/convert',
+  'compress-audio':         '/api/audio/compress',
+  'extract-audio':          '/api/audio/extract-from-video',
+  'strip-audio-metadata':   '/api/audio/strip-metadata',
   'video-convert':    '/api/video/convert',
   'compress-video':   '/api/video/compress',
   'translate-pdf':    '/api/ai/translate-pdf',
@@ -231,6 +232,7 @@ function getServerOutputExt(toolId: string, outputFormat: string): string {
   }
   if (toolId === 'audio-convert') return outputFormat || 'mp3'
   if (toolId === 'video-convert') return outputFormat || 'mp4'
+  if (toolId === 'strip-audio-metadata') return outputFormat || 'mp3'
   return map[toolId] ?? 'pdf'
 }
 
@@ -735,7 +737,7 @@ function ToolOptions({
 const NO_OPTIONS_TOOLS = [
   'pdf-to-word', 'word-to-pdf', 'pdf-to-ppt', 'ppt-to-pdf', 'pdf-to-excel', 'excel-to-pdf',
   'pdf-to-jpg', 'jpg-to-pdf', 'html-to-pdf', 'markdown-to-pdf',
-  'heic-to-jpg', 'png-to-jpg', 'strip-exif', 'strip-metadata', 'flatten-pdf',
+  'heic-to-jpg', 'png-to-jpg', 'strip-exif', 'strip-metadata', 'strip-audio-metadata', 'flatten-pdf',
   'csv-to-json', 'ocr-image-to-text', 'extract-audio',
 ]
 
@@ -4949,8 +4951,15 @@ function StripMetadataInterface({
                   <CheckCircle className="w-8 h-8 text-green-400" />
                 </motion.div>
                 <h2 className="text-gray-900 dark:text-white font-black text-xl mb-2">All clean!</h2>
-                <p className="text-gray-400 text-sm mb-1">All metadata has been removed from your PDF.</p>
-                <p className="text-xs text-gray-600 mb-8 flex items-center justify-center gap-1.5">
+                {totalFields > 0 ? (
+                  <p className="text-green-400 text-sm font-semibold mb-1">
+                    {totalFields} metadata field{totalFields !== 1 ? 's' : ''} removed
+                    {sensitiveCount > 0 && ` (${sensitiveCount} sensitive)`}
+                  </p>
+                ) : (
+                  <p className="text-gray-400 text-sm mb-1">No metadata was found — your PDF was already clean.</p>
+                )}
+                <p className="text-xs text-gray-600 mb-8 flex items-center justify-center gap-1.5 mt-1">
                   <span>{formatBytes(file.size)}</span>
                   <span className="text-gray-700">→</span>
                   <span className="text-gray-400">{formatBytes(outputBlob.size)}</span>
@@ -5389,8 +5398,15 @@ function StripExifInterface({
                   <CheckCircle className="w-8 h-8 text-green-400" />
                 </motion.div>
                 <h2 className="text-gray-900 dark:text-white font-black text-xl mb-2">All clean!</h2>
-                <p className="text-gray-400 text-sm mb-1">Metadata has been completely removed.</p>
-                <p className="text-xs text-gray-600 mb-8 flex items-center justify-center gap-1.5">
+                {totalFields > 0 ? (
+                  <p className="text-green-400 text-sm font-semibold mb-1">
+                    {totalFields} metadata field{totalFields !== 1 ? 's' : ''} removed
+                    {hasGps && ' — including GPS location'}
+                  </p>
+                ) : (
+                  <p className="text-gray-400 text-sm mb-1">No metadata was found — your image was already clean.</p>
+                )}
+                <p className="text-xs text-gray-600 mb-8 flex items-center justify-center gap-1.5 mt-1">
                   <span>{formatBytes(file.size)}</span>
                   <span className="text-gray-700">→</span>
                   <span className="text-gray-400">{formatBytes(outputBlob.size)}</span>

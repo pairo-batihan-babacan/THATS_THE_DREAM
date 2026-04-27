@@ -447,22 +447,28 @@ const data: Record<string, ToolSeo> = {
 
   'strip-metadata': {
     metaDescription:
-      'Remove hidden author, creation date, GPS, edit history, and other metadata from PDFs before sharing. Privacy-first metadata cleaner. Free, runs in your browser.',
+      'Remove hidden author, creation date, software name, and revision history from PDFs before sharing. See exactly what is inside, then strip it in one click. Free, no account.',
     keywords: [
       'strip pdf metadata', 'remove pdf metadata', 'clean pdf metadata',
       'hide pdf author', 'pdf metadata remover free', 'remove document properties pdf',
+      'remove author from pdf', 'how to remove metadata from pdf before sending',
+      'pdf privacy cleaner', 'delete pdf document properties', 'anonymize pdf online',
     ],
     faqs: [
       {
         question: 'What metadata is hidden inside a PDF?',
-        answer: 'PDFs can contain author name, organization, creation and modification dates, software used, revision history, GPS coordinates (if from a mobile scan), and custom document properties.',
+        answer: 'PDFs can contain author name, organization, creation and modification dates, software used (e.g. Word, Acrobat), revision history, GPS coordinates (if from a mobile scan), and custom document properties. All of this is invisible when reading the file but readable by anyone who inspects the document properties.',
       },
       {
-        question: 'Why should I strip PDF metadata?',
-        answer: 'When sharing documents externally, metadata can reveal internal authors, revision history, or organization details you may not want recipients to see.',
+        question: 'Why should I strip PDF metadata before sharing?',
+        answer: 'Metadata can reveal your name, employer, the software you use, draft timestamps, and internal revision notes — information you may not want clients, reviewers, or competitors to see. Stripping it takes seconds and gives you full control over what leaves your device.',
+      },
+      {
+        question: 'Does removing metadata change the content or appearance of the PDF?',
+        answer: 'No. The tool removes only the hidden metadata entries. All visible text, images, links, bookmarks, and formatting are preserved exactly as they were.',
       },
     ],
-    howToAction: 'Upload your PDF — metadata is stripped automatically when you click Process',
+    howToAction: 'Review the metadata found in your PDF, then click Strip All Metadata',
   },
 
   // ── Convert Tools ──────────────────────────────────────────────────────────
@@ -817,22 +823,29 @@ const data: Record<string, ToolSeo> = {
 
   'strip-exif': {
     metaDescription:
-      'Remove GPS location, camera model, date, and other EXIF data from photos before sharing online. Privacy-first EXIF stripper. Free, no account, runs in your browser.',
+      'See the GPS location, camera model, and timestamps hidden in your photos — then remove them in one click. Free EXIF cleaner, supports JPG, PNG, WebP, HEIC. No account.',
     keywords: [
       'strip exif', 'remove exif data', 'delete metadata from photo', 'remove gps from photo',
       'exif remover online', 'strip image metadata free', 'clean photo metadata',
+      'remove location from photo before posting', 'delete camera info from image',
+      'photo privacy tool', 'remove gps data from jpg', 'exif data cleaner free',
+      'how to remove exif data from photo', 'strip metadata from image online',
     ],
     faqs: [
       {
         question: 'What EXIF data is removed?',
-        answer: 'All EXIF metadata is stripped, including GPS coordinates, camera make and model, shutter speed, ISO, date and time taken, and device serial number.',
+        answer: 'All EXIF metadata is stripped: GPS coordinates (latitude, longitude, altitude), camera make and model, lens model, shutter speed, aperture, ISO, focal length, date and time taken, software used, and the artist or copyright field — which often contains your real name.',
       },
       {
-        question: 'Why should I strip EXIF data?',
-        answer: 'Photos shared publicly can reveal your exact location if GPS data is embedded. This is important for privacy when posting on social media or sharing with strangers.',
+        question: 'Why should I strip EXIF data before sharing photos?',
+        answer: 'Photos taken with a smartphone embed precise GPS coordinates by default. Anyone who downloads the file can see the exact address where it was taken — including your home, workplace, or daily routine. Social platforms strip EXIF on upload, but direct file shares (email, WhatsApp, Discord) do not.',
+      },
+      {
+        question: 'Does stripping EXIF data affect image quality or appearance?',
+        answer: 'No. EXIF data is separate from the image pixels. Removing it does not change the visual quality, resolution, or file format in any way. The cleaned image looks identical to the original.',
       },
     ],
-    howToAction: 'Upload your photos and click Strip EXIF — metadata is removed automatically',
+    howToAction: 'Review the EXIF data found in your photo, then click Strip All Metadata',
   },
 
   'image-convert': {
@@ -997,6 +1010,32 @@ const data: Record<string, ToolSeo> = {
       },
     ],
     howToAction: 'Upload your video file and click Extract Audio',
+  },
+
+  'strip-audio-metadata': {
+    metaDescription:
+      'Remove ID3 tags, artist name, album art, and embedded comments from MP3, FLAC, WAV, OGG, and M4A files. Free audio metadata cleaner — no account, instant download.',
+    keywords: [
+      'strip audio metadata', 'remove id3 tags', 'remove mp3 metadata', 'audio metadata remover',
+      'clean mp3 tags online', 'delete id3 tags free', 'remove album art from mp3',
+      'strip flac metadata', 'audio privacy tool', 'remove artist name from audio file',
+      'mp3 tag remover online free', 'clean audio file metadata',
+    ],
+    faqs: [
+      {
+        question: 'What metadata is embedded in audio files?',
+        answer: 'Audio files can contain ID3 tags (MP3) or Vorbis comments (FLAC, OGG): artist name, album title, track title, year, genre, composer, lyrics, embedded album art, and sometimes recording equipment or software details. MP4/M4A files use iTunes-style metadata atoms with similar fields.',
+      },
+      {
+        question: 'Why would I want to remove audio metadata?',
+        answer: 'Common reasons include sharing original recordings anonymously, removing personal details before distributing files publicly, cleaning up inconsistent tag libraries, or reducing file size by stripping large embedded album art images.',
+      },
+      {
+        question: 'Does removing metadata affect audio quality?',
+        answer: 'No. Metadata is stored separately from the audio stream. The tool strips tags without re-encoding the audio, so the quality, bitrate, and length of the file remain exactly the same.',
+      },
+    ],
+    howToAction: 'Upload your audio file and click Strip Metadata — tags are removed without re-encoding',
   },
 
   // ── Video Tools ────────────────────────────────────────────────────────────

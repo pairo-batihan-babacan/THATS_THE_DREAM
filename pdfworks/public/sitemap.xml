@@ -59,6 +59,7 @@
   <url><loc>https://pdfworks.io/tools/audio-convert</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://pdfworks.io/tools/compress-audio</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://pdfworks.io/tools/extract-audio</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://pdfworks.io/tools/strip-audio-metadata</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://pdfworks.io/tools/video-convert</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://pdfworks.io/tools/compress-video</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
 </urlset>

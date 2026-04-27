@@ -501,6 +501,16 @@ export const tools: Tool[] = [
     comingSoon: false,
     route: '/tools/extract-audio',
   },
+  {
+    id: 'strip-audio-metadata',
+    name: 'Strip Audio Metadata',
+    description: 'Remove ID3 tags, artist, album, and embedded art from MP3, FLAC, and more',
+    category: 'audio',
+    icon: 'ShieldOff',
+    color: '#1abc9c',
+    comingSoon: false,
+    route: '/tools/strip-audio-metadata',
+  },
 
   // ─── Video Tools ──────────────────────────────────────────────────────────
   {
