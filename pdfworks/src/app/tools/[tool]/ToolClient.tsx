@@ -5820,51 +5820,148 @@ interface FormFieldData {
   options?: string[]
 }
 
-function PdfFormFillerInterface({ tool, category }: { tool: Tool; category: ToolCategory | undefined; relatedTools: Tool[] }) {
-  const [file, setFile]       = useState<File | null>(null)
-  const [fields, setFields]   = useState<FormFieldData[]>([])
-  const [values, setValues]   = useState<Record<string, string>>({})
-  const [loading, setLoading] = useState(false)
-  const [saving, setSaving]   = useState(false)
-  const [done, setDone]       = useState(false)
-  const [outputUrl, setOutputUrl] = useState('')
-  const [outputName, setOutputName] = useState('')
-  const [noFields, setNoFields] = useState(false)
+interface FieldWidget {
+  name: string
+  pageIndex: number
+  xFrac: number
+  yFrac: number
+  wFrac: number
+  hFrac: number
+  fieldType: string
+}
 
-  const onDrop = useCallback(async (files: File[]) => {
-    if (!files[0]) return
-    setFile(files[0])
+function PdfFormFillerInterface({ tool, category }: { tool: Tool; category: ToolCategory | undefined; relatedTools: Tool[] }) {
+  const [file, setFile]               = useState<File | null>(null)
+  const [fields, setFields]           = useState<FormFieldData[]>([])
+  const [values, setValues]           = useState<Record<string, string>>({})
+  const [pageImages, setPageImages]   = useState<string[]>([])
+  const [fieldWidgets, setFieldWidgets] = useState<FieldWidget[]>([])
+  const [loading, setLoading]         = useState(false)
+  const [saving, setSaving]           = useState(false)
+  const [done, setDone]               = useState(false)
+  const [outputUrl, setOutputUrl]     = useState('')
+  const [outputName, setOutputName]   = useState('')
+  const [noFields, setNoFields]       = useState(false)
+
+  const formPanelRef = useRef<HTMLDivElement>(null)
+  const pdfPanelRef  = useRef<HTMLDivElement>(null)
+  const syncingRef   = useRef(false)
+
+  // Synchronized scrolling — percentage-based so both panels track each other
+  const onFormScroll = useCallback(() => {
+    if (syncingRef.current) return
+    const form = formPanelRef.current
+    const pdf  = pdfPanelRef.current
+    if (!form || !pdf) return
+    syncingRef.current = true
+    const pct = form.scrollTop / Math.max(1, form.scrollHeight - form.clientHeight)
+    pdf.scrollTop = pct * Math.max(0, pdf.scrollHeight - pdf.clientHeight)
+    requestAnimationFrame(() => { syncingRef.current = false })
+  }, [])
+
+  const onPdfScroll = useCallback(() => {
+    if (syncingRef.current) return
+    const form = formPanelRef.current
+    const pdf  = pdfPanelRef.current
+    if (!form || !pdf) return
+    syncingRef.current = true
+    const pct = pdf.scrollTop / Math.max(1, pdf.scrollHeight - pdf.clientHeight)
+    form.scrollTop = pct * Math.max(0, form.scrollHeight - form.clientHeight)
+    requestAnimationFrame(() => { syncingRef.current = false })
+  }, [])
+
+  const resetAll = useCallback(() => {
+    setFile(null); setFields([]); setValues({})
+    setPageImages([]); setFieldWidgets([])
+    setDone(false); setNoFields(false)
+    setOutputUrl(''); setOutputName('')
+  }, [])
+
+  const onDrop = useCallback(async (acceptedFiles: File[]) => {
+    const f = acceptedFiles[0]
+    if (!f) return
+    setFile(f)
     setLoading(true)
-    setFields([]); setValues({}); setDone(false); setNoFields(false)
+    setFields([]); setValues({}); setPageImages([]); setFieldWidgets([])
+    setDone(false); setNoFields(false)
+
     try {
+      const buf = await f.arrayBuffer()
+
+      // ── Step 1: pdf-lib → extract field types and initial values (fast) ──
       const { PDFDocument, PDFTextField, PDFCheckBox, PDFDropdown, PDFRadioGroup } = await import('pdf-lib')
-      const buf = await files[0].arrayBuffer()
-      const pdfDoc = await PDFDocument.load(buf)
-      const form = pdfDoc.getForm()
+      const pdfDocLib = await PDFDocument.load(buf)
+      const form = pdfDocLib.getForm()
       const rawFields = form.getFields()
       if (rawFields.length === 0) { setNoFields(true); setLoading(false); return }
-      const parsed: FormFieldData[] = rawFields.map(f => {
-        const name = f.getName()
-        if (f instanceof PDFTextField) {
-          return { name, type: 'text', value: f.getText() ?? '' }
-        }
-        if (f instanceof PDFCheckBox) {
-          return { name, type: 'checkbox', value: f.isChecked() ? 'true' : 'false' }
-        }
-        if (f instanceof PDFDropdown) {
-          return { name, type: 'dropdown', value: f.getSelected()[0] ?? '', options: f.getOptions() }
-        }
-        if (f instanceof PDFRadioGroup) {
-          return { name, type: 'radio', value: f.getSelected() ?? '', options: f.getOptions() }
-        }
+
+      const parsed: FormFieldData[] = rawFields.map(rf => {
+        const name = rf.getName()
+        if (rf instanceof PDFTextField)  return { name, type: 'text',     value: rf.getText() ?? '' }
+        if (rf instanceof PDFCheckBox)   return { name, type: 'checkbox', value: rf.isChecked() ? 'true' : 'false' }
+        if (rf instanceof PDFDropdown)   return { name, type: 'dropdown', value: rf.getSelected()[0] ?? '', options: rf.getOptions() }
+        if (rf instanceof PDFRadioGroup) return { name, type: 'radio',    value: rf.getSelected() ?? '',    options: rf.getOptions() }
         return { name, type: 'unknown', value: '' }
       })
-      setFields(parsed)
+
       const init: Record<string, string> = {}
-      for (const f of parsed) init[f.name] = f.value
+      for (const fld of parsed) init[fld.name] = fld.value
+
+      // Show the form panel immediately — PDF renders progressively after this
+      setFields(parsed)
       setValues(init)
-    } catch { setNoFields(true) }
-    setLoading(false)
+      setLoading(false)
+
+      // ── Step 2: pdfjs-dist → render page images + widget rects (progressive) ──
+      const pdfjsLib = await import('pdfjs-dist')
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`
+
+      const pdfJs = await pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise
+      const imgs: string[] = []
+      const widgets: FieldWidget[] = []
+
+      for (let p = 1; p <= pdfJs.numPages; p++) {
+        const page = await pdfJs.getPage(p)
+
+        // Render at 2× pixel density for sharp text
+        const scale = 2
+        const vp = page.getViewport({ scale })
+        const cv = document.createElement('canvas')
+        cv.width = vp.width; cv.height = vp.height
+        await page.render({ canvasContext: cv.getContext('2d')!, viewport: vp }).promise
+        imgs.push(cv.toDataURL('image/png'))
+        setPageImages([...imgs])  // show each page as it finishes rendering
+
+        // Get annotation rects at scale 1 (stored as page-fraction 0–1)
+        const vp1 = page.getViewport({ scale: 1 })
+        const annots = (await page.getAnnotations()) as Array<{ subtype: string; fieldName?: string; rect: number[] }>
+        for (const annot of annots) {
+          if (annot.subtype !== 'Widget' || !annot.fieldName) continue
+          const [ax1, ay1, ax2, ay2] = annot.rect
+          // PDF coord origin is bottom-left; screen origin is top-left → flip Y
+          const sx = Math.min(ax1, ax2)
+          const sy = vp1.height - Math.max(ay1, ay2)
+          const sw = Math.abs(ax2 - ax1)
+          const sh = Math.abs(ay2 - ay1)
+          const matched = parsed.find(pf => pf.name === annot.fieldName)
+          widgets.push({
+            name:      annot.fieldName,
+            pageIndex: p - 1,
+            xFrac: sx / vp1.width,
+            yFrac: sy / vp1.height,
+            wFrac: sw / vp1.width,
+            hFrac: sh / vp1.height,
+            fieldType: matched?.type ?? 'text',
+          })
+        }
+        page.cleanup()
+      }
+
+      await pdfJs.destroy()
+      setFieldWidgets(widgets)
+
+    } catch { setNoFields(true); setLoading(false) }
   }, [])
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -5883,26 +5980,25 @@ function PdfFormFillerInterface({ tool, category }: { tool: Tool; category: Tool
       const form = pdfDoc.getForm()
       for (const f of form.getFields()) {
         const name = f.getName()
-        const val = values[name] ?? ''
+        const val  = values[name] ?? ''
         try {
-          if (f instanceof PDFTextField) f.setText(val)
-          else if (f instanceof PDFCheckBox) { if (val === 'true') { f.check() } else { f.uncheck() } }
+          if (f instanceof PDFTextField)  f.setText(val)
+          else if (f instanceof PDFCheckBox) { if (val === 'true') f.check(); else f.uncheck() }
           else if (f instanceof PDFDropdown && val) f.select(val)
           else if (f instanceof PDFRadioGroup && val) f.select(val)
         } catch { /* skip unsupported field */ }
       }
       form.flatten()
       const bytes = await pdfDoc.save()
-      const blob = new Blob([bytes.buffer as ArrayBuffer], { type: 'application/pdf' })
-      const url = URL.createObjectURL(blob)
-      const name = file.name.replace(/\.pdf$/i, '') + '_filled.pdf'
-      setOutputUrl(url)
-      setOutputName(name)
+      const blob  = new Blob([bytes.buffer as ArrayBuffer], { type: 'application/pdf' })
+      setOutputUrl(URL.createObjectURL(blob))
+      setOutputName(file.name.replace(/\.pdf$/i, '') + '_filled.pdf')
       setDone(true)
     } catch { /* ignore */ }
     setSaving(false)
   }
 
+  // ── Upload screen ──
   if (!file) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col">
@@ -5924,7 +6020,9 @@ function PdfFormFillerInterface({ tool, category }: { tool: Tool; category: Tool
             >
               <input {...getInputProps()} />
               <Upload className={`w-8 h-8 mx-auto mb-3 ${isDragActive ? 'text-red-400' : 'text-gray-400'}`} />
-              <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">{isDragActive ? 'Drop your PDF here' : 'Drop a PDF form or click to browse'}</p>
+              <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                {isDragActive ? 'Drop your PDF here' : 'Drop a PDF form or click to browse'}
+              </p>
               <p className="text-xs text-gray-400">Works with any interactive PDF form (AcroForm)</p>
             </div>
           </div>
@@ -5933,6 +6031,7 @@ function PdfFormFillerInterface({ tool, category }: { tool: Tool; category: Tool
     )
   }
 
+  // ── Loading ──
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
@@ -5944,6 +6043,7 @@ function PdfFormFillerInterface({ tool, category }: { tool: Tool; category: Tool
     )
   }
 
+  // ── No fields ──
   if (noFields) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col">
@@ -5952,9 +6052,11 @@ function PdfFormFillerInterface({ tool, category }: { tool: Tool; category: Tool
           <div className="text-center max-w-sm">
             <AlertTriangle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
             <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">No fillable fields found</h2>
-            <p className="text-gray-500 text-sm mb-6">This PDF doesn&apos;t have interactive form fields. Try using the PDF Editor to add text manually.</p>
+            <p className="text-gray-500 text-sm mb-6">
+              This PDF doesn&apos;t have interactive form fields. Try using the PDF Editor to add text manually.
+            </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button onClick={() => { setFile(null); setNoFields(false) }}
+              <button onClick={resetAll}
                 className="px-5 py-2.5 rounded-xl bg-red-600 text-white font-semibold text-sm hover:bg-red-500 transition-colors">
                 Try another PDF
               </button>
@@ -5969,6 +6071,7 @@ function PdfFormFillerInterface({ tool, category }: { tool: Tool; category: Tool
     )
   }
 
+  // ── Done ──
   if (done) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col">
@@ -5983,7 +6086,7 @@ function PdfFormFillerInterface({ tool, category }: { tool: Tool; category: Tool
                 className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-red-600 text-white font-semibold hover:bg-red-500 transition-colors">
                 <Download className="w-4 h-4" /> Download Filled PDF
               </a>
-              <button onClick={() => { setFile(null); setFields([]); setValues({}); setDone(false); setOutputUrl('') }}
+              <button onClick={resetAll}
                 className="px-6 py-3 rounded-xl border border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 font-semibold hover:border-gray-400 transition-colors">
                 Fill another
               </button>
@@ -5994,70 +6097,163 @@ function PdfFormFillerInterface({ tool, category }: { tool: Tool; category: Tool
     )
   }
 
+  // ── Main editor: side-by-side ──
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col">
-      <Breadcrumb tool={tool} category={category} />
-      <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 py-8">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-xl font-black text-gray-900 dark:text-white truncate">{file.name}</h1>
-            <p className="text-xs text-gray-500">{fields.length} fillable field{fields.length !== 1 ? 's' : ''} found</p>
-          </div>
-          <button onClick={() => { setFile(null); setFields([]); setValues({}) }}
-            className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
-            Change file
-          </button>
-        </div>
+    <div className="flex flex-col bg-gray-50 dark:bg-gray-950" style={{ height: 'calc(100dvh - 64px)' }}>
 
-        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 space-y-5 mb-6">
-          {fields.map((field) => (
-            <div key={field.name}>
-              <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5 truncate" title={field.name}>
-                {field.name}
-              </label>
-              {field.type === 'text' && (
-                <input
-                  type="text"
-                  value={values[field.name] ?? ''}
-                  onChange={e => setValues(v => ({ ...v, [field.name]: e.target.value }))}
-                  className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-red-500 transition-colors"
-                />
-              )}
-              {field.type === 'checkbox' && (
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={values[field.name] === 'true'}
-                    onChange={e => setValues(v => ({ ...v, [field.name]: e.target.checked ? 'true' : 'false' }))}
-                    className="w-4 h-4 accent-red-500"
-                  />
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Checked</span>
-                </label>
-              )}
-              {(field.type === 'dropdown' || field.type === 'radio') && field.options && (
-                <select
-                  value={values[field.name] ?? ''}
-                  onChange={e => setValues(v => ({ ...v, [field.name]: e.target.value }))}
-                  className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-red-500 transition-colors"
-                >
-                  <option value="">— select —</option>
-                  {field.options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                </select>
-              )}
-              {field.type === 'unknown' && (
-                <p className="text-xs text-gray-400 italic">Unsupported field type</p>
-              )}
-            </div>
-          ))}
+      {/* Top bar */}
+      <div className="flex-shrink-0 flex items-center gap-3 px-4 sm:px-6 py-3 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
+        <div className="w-8 h-8 rounded-lg bg-red-50 dark:bg-red-500/10 flex items-center justify-center flex-shrink-0">
+          <ClipboardList className="w-4 h-4 text-red-500" />
         </div>
-
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{file.name}</p>
+          <p className="text-xs text-gray-500">{fields.length} fillable field{fields.length !== 1 ? 's' : ''}</p>
+        </div>
+        <button
+          onClick={resetAll}
+          className="hidden sm:block text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors px-2 py-1 rounded"
+        >
+          Change file
+        </button>
         <button
           onClick={handleFill}
           disabled={saving}
-          className="w-full py-3.5 rounded-xl bg-red-600 text-white font-bold text-sm hover:bg-red-500 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+          className="flex-shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-bold hover:bg-red-500 disabled:opacity-50 transition-colors"
         >
-          {saving ? <><Loader2 className="w-4 h-4 animate-spin" /> Filling…</> : <><Download className="w-4 h-4" /> Fill & Download PDF</>}
+          {saving
+            ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Filling…</>
+            : <><Download className="w-3.5 h-3.5" /> Fill &amp; Download</>}
         </button>
+      </div>
+
+      {/* Split panel */}
+      <div className="flex-1 min-h-0 flex overflow-hidden">
+
+        {/* Left: form fields */}
+        <div
+          ref={formPanelRef}
+          onScroll={onFormScroll}
+          className="w-full lg:w-[360px] xl:w-[420px] flex-shrink-0 overflow-y-auto bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800"
+        >
+          <div className="p-5 space-y-4">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-600 select-none">
+              Fields — {fields.length} total
+            </p>
+            {fields.map((field) => (
+              <div key={field.name}>
+                <label
+                  className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5 truncate"
+                  title={field.name}
+                >
+                  {field.name}
+                </label>
+                {field.type === 'text' && (
+                  <input
+                    type="text"
+                    value={values[field.name] ?? ''}
+                    onChange={e => setValues(v => ({ ...v, [field.name]: e.target.value }))}
+                    placeholder={`Enter ${field.name}…`}
+                    className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/15 transition-colors"
+                  />
+                )}
+                {field.type === 'checkbox' && (
+                  <label className="inline-flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={values[field.name] === 'true'}
+                      onChange={e => setValues(v => ({ ...v, [field.name]: e.target.checked ? 'true' : 'false' }))}
+                      className="w-4 h-4 accent-red-500"
+                    />
+                    <span className="text-sm text-gray-600 dark:text-gray-400">Checked</span>
+                  </label>
+                )}
+                {(field.type === 'dropdown' || field.type === 'radio') && field.options && (
+                  <select
+                    value={values[field.name] ?? ''}
+                    onChange={e => setValues(v => ({ ...v, [field.name]: e.target.value }))}
+                    className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-red-500 transition-colors"
+                  >
+                    <option value="">— select —</option>
+                    {field.options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                  </select>
+                )}
+                {field.type === 'unknown' && (
+                  <p className="text-xs text-gray-400 italic">Unsupported field type</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Right: live PDF preview */}
+        <div
+          ref={pdfPanelRef}
+          onScroll={onPdfScroll}
+          className="hidden lg:block flex-1 overflow-y-auto bg-gray-100 dark:bg-[#111]"
+        >
+          {pageImages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full gap-3 text-gray-400">
+              <Loader2 className="w-6 h-6 animate-spin" />
+              <p className="text-xs">Rendering preview…</p>
+            </div>
+          ) : (
+            <div className="p-5 space-y-5 max-w-3xl mx-auto">
+              {pageImages.map((img, pageIdx) => (
+                <div
+                  key={pageIdx}
+                  className="relative shadow-2xl rounded overflow-hidden bg-white"
+                >
+                  <img
+                    src={img}
+                    alt={`Page ${pageIdx + 1}`}
+                    className="w-full block select-none"
+                    draggable={false}
+                  />
+
+                  {/* Live overlay: values appear as they are typed */}
+                  {fieldWidgets
+                    .filter(w => w.pageIndex === pageIdx)
+                    .map((w, wi) => {
+                      const val    = values[w.name] ?? ''
+                      const isBox  = w.fieldType === 'checkbox'
+                      const show   = isBox ? val === 'true' : val.length > 0
+                      return (
+                        <div
+                          key={wi}
+                          style={{
+                            position:       'absolute',
+                            left:           `${w.xFrac * 100}%`,
+                            top:            `${w.yFrac * 100}%`,
+                            width:          `${w.wFrac * 100}%`,
+                            height:         `${w.hFrac * 100}%`,
+                            display:        'flex',
+                            alignItems:     'center',
+                            justifyContent: isBox ? 'center' : 'flex-start',
+                            paddingLeft:    isBox ? 0 : '3px',
+                            paddingRight:   isBox ? 0 : '3px',
+                            overflow:       'hidden',
+                            whiteSpace:     'nowrap',
+                            fontFamily:     'Helvetica, Arial, sans-serif',
+                            fontSize:       '11px',
+                            lineHeight:     '1',
+                            color:          '#0f172a',
+                            pointerEvents:  'none',
+                            opacity:        show ? 1 : 0,
+                            transition:     'opacity 80ms ease',
+                          }}
+                        >
+                          {isBox ? '✓' : val}
+                        </div>
+                      )
+                    })
+                  }
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
       </div>
     </div>
   )
