@@ -53,19 +53,29 @@ async def compress_audio(
     return {"job_id": job_id, "status": "queued"}
 
 
+AUDIO_OUTPUT_FORMATS = {"mp3", "aac", "wav", "ogg", "flac", "m4a"}
+AUDIO_QUALITIES = {"low", "medium", "high"}
+
+
 @router.post("/extract-from-video")
 async def extract_audio(
     file: UploadFile = File(...),
+    format: str = Form(default="mp3"),
+    quality: str = Form(default="high"),
     session: AsyncSession = Depends(get_session),
 ):
-    """Extract MP3 audio from a video file."""
+    """Extract audio track from a video file. format: mp3|aac|wav|ogg|flac|m4a. quality: low|medium|high"""
     if not allowed_file(file.filename, VIDEO_EXTS):
-        raise HTTPException(400, f"Unsupported video format. Allowed: {VIDEO_EXTS}")
+        raise HTTPException(400, f"Unsupported video format. Allowed: {', '.join(VIDEO_EXTS)}")
+    if format not in AUDIO_OUTPUT_FORMATS:
+        format = "mp3"
+    if quality not in AUDIO_QUALITIES:
+        quality = "high"
     job_id, saved_path = await save_upload_file(file)
     await create_job(session, job_id, "audio_extract", file.filename)
     celery_app.send_task(
         "app.workers.audio_tasks.extract_audio_task",
-        args=[saved_path, job_id],
+        args=[saved_path, job_id, format, quality],
         queue="heavy",
     )
     return {"job_id": job_id, "status": "queued"}

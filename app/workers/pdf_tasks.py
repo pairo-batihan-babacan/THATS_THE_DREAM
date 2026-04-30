@@ -125,6 +125,12 @@ def unlock_pdf_task(local_path: str, job_id: str, password: str = ""):
     _run_task(job_id, lambda: unlock_pdf(local_path, job_id, password), local_path)
 
 
+@celery_app.task(name="app.workers.pdf_tasks.rotate_pdf_task")
+def rotate_pdf_task(local_path: str, job_id: str, rotations: dict):
+    from app.services.pdf_service import rotate_pdf
+    _run_task(job_id, lambda: rotate_pdf(local_path, job_id, rotations), local_path)
+
+
 @celery_app.task(name="app.workers.pdf_tasks.pdf_to_excel_task")
 def pdf_to_excel_task(local_path: str, job_id: str):
     from app.services.pdf_service import pdf_to_excel

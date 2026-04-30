@@ -351,6 +351,49 @@ def unlock_pdf(input_path: str, job_id: str, password: str = "") -> str:
     return output_filename
 
 
+def rotate_pdf(input_path: str, job_id: str, rotations: dict) -> str:
+    """Apply per-page rotation deltas. rotations: {"0": 90, "3": 180} (0-indexed, degrees to add)."""
+    import fitz
+
+    doc = fitz.open(input_path)
+    for page_idx_str, delta in rotations.items():
+        idx = int(page_idx_str)
+        if 0 <= idx < len(doc):
+            page = doc[idx]
+            page.set_rotation((page.rotation + int(delta)) % 360)
+
+    output_filename = f"{job_id}_rotated.pdf"
+    output_path = _output_path(job_id, output_filename)
+    doc.save(output_path, garbage=4, deflate=True)
+    doc.close()
+    return output_filename
+
+
+def analyze_pdf_orientation(content: bytes) -> list[dict]:
+    """Read page dimensions and current rotation from PDF bytes to detect landscape pages."""
+    import fitz
+
+    try:
+        doc = fitz.open(stream=content, filetype="pdf")
+    except Exception as e:
+        raise RuntimeError(f"Failed to read PDF: {e}")
+
+    pages = []
+    for i, page in enumerate(doc):
+        r = page.rect
+        w, h = round(r.width, 1), round(r.height, 1)
+        pages.append({
+            "index": i,
+            "page_number": i + 1,
+            "width": w,
+            "height": h,
+            "rotation": page.rotation,
+            "is_landscape": w > h,
+        })
+    doc.close()
+    return pages
+
+
 def pdf_to_excel(input_path: str, job_id: str) -> str:
     """Extract text content from a PDF and export it as an Excel spreadsheet."""
     import pandas as pd  # pandas is already in requirements

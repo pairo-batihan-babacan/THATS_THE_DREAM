@@ -4,7 +4,7 @@ from app.api.deps import allowed_file, save_upload_file, save_multiple_files
 from app.core.database import get_session
 from app.core.celery_app import celery_app
 from app.crud.job import create_job
-from app.services.pdf_service import inspect_pdf_metadata
+from app.services.pdf_service import inspect_pdf_metadata, analyze_pdf_orientation
 
 router = APIRouter(prefix="/api/pdf", tags=["PDF"])
 
@@ -197,6 +197,46 @@ async def unlock_pdf(
         "app.workers.pdf_tasks.unlock_pdf_task",
         args=[saved_path, job_id, password],
     )
+    return {"job_id": job_id, "status": "queued"}
+
+
+@router.post("/analyze-orientation")
+async def analyze_pdf_orientation_endpoint(file: UploadFile = File(...)):
+    """Synchronously analyse PDF page orientations. Returns page list with is_landscape flag."""
+    if not allowed_file(file.filename, PDF_EXTS):
+        raise HTTPException(400, "Only PDF files accepted")
+    content = await file.read()
+    try:
+        pages = analyze_pdf_orientation(content)
+    except RuntimeError as e:
+        raise HTTPException(400, str(e))
+    landscape_count = sum(1 for p in pages if p["is_landscape"])
+    return {"pages": pages, "total": len(pages), "landscape_count": landscape_count}
+
+
+@router.post("/rotate")
+async def rotate_pdf(
+    file: UploadFile = File(...),
+    rotations: str = Form(...),
+    session: AsyncSession = Depends(get_session),
+):
+    """Rotate PDF pages. rotations: JSON string mapping 0-based page index to degrees, e.g. '{"0":90,"3":180}'"""
+    import json
+    if not allowed_file(file.filename, PDF_EXTS):
+        raise HTTPException(400, "Only PDF files accepted")
+    try:
+        rotations_dict = json.loads(rotations)
+        if not isinstance(rotations_dict, dict) or not rotations_dict:
+            raise ValueError
+    except (json.JSONDecodeError, ValueError):
+        raise HTTPException(400, "rotations must be a non-empty JSON object")
+    valid_angles = {0, 90, 180, 270}
+    for k, v in rotations_dict.items():
+        if not k.isdigit() or int(v) not in valid_angles:
+            raise HTTPException(400, f"Invalid rotation value '{v}' — must be 0, 90, 180, or 270")
+    job_id, saved_path = await save_upload_file(file)
+    await create_job(session, job_id, "pdf_rotate", file.filename)
+    celery_app.send_task("app.workers.pdf_tasks.rotate_pdf_task", args=[saved_path, job_id, rotations_dict])
     return {"job_id": job_id, "status": "queued"}
 
 

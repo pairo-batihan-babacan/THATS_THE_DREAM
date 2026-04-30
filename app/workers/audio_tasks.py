@@ -17,10 +17,10 @@ def compress_audio_task(storage_path: str, job_id: str, bitrate: str):
 
 
 @celery_app.task(name="app.workers.audio_tasks.extract_audio_task")
-def extract_audio_task(storage_path: str, job_id: str):
+def extract_audio_task(storage_path: str, job_id: str, fmt: str = "mp3", quality: str = "high"):
     from app.services.audio_service import extract_audio
     local = _download_input(storage_path, job_id)
-    _run_task(job_id, lambda: extract_audio(local, job_id), local)
+    _run_task(job_id, lambda: extract_audio(local, job_id, fmt, quality), local)
 
 
 @celery_app.task(name="app.workers.audio_tasks.strip_metadata_task")

@@ -42,6 +42,12 @@ const TOOLS = {
         endpoint: '/api/pdf/compress', accept: '.pdf', multiple: false, options: []
       },
       {
+        id: 'rotate', label: 'Rotate PDF',
+        desc: 'Fix page orientation',
+        customUrl: '/tools/rotate-pdf',
+        endpoint: '/api/pdf/rotate', accept: '.pdf', multiple: false, options: []
+      },
+      {
         id: 'to-word', label: 'PDF → Word',
         desc: 'Editable DOCX',
         endpoint: '/api/pdf/to-word', accept: '.pdf', multiple: false, options: []
@@ -142,9 +148,13 @@ const TOOLS = {
       },
       {
         id: 'extract-from-video', label: 'Extract Audio',
-        desc: 'MP3 from video',
+        desc: 'Audio track from video',
         endpoint: '/api/audio/extract-from-video', accept: '.mp4,.mov,.mkv,.avi,.webm',
-        multiple: false, options: []
+        multiple: false,
+        options: [
+          { type: 'select', name: 'format', label: 'Output format', choices: ['mp3', 'aac', 'wav', 'ogg', 'flac', 'm4a'], default: 'mp3' },
+          { type: 'select', name: 'quality', label: 'Quality', choices: ['low', 'medium', 'high'], default: 'high' }
+        ]
       },
       {
         id: 'strip-metadata', label: 'Strip Metadata',
@@ -258,6 +268,10 @@ function initToolPage(category) {
 
 /* ─── Tool Selection ─────────────────────────────────────── */
 function selectTool(tool, btn) {
+  if (tool.customUrl) {
+    window.location.href = tool.customUrl;
+    return;
+  }
   currentTool = tool;
 
   // Update active state

@@ -39,14 +39,30 @@ def compress_audio(input_path: str, job_id: str, bitrate: str = "128k") -> str:
     return output_filename
 
 
-def extract_audio(input_path: str, job_id: str) -> str:
-    """Extract audio track from video as MP3."""
-    output_filename = f"{job_id}_audio.mp3"
+_LOSSLESS = {"wav", "flac", "aiff"}
+_BITRATES = {"low": "96k", "medium": "128k", "high": "192k"}
+_AUDIO_FORMATS = {"mp3", "aac", "wav", "ogg", "flac", "m4a"}
+
+
+def extract_audio(input_path: str, job_id: str, fmt: str = "mp3", quality: str = "high") -> str:
+    """Extract audio track from a video file.
+
+    fmt: mp3 | aac | wav | ogg | flac | m4a
+    quality: low (96k) | medium (128k) | high (192k) — ignored for lossless formats
+    """
+    if fmt not in _AUDIO_FORMATS:
+        fmt = "mp3"
+    output_filename = f"{job_id}_audio.{fmt}"
     output_path = _output_path(job_id, output_filename)
+
+    out_kwargs: dict = {"vn": None}
+    if fmt not in _LOSSLESS:
+        out_kwargs["audio_bitrate"] = _BITRATES.get(quality, "192k")
+
     try:
-        ffmpeg.input(input_path).output(
-            output_path, audio_bitrate="192k", vn=None
-        ).run(overwrite_output=True, quiet=True)
+        ffmpeg.input(input_path).output(output_path, **out_kwargs).run(
+            overwrite_output=True, quiet=True
+        )
     except ffmpeg.Error as e:
         raise _ffmpeg_error(e, "Audio extraction from video failed")
     return output_filename

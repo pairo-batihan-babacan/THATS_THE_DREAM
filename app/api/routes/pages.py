@@ -255,6 +255,16 @@ async def tool_pdf_to_images(request: Request):
     return templates.TemplateResponse(request, "tools/pdf-to-images.html")
 
 
+@router.get("/tools/rotate-pdf")
+async def tool_rotate_pdf(request: Request):
+    return templates.TemplateResponse(request, "tools/rotate-pdf.html")
+
+
+@router.get("/tools/extract-audio")
+async def tool_extract_audio(request: Request):
+    return templates.TemplateResponse(request, "tools/extract-audio.html")
+
+
 # ── SEO files ─────────────────────────────────────────────────────────────────
 
 SITEMAP_URLS = [
@@ -288,6 +298,8 @@ SITEMAP_URLS = [
     ("/tools/strip-pdf-metadata", "0.8", "monthly"),
     ("/tools/unlock-pdf", "0.85", "monthly"),
     ("/tools/pdf-to-images", "0.8", "monthly"),
+    ("/tools/rotate-pdf", "0.85", "monthly"),
+    ("/tools/extract-audio", "0.85", "monthly"),
 ]
 
 

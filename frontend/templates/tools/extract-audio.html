@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}Extract Audio from Video — Free Online MP3 Extractor — PDFWorks{% endblock %}
+{% block meta_description %}Extract audio from any video file online for free. Convert MP4, MOV, MKV, AVI or WebM to MP3, AAC, WAV, OGG or FLAC in seconds. No account required. Files deleted automatically in 30 minutes.{% endblock %}
+{% block og_title %}Extract Audio from Video — Free Online MP3 Extractor — PDFWorks{% endblock %}
+{% block og_description %}Rip audio from MP4, MOV, MKV, AVI and WebM videos. Download as MP3, AAC, WAV, OGG or FLAC. 100% free, no account needed. Files auto-deleted in 30 minutes.{% endblock %}
+{% block twitter_title %}Extract Audio from Video Free — PDFWorks{% endblock %}
+{% block twitter_description %}Convert any video to MP3, AAC, WAV, OGG or FLAC instantly. No signup, no watermarks. Auto-deleted in 30 min.{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "PDFWorks Extract Audio",
+  "url": "https://pdfworks.io/tools/extract-audio",
+  "description": "Free online tool to extract audio from video files. Supports MP4, MOV, MKV, AVI, WebM input and MP3, AAC, WAV, OGG, FLAC output. No account required.",
+  "applicationCategory": "MultimediaApplication",
+  "operatingSystem": "Web Browser",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  "featureList": [
+    "Extract audio from MP4, MOV, MKV, AVI, WebM",
+    "Export as MP3, AAC, WAV, OGG, FLAC, M4A",
+    "Three quality levels: Low (96 kbps), Medium (128 kbps), High (192 kbps)",
+    "No account required",
+    "Files auto-deleted after 30 minutes"
+  ]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="tool-detail-page">
+  <nav class="breadcrumb">
+    <a href="/">Home</a><span class="sep">›</span>
+    <a href="/audio">Audio Tools</a><span class="sep">›</span>
+    <span>Extract Audio from Video</span>
+  </nav>
+
+  <h1>Extract Audio from Video</h1>
+  <p class="tool-lead">Rip the audio track out of any video file and save it as MP3, AAC, WAV, OGG, FLAC, or M4A — completely free, with no account required. Processing happens on our servers in seconds and your file is automatically deleted after 30 minutes.</p>
+
+  <div class="tool-action-bar">
+    <p>Ready to extract audio? Use the tool from the Audio Tools page.</p>
+    <a href="/audio" class="btn btn-primary" style="padding:.55rem 1.25rem;border-radius:8px;background:var(--accent);color:#fff;font-weight:600;text-decoration:none;white-space:nowrap">Open Extract Audio →</a>
+  </div>
+
+  <div class="prose">
+
+    <h2>How to Extract Audio from a Video File</h2>
+    <ol class="steps-list">
+      <li>Go to the <a href="/audio">Audio Tools</a> page and click <strong>Extract Audio</strong> in the left sidebar.</li>
+      <li>Drag your video file onto the upload zone, or click "click to browse" to select it. Supported formats: <strong>MP4, MOV, MKV, AVI, WebM</strong>. Maximum file size: 50 MB.</li>
+      <li>Choose your <strong>output format</strong> (MP3 is the most universal) and <strong>quality level</strong>.</li>
+      <li>Click <strong>Convert</strong>. Extraction typically completes in 5–30 seconds depending on video length and file size.</li>
+      <li>Download your audio file when the processing finishes.</li>
+    </ol>
+
+    <h2>Supported Input Video Formats</h2>
+    <p>PDFWorks accepts the most common video container formats:</p>
+    <ul>
+      <li><strong>MP4 (.mp4)</strong> — The most widely used video format. Used by smartphones, YouTube downloads, screen recorders, and video editors. Audio is typically AAC or MP3 inside the container.</li>
+      <li><strong>MOV (.mov)</strong> — Apple's QuickTime format. Common output from iPhones, iPads, and macOS screen recordings.</li>
+      <li><strong>MKV (.mkv)</strong> — Matroska video container. Popular for high-quality video downloads and media server content. May contain multiple audio tracks.</li>
+      <li><strong>AVI (.avi)</strong> — Older Microsoft format still common in legacy archives and some camera systems.</li>
+      <li><strong>WebM (.webm)</strong> — Open-source format used by web browsers (Chrome, Firefox) for HTML5 video. Common in browser-based screen recordings.</li>
+    </ul>
+
+    <h2>Supported Output Audio Formats</h2>
+    <p>After extraction, you can download the audio in these formats:</p>
+    <ul>
+      <li><strong>MP3</strong> — The universal audio standard. Supported by every device, player, and platform. Ideal for music, podcasts, voice recordings, and anything you need to share widely. Lossy compression; smaller file sizes.</li>
+      <li><strong>AAC (.aac / .m4a)</strong> — The successor to MP3, used natively by Apple devices and YouTube. Better audio quality than MP3 at the same bitrate. Excellent choice when the source is already AAC (e.g. MP4 files from iPhones).</li>
+      <li><strong>WAV (.wav)</strong> — Uncompressed, lossless audio. Produces the largest files but perfect quality. Best for professional audio editing, sampling, and archiving. No quality loss whatsoever.</li>
+      <li><strong>OGG (.ogg)</strong> — Open-source format using Vorbis codec. Good quality-to-size ratio. Supported by Linux, Android, and web browsers. A free alternative to MP3.</li>
+      <li><strong>FLAC (.flac)</strong> — Free Lossless Audio Codec. Lossless compression that retains every detail of the original audio, but at about half the file size of WAV. Ideal for archiving high-quality audio or music from lossless video sources.</li>
+      <li><strong>M4A (.m4a)</strong> — AAC audio in an MP4 container. The standard format for Apple Music and iTunes. Compatible with all Apple devices and most modern media players.</li>
+    </ul>
+
+    <h2>Which Format Should I Choose?</h2>
+    <p>The right format depends on what you plan to do with the audio:</p>
+    <ul>
+      <li><strong>Sharing or uploading online:</strong> Choose <em>MP3</em>. It's supported everywhere and produces compact files.</li>
+      <li><strong>Apple devices or iTunes:</strong> Choose <em>M4A</em> or <em>AAC</em> for native compatibility.</li>
+      <li><strong>Professional editing or sampling:</strong> Choose <em>WAV</em> for zero quality loss.</li>
+      <li><strong>Long-term archiving:</strong> Choose <em>FLAC</em> — you get lossless quality with smaller files than WAV.</li>
+      <li><strong>Open-source / Linux workflow:</strong> Choose <em>OGG</em>.</li>
+    </ul>
+
+    <h2>Quality Levels Explained</h2>
+    <p>Quality settings apply to lossy formats (MP3, AAC, OGG, M4A). WAV and FLAC are always lossless and unaffected by this setting.</p>
+    <ul>
+      <li><strong>Low — 96 kbps:</strong> Smallest file size. Audible quality reduction, particularly noticeable on music. Suitable for voice recordings, podcasts, and spoken-word content where bandwidth matters.</li>
+      <li><strong>Medium — 128 kbps:</strong> The standard quality level. Indistinguishable from the original for most listeners at normal volume. Recommended for general use.</li>
+      <li><strong>High — 192 kbps:</strong> Near-transparent quality. Essentially indistinguishable from the original audio track for virtually all listeners. Recommended for music and content where audio quality matters. This is the default setting.</li>
+    </ul>
+
+    <h2>What Happens If My Video Has Multiple Audio Tracks?</h2>
+    <p>Many MKV files and some MP4 files contain multiple audio streams — for example, a film with English and French dubs, or a video with a separate commentary track. PDFWorks automatically extracts the <strong>first audio stream</strong> from the file, which is typically the primary language track. If you need to extract a specific track, use a desktop tool such as FFmpeg or HandBrake which offer full stream selection control.</p>
+
+    <h2>Will the Audio Quality Be Reduced?</h2>
+    <p>Extraction involves a <strong>re-encoding step</strong> for lossy formats (MP3, AAC, OGG, M4A). This means there is a generation of quality loss compared to the original, even at High quality. For WAV and FLAC, re-encoding preserves the full audio waveform with no loss. If you're working with professionally produced video and audio fidelity is critical, choose <em>WAV</em> or <em>FLAC</em> and then convert to your target format in a dedicated audio editor (Audacity, Logic Pro, Adobe Audition) to have full control over encoding parameters.</p>
+
+    <h2>Common Use Cases</h2>
+    <ul>
+      <li><strong>Podcast production:</strong> Extract interview audio recorded via video call (Zoom, Teams, Google Meet) to get a clean MP3 or WAV for editing.</li>
+      <li><strong>Music from concert recordings:</strong> Pull the audio from a video recording of a live performance.</li>
+      <li><strong>Creating ringtones:</strong> Extract a clip of audio from a video and use it as a ringtone or notification sound.</li>
+      <li><strong>Subtitling and transcription:</strong> Extract audio to feed into a speech-to-text tool for automatic transcription.</li>
+      <li><strong>Backup of online content:</strong> Save the audio from a lecture, tutorial, or talk so you can listen offline without the video.</li>
+      <li><strong>Game sound effects and music:</strong> Extract audio from game cutscenes or recordings for use in creative projects.</li>
+      <li><strong>Language learning:</strong> Extract audio from foreign-language video content to practise listening without visual distractions.</li>
+    </ul>
+
+    <h2>Technical Details</h2>
+    <p>PDFWorks uses <strong>FFmpeg</strong>, the industry-standard multimedia processing library, to handle all audio extraction. The extraction pipeline uses the <code>-vn</code> flag to strip the video stream and re-encodes the audio to the selected format and bitrate. FFmpeg supports decoding the audio from virtually every video container and codec in wide use today, including H.264/AAC (MP4), H.265/AAC, VP9/Opus (WebM), and more.</p>
+
+    <h2>Privacy and Security</h2>
+    <p>Your video file is uploaded over HTTPS to our servers. Processing takes place in an isolated environment. The original video and the extracted audio file are automatically and permanently deleted within 30 minutes of upload. We do not watch, analyse, store, or share the content of your files in any way. No account, email address, or personal information is required to use this tool.</p>
+
+    <p style="margin-top:2rem"><strong>Related tools:</strong></p>
+    <div class="related-tools">
+      <a href="/audio" class="related-tool-link">Audio Convert</a>
+      <a href="/audio" class="related-tool-link">Compress Audio</a>
+      <a href="/audio" class="related-tool-link">Strip Audio Metadata</a>
+      <a href="/tools/pdf-to-images" class="related-tool-link">PDF to Images</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

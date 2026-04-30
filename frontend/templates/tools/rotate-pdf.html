@@ -1,0 +1,653 @@
+{% extends "base.html" %}
+{% block title %}Rotate PDF Pages — Free Online PDF Page Rotator — PDFWorks{% endblock %}
+{% block meta_description %}Rotate PDF pages online for free. Rotate individual pages, select multiple with drag, or auto-detect and fix sideways landscape pages. No account required. Files deleted in 30 minutes.{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebApplication","name":"PDFWorks Rotate PDF","url":"https://pdfworks.io/tools/rotate-pdf","description":"Free online PDF page rotator. Rotate individual or all PDF pages 90, 180, or 270 degrees. Auto-detect misoriented landscape pages. No account needed.","applicationCategory":"Utility","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+</script>
+{% endblock %}
+
+{% block content %}
+<style>
+.rp-page{max-width:1100px;margin:0 auto;padding:1.5rem 1.5rem 6rem}
+.rp-drop-zone{border:2px dashed var(--border2);border-radius:var(--radius);background:var(--surface);padding:3.5rem 2rem;text-align:center;cursor:pointer;transition:border-color var(--transition),background var(--transition)}
+.rp-drop-zone.drag-over{border-color:var(--accent);background:var(--accent-dim)}
+.rp-drop-zone-icon{font-size:3rem;margin-bottom:.75rem}
+.rp-drop-zone h2{font-size:1.1rem;font-weight:600;margin-bottom:.4rem}
+.rp-drop-zone p{color:var(--text-2);font-size:.9rem}
+.rp-browse-link{color:var(--accent);cursor:pointer}
+#rpFileInput{display:none}
+.rp-editor{display:none}
+.rp-editor.visible{display:block}
+.rp-processing{display:none}
+.rp-processing.visible{display:block}
+.rp-toolbar{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:1.1rem;padding:.7rem 1rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm)}
+.rp-file-badge{display:flex;align-items:center;gap:.45rem;font-size:.85rem;color:var(--text-2);margin-right:auto;min-width:0;overflow:hidden}
+.rp-file-badge strong{color:var(--text);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px}
+.rp-btn{display:inline-flex;align-items:center;gap:.35rem;padding:.42rem .8rem;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:.83rem;font-weight:500;cursor:pointer;transition:background var(--transition),border-color var(--transition);white-space:nowrap;flex-shrink:0}
+.rp-btn:hover{background:var(--border2)}
+.rp-btn:disabled{opacity:.45;cursor:not-allowed}
+.rp-btn-accent{background:var(--accent);border-color:var(--accent);color:#fff}
+.rp-btn-accent:hover:not(:disabled){background:var(--accent-hov);border-color:var(--accent-hov)}
+.rp-btn-ghost{background:transparent;border-color:transparent}
+.rp-btn-ghost:hover{background:var(--surface2);border-color:var(--border)}
+.rp-btn-sm{padding:.3rem .6rem;font-size:.78rem}
+.rp-detect-banner{display:none;align-items:center;gap:.7rem;flex-wrap:wrap;padding:.8rem 1rem;margin-bottom:1rem;background:rgba(202,138,4,.07);border:1px solid rgba(202,138,4,.28);border-radius:var(--radius-sm);font-size:.875rem}
+.rp-detect-banner.visible{display:flex}
+.rp-detect-banner .det-icon{font-size:1.1rem;flex-shrink:0}
+.rp-detect-banner .det-msg{flex:1;color:var(--text)}
+.rp-detect-banner .det-msg strong{color:#ca8a04}
+.rp-render-status{font-size:.82rem;color:var(--text-2);margin-bottom:.8rem;min-height:1.2em}
+.rp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:.85rem;position:relative}
+.rp-page-card{display:flex;flex-direction:column;align-items:center;gap:.45rem;padding:.65rem .45rem .55rem;background:var(--surface);border:2px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;transition:border-color var(--transition),box-shadow var(--transition);box-shadow:var(--card-shadow)}
+.rp-page-card:hover{border-color:var(--border2);box-shadow:var(--card-shadow-hov)}
+.rp-page-card.selected{border-color:var(--accent);background:var(--accent-dim)}
+.rp-page-card.land-warn{border-color:#ca8a04}
+.rp-page-card.land-warn.selected{border-color:var(--accent)}
+.rp-canvas-wrap{width:112px;height:112px;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:3px;background:var(--surface2);position:relative}
+.rp-canvas-wrap canvas{max-width:108px;max-height:108px;display:block}
+.rp-thumb-ph{width:72px;height:100px;background:var(--border);border-radius:2px;animation:rp-pulse 1.3s ease infinite}
+@keyframes rp-pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.rp-page-label{font-size:.76rem;color:var(--text-2);text-align:center}
+.rp-rot-badge{font-size:.7rem;color:var(--accent);font-weight:600;min-height:.95rem;text-align:center}
+.rp-check{position:absolute;top:3px;right:3px;width:16px;height:16px;border-radius:50%;background:var(--accent);color:#fff;font-size:.65rem;display:none;align-items:center;justify-content:center;font-weight:700}
+.rp-page-card.selected .rp-check{display:flex}
+.rp-drag-rect{position:fixed;border:1.5px solid var(--accent);background:var(--accent-dim);pointer-events:none;z-index:200;display:none}
+.rp-action-bar{position:fixed;bottom:0;left:0;right:0;z-index:150;display:none;align-items:center;gap:.65rem;flex-wrap:wrap;padding:.85rem 1.5rem;background:var(--surface);border-top:1px solid var(--border);box-shadow:0 -4px 24px rgba(0,0,0,.2)}
+.rp-action-bar.visible{display:flex}
+.rp-sel-label{font-size:.875rem;color:var(--text-2)}
+.rp-sel-label strong{color:var(--text)}
+.rp-bar-end{margin-left:auto;display:flex;gap:.5rem}
+.rp-apply-row{display:none;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.7rem;margin-top:1.25rem;padding:.9rem 1rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm)}
+.rp-apply-info{font-size:.875rem;color:var(--text-2)}
+.rp-apply-info strong{color:var(--text)}
+.rp-progress-area{max-width:460px;margin:3.5rem auto;text-align:center}
+.rp-progress-title{font-weight:600;font-size:1.05rem;margin-bottom:.2rem}
+.rp-pb-wrap{height:5px;background:var(--border);border-radius:99px;overflow:hidden;margin:.9rem 0 .6rem}
+.rp-pb{height:100%;background:var(--accent);border-radius:99px;transition:width .4s ease;width:0%}
+.rp-pl{font-size:.875rem;color:var(--text-2)}
+.rp-result-box{display:none;flex-direction:column;align-items:center;gap:1rem;max-width:380px;margin:3.5rem auto;text-align:center}
+.rp-result-box.visible{display:flex}
+.rp-result-icon{width:52px;height:52px;border-radius:50%;background:var(--success-bg);border:1px solid var(--success-border);color:var(--success);font-size:1.4rem;display:flex;align-items:center;justify-content:center}
+.rp-result-box h3{font-size:1.05rem}
+.rp-result-box>p{font-size:.85rem;color:var(--text-2)}
+.rp-error-box{display:none;flex-direction:column;align-items:center;gap:1rem;max-width:380px;margin:3.5rem auto;text-align:center}
+.rp-error-box.visible{display:flex}
+.rp-error-icon{width:52px;height:52px;border-radius:50%;background:var(--error-bg);border:1px solid var(--error-border);color:var(--error);font-size:1.4rem;display:flex;align-items:center;justify-content:center}
+.rp-error-box h3{font-size:1.05rem;color:var(--error)}
+.rp-error-box>p{font-size:.85rem;color:var(--text-2)}
+.rp-prose{margin-top:3rem;padding-top:2rem;border-top:1px solid var(--border)}
+.rp-prose h2{font-size:1.1rem;font-weight:600;margin:1.6rem 0 .55rem}
+.rp-prose p,.rp-prose li{font-size:.93rem;color:var(--text-2);line-height:1.7}
+.rp-prose ul,.rp-prose ol{padding-left:1.4rem;margin:.4rem 0}
+@media(max-width:600px){.rp-toolbar{gap:.45rem}.rp-file-badge{display:none}.rp-grid{grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:.6rem}.rp-canvas-wrap{width:88px;height:88px}.rp-canvas-wrap canvas{max-width:84px;max-height:84px}}
+</style>
+
+<div class="rp-page">
+  <nav class="breadcrumb">
+    <a href="/">Home</a><span class="sep">›</span>
+    <a href="/pdf">PDF Tools</a><span class="sep">›</span>
+    <span>Rotate PDF</span>
+  </nav>
+
+  <h1>Rotate PDF Pages</h1>
+  <p style="color:var(--text-2);margin:.35rem 0 1.5rem;font-size:.93rem;">Upload a PDF, rotate pages individually or all at once, then download the corrected file.</p>
+
+  <!-- ── Phase 1: Upload ── -->
+  <div id="rpUpload">
+    <div class="rp-drop-zone" id="rpDropZone">
+      <input type="file" id="rpFileInput" accept=".pdf" />
+      <div class="rp-drop-zone-icon">📄</div>
+      <h2>Drop your PDF here</h2>
+      <p>or <span class="rp-browse-link" id="rpBrowse">click to browse</span></p>
+      <p style="margin-top:.5rem;font-size:.8rem;color:var(--text-3);">PDF files up to 50 MB &middot; Auto-deleted in 30 min</p>
+    </div>
+  </div>
+
+  <!-- ── Phase 2: Editor ── -->
+  <div id="rpEditor" class="rp-editor">
+
+    <div class="rp-toolbar">
+      <div class="rp-file-badge">
+        <span>📄</span>
+        <strong id="rpFileName">file.pdf</strong>
+        <span>&middot; <span id="rpPageCount">0</span> pages</span>
+      </div>
+      <button class="rp-btn" id="rpAllCW" title="Rotate all pages 90° clockwise">↻ All CW</button>
+      <button class="rp-btn" id="rpAllCCW" title="Rotate all pages 90° counter-clockwise">↺ All CCW</button>
+      <button class="rp-btn" id="rpDetectBtn">🔍 Auto-detect</button>
+      <button class="rp-btn rp-btn-ghost" id="rpReset">Reset</button>
+      <button class="rp-btn rp-btn-accent" id="rpApply" disabled>Apply Rotations</button>
+    </div>
+
+    <div class="rp-detect-banner" id="rpDetectBanner">
+      <span class="det-icon">⚠</span>
+      <span class="det-msg" id="rpDetectMsg">Analysing…</span>
+      <button class="rp-btn rp-btn-sm" id="rpFixAll" style="display:none">Fix All</button>
+      <button class="rp-btn rp-btn-sm rp-btn-ghost" id="rpDismiss">Dismiss</button>
+    </div>
+
+    <div class="rp-render-status" id="rpRenderStatus"></div>
+
+    <div id="rpGridWrap">
+      <div class="rp-grid" id="rpGrid"></div>
+    </div>
+
+    <div class="rp-apply-row" id="rpApplyRow">
+      <div class="rp-apply-info"><strong id="rpRotCount">0</strong> pages will be rotated</div>
+      <button class="rp-btn rp-btn-accent" id="rpApply2">Apply Rotations ↓</button>
+    </div>
+  </div>
+
+  <!-- ── Phase 3: Processing & Result ── -->
+  <div id="rpProcessing" class="rp-processing">
+    <div class="rp-progress-area" id="rpProgressArea">
+      <p class="rp-progress-title">Applying rotations…</p>
+      <div class="rp-pb-wrap"><div class="rp-pb" id="rpPB"></div></div>
+      <p class="rp-pl" id="rpPL">Uploading file…</p>
+    </div>
+
+    <div class="rp-result-box" id="rpResultBox">
+      <div class="rp-result-icon">✓</div>
+      <h3>PDF rotated successfully</h3>
+      <p>File will be deleted from our servers in 30 minutes.</p>
+      <a class="rp-btn rp-btn-accent" id="rpDownload" href="#" download style="padding:.65rem 1.4rem;font-size:.95rem">↓ Download PDF</a>
+      <button class="rp-btn rp-btn-ghost" id="rpAnother">Rotate another file</button>
+    </div>
+
+    <div class="rp-error-box" id="rpErrorBox">
+      <div class="rp-error-icon">✕</div>
+      <h3>Something went wrong</h3>
+      <p id="rpErrMsg">Rotation failed. Please try again.</p>
+      <button class="rp-btn" id="rpRetry">Go back</button>
+    </div>
+  </div>
+
+  <!-- ── SEO Prose ── -->
+  <div class="rp-prose">
+    <h2>How to Rotate PDF Pages</h2>
+    <ol>
+      <li>Upload your PDF using the drop zone above.</li>
+      <li>Click individual pages to select them, or use <strong>All CW / All CCW</strong> to rotate every page at once.</li>
+      <li>Drag across the page grid to select multiple pages, then use the action bar to rotate the selection.</li>
+      <li>Use <strong>Auto-detect</strong> to automatically find sideways landscape pages and fix them in one click.</li>
+      <li>Click <strong>Apply Rotations</strong> to process and download your corrected PDF.</li>
+    </ol>
+    <h2>Rotate All Pages vs. Individual Pages</h2>
+    <p>Use <em>All CW / All CCW</em> when every page was scanned in the wrong orientation — for example, an entire document photographed sideways. Use individual or multi-page selection when only specific pages need fixing, such as a single landscape diagram within an otherwise portrait document.</p>
+    <h2>What Is Auto-detect?</h2>
+    <p>Auto-detect analyses each page's dimensions and flags pages that are wider than they are tall (landscape orientation). These are often pages scanned on their side. When detected, PDFWorks highlights them in the grid and offers to rotate them 90° clockwise in a single click.</p>
+    <h2>Privacy</h2>
+    <p>Your PDF is uploaded over HTTPS and processed on our secure servers. The original file and the rotated result are automatically and permanently deleted within 30 minutes. We do not read, store, or share the content of your files. No account is required.</p>
+    <div style="margin-top:1.5rem">
+      <strong>Related tools:</strong>
+      <div class="related-tools" style="margin-top:.5rem">
+        <a href="/tools/compress-pdf" class="related-tool-link">Compress PDF</a>
+        <a href="/tools/merge-pdf" class="related-tool-link">Merge PDFs</a>
+        <a href="/tools/split-pdf" class="related-tool-link">Split PDF</a>
+        <a href="/tools/pdf-to-images" class="related-tool-link">PDF to Images</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Drag-select overlay -->
+<div class="rp-drag-rect" id="rpDragRect"></div>
+
+<!-- Fixed action bar -->
+<div class="rp-action-bar" id="rpActionBar">
+  <span class="rp-sel-label"><strong id="rpSelCount">0</strong> pages selected</span>
+  <button class="rp-btn" id="rpBarCW">↻ 90°</button>
+  <button class="rp-btn" id="rpBarCCW">↺ 90°</button>
+  <button class="rp-btn" id="rpBar180">180°</button>
+  <div class="rp-bar-end">
+    <button class="rp-btn rp-btn-ghost" id="rpDeselect">Deselect all</button>
+  </div>
+</div>
+
+<!-- PDF.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+  /* ── State ───────────────────────────────────────────────── */
+  let file = null;
+  let pdfDoc = null;
+  let totalPages = 0;
+  let rotations = {};       // {index: cumulative_delta 0|90|180|270}
+  let selected = new Set();
+  let landPages = [];       // indices flagged by auto-detect
+  let lastSel = -1;
+
+  /* ── DOM ─────────────────────────────────────────────────── */
+  const $upload     = document.getElementById('rpUpload');
+  const $editor     = document.getElementById('rpEditor');
+  const $processing = document.getElementById('rpProcessing');
+  const $dropZone   = document.getElementById('rpDropZone');
+  const $fileInput  = document.getElementById('rpFileInput');
+  const $browse     = document.getElementById('rpBrowse');
+  const $fileName   = document.getElementById('rpFileName');
+  const $pageCount  = document.getElementById('rpPageCount');
+  const $grid       = document.getElementById('rpGrid');
+  const $actionBar  = document.getElementById('rpActionBar');
+  const $selCount   = document.getElementById('rpSelCount');
+  const $detBanner  = document.getElementById('rpDetectBanner');
+  const $detMsg     = document.getElementById('rpDetectMsg');
+  const $fixAll     = document.getElementById('rpFixAll');
+  const $dragRect   = document.getElementById('rpDragRect');
+  const $applyRow   = document.getElementById('rpApplyRow');
+  const $rotCount   = document.getElementById('rpRotCount');
+  const $renderSt   = document.getElementById('rpRenderStatus');
+  const $pb         = document.getElementById('rpPB');
+  const $pl         = document.getElementById('rpPL');
+  const $resultBox  = document.getElementById('rpResultBox');
+  const $errorBox   = document.getElementById('rpErrorBox');
+  const $errMsg     = document.getElementById('rpErrMsg');
+  const $download   = document.getElementById('rpDownload');
+  const $progArea   = document.getElementById('rpProgressArea');
+  const $apply      = document.getElementById('rpApply');
+
+  /* ── Upload zone ─────────────────────────────────────────── */
+  $browse.addEventListener('click', (e) => { e.stopPropagation(); $fileInput.click(); });
+  $dropZone.addEventListener('click', () => $fileInput.click());
+  $fileInput.addEventListener('change', () => { if ($fileInput.files[0]) startLoad($fileInput.files[0]); });
+  $dropZone.addEventListener('dragover', (e) => { e.preventDefault(); $dropZone.classList.add('drag-over'); });
+  $dropZone.addEventListener('dragleave', () => $dropZone.classList.remove('drag-over'));
+  $dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    $dropZone.classList.remove('drag-over');
+    const f = e.dataTransfer.files[0];
+    if (f && f.name.toLowerCase().endsWith('.pdf')) startLoad(f);
+  });
+
+  /* ── Load PDF ────────────────────────────────────────────── */
+  async function startLoad(f) {
+    file = f;
+    rotations = {};
+    selected.clear();
+    landPages = [];
+    $fileName.textContent = f.name;
+    $upload.style.display = 'none';
+    $editor.classList.add('visible');
+    $grid.innerHTML = '';
+    $detBanner.classList.remove('visible');
+    $applyRow.style.display = 'none';
+    $apply.disabled = true;
+    $renderSt.textContent = 'Loading PDF…';
+
+    const buf = await f.arrayBuffer();
+    pdfDoc = await pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise;
+    totalPages = pdfDoc.numPages;
+    $pageCount.textContent = totalPages;
+
+    buildGrid();
+    await renderAll();
+    $renderSt.textContent = '';
+  }
+
+  /* ── Build grid ──────────────────────────────────────────── */
+  function buildGrid() {
+    $grid.innerHTML = '';
+    for (let i = 0; i < totalPages; i++) {
+      const card = document.createElement('div');
+      card.className = 'rp-page-card';
+      card.dataset.index = i;
+
+      const wrap = document.createElement('div');
+      wrap.className = 'rp-canvas-wrap';
+
+      const ph = document.createElement('div');
+      ph.className = 'rp-thumb-ph';
+      wrap.appendChild(ph);
+
+      const chk = document.createElement('div');
+      chk.className = 'rp-check';
+      chk.textContent = '✓';
+      wrap.appendChild(chk);
+
+      const lbl = document.createElement('div');
+      lbl.className = 'rp-page-label';
+      lbl.textContent = `Page ${i + 1}`;
+
+      const badge = document.createElement('div');
+      badge.className = 'rp-rot-badge';
+      badge.id = `rpBadge${i}`;
+
+      card.appendChild(wrap);
+      card.appendChild(lbl);
+      card.appendChild(badge);
+      $grid.appendChild(card);
+
+      card.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const idx = parseInt(card.dataset.index);
+        if (e.shiftKey && lastSel >= 0) {
+          const lo = Math.min(lastSel, idx), hi = Math.max(lastSel, idx);
+          for (let j = lo; j <= hi; j++) { selected.add(j); syncCard(j); }
+        } else if (e.ctrlKey || e.metaKey) {
+          selected.has(idx) ? selected.delete(idx) : (selected.add(idx), lastSel = idx);
+          syncCard(idx);
+        } else {
+          if (selected.size === 1 && selected.has(idx)) {
+            selected.delete(idx);
+          } else {
+            selected.clear();
+            $grid.querySelectorAll('.rp-page-card').forEach(c => c.classList.remove('selected'));
+            selected.add(idx);
+            lastSel = idx;
+          }
+          syncCard(idx);
+        }
+        syncBar();
+      });
+    }
+
+    // Click on grid background deselects all
+    $grid.addEventListener('click', () => {
+      selected.clear();
+      $grid.querySelectorAll('.rp-page-card').forEach(c => c.classList.remove('selected'));
+      syncBar();
+    });
+
+    setupDrag();
+  }
+
+  /* ── Render thumbnails ───────────────────────────────────── */
+  async function renderAll() {
+    for (let i = 0; i < totalPages; i++) {
+      if (i % 10 === 0) $renderSt.textContent = `Rendering page ${i + 1} of ${totalPages}…`;
+      await renderOne(i);
+    }
+    $renderSt.textContent = '';
+  }
+
+  async function renderOne(i) {
+    try {
+      const page = await pdfDoc.getPage(i + 1);
+      const delta = ((rotations[i] || 0) + 360) % 360;
+      const base = page.getViewport({ scale: 1, rotation: 0 });
+      const scale = Math.min(102 / base.width, 102 / base.height);
+      const vp = page.getViewport({ scale, rotation: delta });
+
+      const cv = document.createElement('canvas');
+      cv.width = vp.width;
+      cv.height = vp.height;
+      await page.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise;
+
+      const wrap = $grid.querySelector(`.rp-page-card[data-index="${i}"] .rp-canvas-wrap`);
+      if (!wrap) return;
+      const ph = wrap.querySelector('.rp-thumb-ph');
+      if (ph) ph.remove();
+      const old = wrap.querySelector('canvas');
+      if (old) old.remove();
+      wrap.insertBefore(cv, wrap.querySelector('.rp-check'));
+    } catch (_) { /* keep placeholder */ }
+  }
+
+  /* ── Selection sync ──────────────────────────────────────── */
+  function syncCard(i) {
+    const c = $grid.querySelector(`.rp-page-card[data-index="${i}"]`);
+    if (c) c.classList.toggle('selected', selected.has(i));
+  }
+
+  function syncBar() {
+    const n = selected.size;
+    $selCount.textContent = n;
+    $actionBar.classList.toggle('visible', n > 0);
+  }
+
+  function syncBadge(i) {
+    const d = ((rotations[i] || 0) + 360) % 360;
+    const el = document.getElementById(`rpBadge${i}`);
+    if (el) el.textContent = d ? `${d}°` : '';
+  }
+
+  function syncApplyRow() {
+    const n = Object.values(rotations).filter(d => ((d + 360) % 360) !== 0).length;
+    $applyRow.style.display = n > 0 ? 'flex' : 'none';
+    $rotCount.textContent = n;
+    $apply.disabled = n === 0;
+  }
+
+  /* ── Drag-select ─────────────────────────────────────────── */
+  function setupDrag() {
+    const wrap = document.getElementById('rpGridWrap');
+    let dragging = false, sx = 0, sy = 0;
+
+    wrap.addEventListener('mousedown', (e) => {
+      if (e.button !== 0 || e.target.closest('.rp-page-card')) return;
+      dragging = true;
+      sx = e.clientX; sy = e.clientY;
+      Object.assign($dragRect.style, { display: 'block', left: sx + 'px', top: sy + 'px', width: '0', height: '0' });
+      e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!dragging) return;
+      const l = Math.min(sx, e.clientX), t = Math.min(sy, e.clientY);
+      Object.assign($dragRect.style, {
+        left: l + 'px', top: t + 'px',
+        width: Math.abs(e.clientX - sx) + 'px',
+        height: Math.abs(e.clientY - sy) + 'px'
+      });
+    });
+
+    document.addEventListener('mouseup', (e) => {
+      if (!dragging) return;
+      dragging = false;
+      $dragRect.style.display = 'none';
+
+      const w = Math.abs(e.clientX - sx), h = Math.abs(e.clientY - sy);
+      if (w < 6 && h < 6) return;
+
+      const bounds = {
+        left: Math.min(sx, e.clientX), right: Math.max(sx, e.clientX),
+        top: Math.min(sy, e.clientY), bottom: Math.max(sy, e.clientY)
+      };
+
+      if (!e.ctrlKey && !e.metaKey) {
+        selected.clear();
+        $grid.querySelectorAll('.rp-page-card').forEach(c => c.classList.remove('selected'));
+      }
+
+      $grid.querySelectorAll('.rp-page-card').forEach(card => {
+        const r = card.getBoundingClientRect();
+        if (r.left < bounds.right && r.right > bounds.left && r.top < bounds.bottom && r.bottom > bounds.top) {
+          const idx = parseInt(card.dataset.index);
+          selected.add(idx);
+          card.classList.add('selected');
+          lastSel = idx;
+        }
+      });
+      syncBar();
+    });
+  }
+
+  /* ── Rotation helpers ────────────────────────────────────── */
+  async function rotateSelected(delta) {
+    const indices = [...selected];
+    for (const i of indices) rotations[i] = ((rotations[i] || 0) + delta + 360) % 360;
+    await Promise.all(indices.map(i => renderOne(i).then(() => syncBadge(i))));
+    syncApplyRow();
+  }
+
+  async function rotateAll(delta) {
+    for (let i = 0; i < totalPages; i++) rotations[i] = ((rotations[i] || 0) + delta + 360) % 360;
+    await renderAll();
+    for (let i = 0; i < totalPages; i++) syncBadge(i);
+    syncApplyRow();
+  }
+
+  /* ── Toolbar ─────────────────────────────────────────────── */
+  document.getElementById('rpAllCW').addEventListener('click', () => rotateAll(90));
+  document.getElementById('rpAllCCW').addEventListener('click', () => rotateAll(-90));
+
+  document.getElementById('rpReset').addEventListener('click', async () => {
+    rotations = {};
+    selected.clear();
+    landPages = [];
+    $grid.querySelectorAll('.rp-page-card').forEach(c => {
+      c.classList.remove('selected', 'land-warn');
+    });
+    $detBanner.classList.remove('visible');
+    syncBar();
+    await renderAll();
+    for (let i = 0; i < totalPages; i++) syncBadge(i);
+    syncApplyRow();
+  });
+
+  /* ── Action bar ──────────────────────────────────────────── */
+  document.getElementById('rpBarCW').addEventListener('click', () => rotateSelected(90));
+  document.getElementById('rpBarCCW').addEventListener('click', () => rotateSelected(-90));
+  document.getElementById('rpBar180').addEventListener('click', () => rotateSelected(180));
+  document.getElementById('rpDeselect').addEventListener('click', () => {
+    selected.clear();
+    $grid.querySelectorAll('.rp-page-card').forEach(c => c.classList.remove('selected'));
+    syncBar();
+  });
+
+  /* ── Auto-detect ─────────────────────────────────────────── */
+  document.getElementById('rpDetectBtn').addEventListener('click', async () => {
+    $detMsg.textContent = 'Analysing page orientations…';
+    $fixAll.style.display = 'none';
+    $detBanner.classList.add('visible');
+
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch('/api/pdf/analyze-orientation', { method: 'POST', body: fd });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      landPages = data.pages.filter(p => p.is_landscape).map(p => p.index);
+
+      $grid.querySelectorAll('.rp-page-card').forEach(c => c.classList.remove('land-warn'));
+      landPages.forEach(i => {
+        const c = $grid.querySelector(`.rp-page-card[data-index="${i}"]`);
+        if (c) c.classList.add('land-warn');
+      });
+
+      if (landPages.length === 0) {
+        $detMsg.innerHTML = '<strong>All pages look correctly oriented.</strong> No issues found.';
+      } else {
+        $detMsg.innerHTML = `Found <strong>${landPages.length} landscape page${landPages.length > 1 ? 's' : ''}</strong> that may be sideways. Rotate them 90° clockwise?`;
+        $fixAll.style.display = '';
+      }
+    } catch (_) {
+      $detMsg.textContent = 'Could not analyse the file. Please try again.';
+    }
+  });
+
+  $fixAll.addEventListener('click', async () => {
+    for (const i of landPages) rotations[i] = ((rotations[i] || 0) + 90 + 360) % 360;
+    $detBanner.classList.remove('visible');
+    $grid.querySelectorAll('.rp-page-card').forEach(c => c.classList.remove('land-warn'));
+    await Promise.all(landPages.map(i => renderOne(i).then(() => syncBadge(i))));
+    landPages = [];
+    syncApplyRow();
+  });
+
+  document.getElementById('rpDismiss').addEventListener('click', () => {
+    $detBanner.classList.remove('visible');
+    $grid.querySelectorAll('.rp-page-card').forEach(c => c.classList.remove('land-warn'));
+  });
+
+  /* ── Apply & process ─────────────────────────────────────── */
+  async function applyRotations() {
+    const payload = {};
+    for (const [k, v] of Object.entries(rotations)) {
+      const norm = ((v + 360) % 360);
+      if (norm !== 0) payload[k] = norm;
+    }
+    if (Object.keys(payload).length === 0) return;
+
+    $editor.classList.remove('visible');
+    $actionBar.classList.remove('visible');
+    $processing.classList.add('visible');
+    setProgress(10, 'Uploading file…');
+
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('rotations', JSON.stringify(payload));
+      const res = await fetch('/api/pdf/rotate', { method: 'POST', body: fd });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || `Upload failed (${res.status})`);
+      }
+      const data = await res.json();
+      setProgress(35, 'Queued…');
+      pollJob(data.job_id);
+    } catch (e) {
+      showError(e.message);
+    }
+  }
+
+  function pollJob(jobId) {
+    setProgress(50, 'Processing…');
+    const timer = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/jobs/${jobId}`);
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        if (data.status === 'done') {
+          clearInterval(timer);
+          setProgress(100, 'Done!');
+          setTimeout(() => {
+            $progArea.style.display = 'none';
+            $download.href = data.download_url || `/api/jobs/${jobId}/download`;
+            $resultBox.classList.add('visible');
+          }, 350);
+        } else if (data.status === 'failed') {
+          clearInterval(timer);
+          showError(data.error_message || 'Rotation failed.');
+        } else {
+          setProgress(70, 'Applying rotations…');
+        }
+      } catch (_) {
+        clearInterval(timer);
+        showError('Lost connection. Please try again.');
+      }
+    }, 2000);
+  }
+
+  function setProgress(pct, label) {
+    $pb.style.width = pct + '%';
+    if (label) $pl.textContent = label;
+  }
+
+  function showError(msg) {
+    $progArea.style.display = 'none';
+    $errMsg.textContent = msg;
+    $errorBox.classList.add('visible');
+  }
+
+  /* ── Reset to upload ─────────────────────────────────────── */
+  function resetAll() {
+    file = null; pdfDoc = null; totalPages = 0;
+    rotations = {}; selected.clear(); landPages = [];
+    $grid.innerHTML = '';
+    $detBanner.classList.remove('visible');
+    $applyRow.style.display = 'none';
+    $apply.disabled = true;
+    $resultBox.classList.remove('visible');
+    $errorBox.classList.remove('visible');
+    $progArea.style.display = 'block';
+    setProgress(0, '');
+    $processing.classList.remove('visible');
+    $editor.classList.remove('visible');
+    $upload.style.display = 'block';
+    $fileInput.value = '';
+  }
+
+  $apply.addEventListener('click', applyRotations);
+  document.getElementById('rpApply2').addEventListener('click', applyRotations);
+  document.getElementById('rpAnother').addEventListener('click', resetAll);
+  document.getElementById('rpRetry').addEventListener('click', resetAll);
+})();
+</script>
+{% endblock %}
