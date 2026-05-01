@@ -257,6 +257,7 @@ function initToolPage(category) {
   // Wire up reset buttons
   document.getElementById('convertAnotherBtn')?.addEventListener('click', resetUI);
   document.getElementById('retryBtn')?.addEventListener('click', resetUI);
+  document.getElementById('cancelBtn')?.addEventListener('click', cancelConversion);
   document.getElementById('fileClear')?.addEventListener('click', (e) => {
     e.stopPropagation();
     clearFile();
@@ -326,6 +327,8 @@ function setupUploadZone(config) {
 /* ─── File Handling ──────────────────────────────────────── */
 let selectedFiles = null;
 let currentTool = null;
+let _abortCtrl = null;
+let _pollTimer = null;
 
 async function handleFileSelect(files) {
   selectedFiles = files;
@@ -445,9 +448,18 @@ function buildOptions(options) {
   });
 }
 
+/* ─── Cancel ─────────────────────────────────────────────── */
+function cancelConversion() {
+  if (_abortCtrl) { _abortCtrl.abort(); _abortCtrl = null; }
+  if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+  resetUI();
+}
+
 /* ─── Conversion Handler ─────────────────────────────────── */
 async function handleConvert(tool) {
   if (!selectedFiles) return;
+
+  _abortCtrl = new AbortController();
 
   const btn = document.getElementById('convertBtn');
   btn.disabled = true;
@@ -472,7 +484,11 @@ async function handleConvert(tool) {
   });
 
   try {
-    const res = await fetch(tool.endpoint, { method: 'POST', body: formData });
+    const res = await fetch(tool.endpoint, {
+      method: 'POST',
+      body: formData,
+      signal: _abortCtrl.signal,
+    });
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({ detail: 'Upload failed' }));
@@ -480,9 +496,11 @@ async function handleConvert(tool) {
     }
 
     const data = await res.json();
+    _abortCtrl = null;
     pollJob(data.job_id);
 
   } catch (err) {
+    if (err.name === 'AbortError') return; // user cancelled — resetUI already called
     showError(err.message);
     resetBtn();
   }
@@ -493,19 +511,19 @@ function pollJob(jobId) {
   showProgress('Processing…');
   setProgress(30);
 
-  const interval = setInterval(async () => {
+  _pollTimer = setInterval(async () => {
     try {
       const res = await fetch(`/api/jobs/${jobId}`);
       if (!res.ok) throw new Error('Status check failed');
       const data = await res.json();
 
       if (data.status === 'done') {
-        clearInterval(interval);
+        clearInterval(_pollTimer); _pollTimer = null;
         setProgress(100);
         setTimeout(() => showResult(data.download_url || `/api/jobs/${jobId}/download`), 300);
         resetBtn();
       } else if (data.status === 'failed') {
-        clearInterval(interval);
+        clearInterval(_pollTimer); _pollTimer = null;
         showError(data.error_message || 'Conversion failed');
         resetBtn();
       } else if (data.status === 'processing') {
@@ -513,7 +531,7 @@ function pollJob(jobId) {
         showProgress('Converting…');
       }
     } catch (err) {
-      clearInterval(interval);
+      clearInterval(_pollTimer); _pollTimer = null;
       showError('Lost connection to server');
       resetBtn();
     }
@@ -548,6 +566,7 @@ function showError(msg) {
 }
 
 function resetUI() {
+  if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
   hide('progressArea');
   hide('resultArea');
   hide('errorArea');

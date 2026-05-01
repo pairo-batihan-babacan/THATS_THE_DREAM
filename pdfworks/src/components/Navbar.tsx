@@ -43,26 +43,25 @@ const navData: NavCategory[] = [
       { label: 'PDF Annotator',      slug: 'pdf-annotator'     },
       { label: 'PDF Form Filler',    slug: 'pdf-form-filler'   },
       { label: 'PDF Reader',         slug: 'pdf-reader'        },
-      { label: 'Crop PDF',           slug: 'crop-pdf'          },
       { label: 'Redact PDF',         slug: 'redact-pdf'        },
       { label: 'Watermark PDF',      slug: 'watermark-pdf'     },
       { label: 'Number Pages',       slug: 'number-pages'      },
-      { label: 'AI PDF Assistant',   slug: 'ai-pdf-assistant'  },
-      { label: 'Chat with PDF',      slug: 'chat-with-pdf'     },
-      { label: 'AI PDF Summarizer',  slug: 'ai-summarizer'     },
-      { label: 'Translate PDF',      slug: 'translate-pdf'     },
-      { label: 'AI Question Gen.',   slug: 'ai-question-generator' },
+      { label: 'Strip PDF Metadata', slug: 'strip-metadata'    },
+      { label: 'Flatten PDF',        slug: 'flatten-pdf'       },
+      { label: 'Protect PDF',        slug: 'protect-pdf'       },
+      { label: 'Unlock PDF',         slug: 'unlock-pdf'        },
+      { label: 'Sign PDF',           slug: 'sign-pdf'          },
       { label: 'Delete Pages',       slug: 'delete-pages'      },
       { label: 'Extract Pages',      slug: 'extract-pages'     },
       { label: 'Rotate PDF',         slug: 'rotate-pdf'        },
       { label: 'Merge PDF',          slug: 'merge-pdf'         },
       { label: 'Organize PDF',       slug: 'organize-pdf'      },
       { label: 'Split PDF',          slug: 'split-pdf'         },
-      { label: 'Sign PDF',           slug: 'sign-pdf'          },
-      { label: 'Unlock PDF',         slug: 'unlock-pdf'        },
-      { label: 'Protect PDF',        slug: 'protect-pdf'       },
-      { label: 'Flatten PDF',        slug: 'flatten-pdf'       },
-      { label: 'PDF Scanner',        slug: 'pdf-scanner'       },
+      { label: 'AI PDF Assistant',   slug: 'ai-pdf-assistant'  },
+      { label: 'Chat with PDF',      slug: 'chat-with-pdf'     },
+      { label: 'AI PDF Summarizer',  slug: 'ai-summarizer'     },
+      { label: 'Translate PDF',      slug: 'translate-pdf'     },
+      { label: 'AI Question Gen.',   slug: 'ai-question-generator' },
     ],
   },
   {
@@ -74,7 +73,6 @@ const navData: NavCategory[] = [
       { label: 'Strip EXIF Data',    slug: 'strip-exif'        },
       { label: 'PNG to JPG',         slug: 'png-to-jpg'        },
       { label: 'Image Converter',    slug: 'image-convert'     },
-      { label: 'Image Cropper',      slug: 'image-cropper'     },
     ],
   },
   {
@@ -91,18 +89,16 @@ const navData: NavCategory[] = [
     tools: [
       { label: 'Video Converter',   slug: 'video-convert'  },
       { label: 'Compress Video',    slug: 'compress-video' },
-      { label: 'AVI / WebM',        slug: 'video-convert'  },
-      { label: 'Extract Frames',    slug: 'extract-frames' },
     ],
   },
   {
     label: 'Document Tools', slug: 'document', cols: 1,
     tools: [
       { label: 'OCR: Image to Text', slug: 'ocr-image-to-text' },
-      { label: 'Markdown to PDF',    slug: 'markdown-to-pdf'   },
+      { label: 'Markdown Editor',    slug: 'markdown-editor'   },
       { label: 'CSV to JSON',        slug: 'csv-to-json'       },
       { label: 'HTML to PDF',        slug: 'html-to-pdf'       },
-      { label: 'Text to PDF',        slug: 'text-to-pdf'       },
+      { label: 'Markdown to PDF',    slug: 'markdown-to-pdf'   },
     ],
   },
 ]
@@ -295,6 +291,14 @@ export default function Navbar() {
           {/* Desktop nav */}
           <div className="hidden lg:flex items-center gap-0.5 flex-1 justify-end">
 
+            {/* Invisible click-away overlay — closes hover dropdown on outside click */}
+            {openDropdown && (
+              <div
+                className="fixed inset-0 z-[9998]"
+                onClick={() => setOpenDropdown(null)}
+              />
+            )}
+
             {/* Category hover-dropdowns */}
             {navData.map((category) => (
               <div
@@ -328,14 +332,15 @@ export default function Navbar() {
                 <AnimatePresence>
                   {openDropdown === category.label && (
                     <motion.div
-                      initial={{ opacity: 0, y: 6, scale: 0.98 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 6, scale: 0.98 }}
-                      transition={{ duration: 0.15, ease: 'easeOut' as const }}
+                      initial={{ y: 6, scale: 0.98 }}
+                      animate={{ y: 0, scale: 1 }}
+                      exit={{ y: 6, scale: 0.98 }}
+                      transition={{ duration: 0.13, ease: 'easeOut' as const }}
                       className={`absolute top-full left-0 mt-1.5 p-2 rounded-xl shadow-2xl border
-                        bg-white dark:bg-gray-900
                         border-gray-200/80 dark:border-gray-700/80
+                        z-[9999]
                         ${dropdownWidth[category.label] ?? 'min-w-[220px]'}`}
+                      style={{ backgroundColor: 'var(--dropdown-bg)', borderColor: 'var(--dropdown-border)' }}
                     >
                       <div className="px-2 pb-1.5 mb-1 border-b border-gray-100 dark:border-gray-800">
                         <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">

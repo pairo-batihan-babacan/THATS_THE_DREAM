@@ -29,8 +29,7 @@ import type { Tool } from '@/lib/tools-registry'
 import type { ToolCategory } from '@/lib/tool-categories'
 
 if (typeof window !== 'undefined') {
-  pdfjsLib.GlobalWorkerOptions.workerSrc =
-    `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`
+  pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js'
 }
 
 let _id = 0
@@ -461,6 +460,24 @@ export default function PDFEditor({ tool }:Props) {
   // per-page canvas / container refs (keyed by display index)
   const pageCanvasRefs    = useRef<Map<number,HTMLCanvasElement>>(new Map())
   const pageContainerRefs = useRef<Map<number,HTMLDivElement>>(new Map())
+  // stable ref callbacks cached by dispIdx — prevents re-invoking on every render
+  const canvasRefFns = useRef<Map<number,(el:HTMLCanvasElement|null)=>void>>(new Map())
+  const getCanvasRef = useCallback((dispIdx:number) => {
+    if (!canvasRefFns.current.has(dispIdx)) {
+      canvasRefFns.current.set(dispIdx, (el:HTMLCanvasElement|null) => {
+        if (el) {
+          if (!pageCanvasRefs.current.has(dispIdx)) {
+            pageCanvasRefs.current.set(dispIdx, el)
+            setCanvasesReady(c => c + 1)
+          }
+        } else {
+          pageCanvasRefs.current.delete(dispIdx)
+          canvasRefFns.current.delete(dispIdx)
+        }
+      })
+    }
+    return canvasRefFns.current.get(dispIdx)!
+  }, []) // eslint-disable-line
   const scrollContainerRef = useRef<HTMLDivElement>(null)
 
   const imgInput  = useRef<HTMLInputElement>(null)
@@ -931,14 +948,7 @@ export default function PDFEditor({ tool }:Props) {
 
                   {/* PDF canvas */}
                   <canvas className="absolute inset-0 block"
-                    ref={el=>{
-                      if(el&&!pageCanvasRefs.current.has(dispIdx)){
-                        pageCanvasRefs.current.set(dispIdx,el)
-                        setCanvasesReady(c=>c+1)
-                      } else if(!el){
-                        pageCanvasRefs.current.delete(dispIdx)
-                      }
-                    }}
+                    ref={getCanvasRef(dispIdx)}
                   />
 
                   {/* SVG editing overlay */}

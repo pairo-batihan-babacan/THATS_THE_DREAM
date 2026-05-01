@@ -146,6 +146,7 @@
       <p class="rp-progress-title">Applying rotations…</p>
       <div class="rp-pb-wrap"><div class="rp-pb" id="rpPB"></div></div>
       <p class="rp-pl" id="rpPL">Uploading file…</p>
+      <button class="btn-cancel" id="rpCancelBtn">✕ Cancel</button>
     </div>
 
     <div class="rp-result-box" id="rpResultBox">
@@ -219,10 +220,12 @@
   let file = null;
   let pdfDoc = null;
   let totalPages = 0;
-  let rotations = {};       // {index: cumulative_delta 0|90|180|270}
+  let rotations = {};
   let selected = new Set();
-  let landPages = [];       // indices flagged by auto-detect
+  let landPages = [];
   let lastSel = -1;
+  let _abortCtrl = null;
+  let _pollTimer = null;
 
   /* ── DOM ─────────────────────────────────────────────────── */
   const $upload     = document.getElementById('rpUpload');
@@ -556,6 +559,19 @@
     $grid.querySelectorAll('.rp-page-card').forEach(c => c.classList.remove('land-warn'));
   });
 
+  /* ── Cancel ──────────────────────────────────────────────── */
+  function cancelProcess() {
+    if (_abortCtrl) { _abortCtrl.abort(); _abortCtrl = null; }
+    if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+    $processing.classList.remove('visible');
+    $progArea.style.display = 'block';
+    setProgress(0, '');
+    $editor.classList.add('visible');
+    $actionBar.classList.toggle('visible', selected.size > 0);
+  }
+
+  document.getElementById('rpCancelBtn').addEventListener('click', cancelProcess);
+
   /* ── Apply & process ─────────────────────────────────────── */
   async function applyRotations() {
     const payload = {};
@@ -565,6 +581,7 @@
     }
     if (Object.keys(payload).length === 0) return;
 
+    _abortCtrl = new AbortController();
     $editor.classList.remove('visible');
     $actionBar.classList.remove('visible');
     $processing.classList.add('visible');
@@ -574,28 +591,34 @@
       const fd = new FormData();
       fd.append('file', file);
       fd.append('rotations', JSON.stringify(payload));
-      const res = await fetch('/api/pdf/rotate', { method: 'POST', body: fd });
+      const res = await fetch('/api/pdf/rotate', {
+        method: 'POST',
+        body: fd,
+        signal: _abortCtrl.signal,
+      });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.detail || `Upload failed (${res.status})`);
       }
       const data = await res.json();
+      _abortCtrl = null;
       setProgress(35, 'Queued…');
       pollJob(data.job_id);
     } catch (e) {
+      if (e.name === 'AbortError') return;
       showError(e.message);
     }
   }
 
   function pollJob(jobId) {
     setProgress(50, 'Processing…');
-    const timer = setInterval(async () => {
+    _pollTimer = setInterval(async () => {
       try {
         const res = await fetch(`/api/jobs/${jobId}`);
         if (!res.ok) throw new Error();
         const data = await res.json();
         if (data.status === 'done') {
-          clearInterval(timer);
+          clearInterval(_pollTimer); _pollTimer = null;
           setProgress(100, 'Done!');
           setTimeout(() => {
             $progArea.style.display = 'none';
@@ -603,13 +626,13 @@
             $resultBox.classList.add('visible');
           }, 350);
         } else if (data.status === 'failed') {
-          clearInterval(timer);
+          clearInterval(_pollTimer); _pollTimer = null;
           showError(data.error_message || 'Rotation failed.');
         } else {
           setProgress(70, 'Applying rotations…');
         }
       } catch (_) {
-        clearInterval(timer);
+        clearInterval(_pollTimer); _pollTimer = null;
         showError('Lost connection. Please try again.');
       }
     }, 2000);

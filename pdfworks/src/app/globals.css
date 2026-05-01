@@ -8,6 +8,8 @@
   --nav-bg: rgba(255, 255, 255, 0.85);
   --nav-border: rgba(0, 0, 0, 0.1);
   --dot-color: #000000;
+  --dropdown-bg: #ffffff;
+  --dropdown-border: rgba(0, 0, 0, 0.12);
 }
 
 .dark {
@@ -16,6 +18,8 @@
   --nav-bg: rgba(3, 7, 18, 0.75);
   --nav-border: rgba(255, 255, 255, 0.08);
   --dot-color: #ffffff;
+  --dropdown-bg: #111827;
+  --dropdown-border: rgba(255, 255, 255, 0.08);
 }
 
 html {

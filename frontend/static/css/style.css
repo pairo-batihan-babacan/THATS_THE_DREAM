@@ -692,6 +692,24 @@ a { color: inherit; text-decoration: none; }
   text-align: center;
 }
 
+.btn-cancel {
+  display: block;
+  margin: .9rem auto 0;
+  padding: .35rem .9rem;
+  font-size: .8rem;
+  background: transparent;
+  border: 1px solid var(--border2);
+  border-radius: var(--radius-sm);
+  color: var(--text-3);
+  cursor: pointer;
+  transition: color var(--transition), border-color var(--transition), background var(--transition);
+}
+.btn-cancel:hover {
+  color: var(--error);
+  border-color: var(--error-border);
+  background: var(--error-bg);
+}
+
 /* ─── Result ─────────────────────────────────────────────── */
 .result-area {
   background: var(--surface);

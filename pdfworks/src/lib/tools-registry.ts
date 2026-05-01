@@ -114,7 +114,7 @@ export const tools: Tool[] = [
   {
     id: 'redact-pdf',
     name: 'Redact PDF',
-    description: 'Remove sensitive information from your PDF',
+    description: 'Permanently black out and destroy sensitive text and images',
     category: 'pdf',
     icon: 'EyeOff',
     color: '#e74c3c',
@@ -144,7 +144,7 @@ export const tools: Tool[] = [
   {
     id: 'flatten-pdf',
     name: 'Flatten PDF',
-    description: 'Make your PDF uneditable',
+    description: 'Lock form fields and annotations into static, uneditable content',
     category: 'pdf',
     icon: 'Layers',
     color: '#e74c3c',
@@ -154,7 +154,7 @@ export const tools: Tool[] = [
   {
     id: 'protect-pdf',
     name: 'Protect PDF',
-    description: 'Add a password and encrypt your PDF',
+    description: 'Encrypt your PDF with AES-256 and restrict copying, editing, and printing',
     category: 'pdf',
     icon: 'ShieldCheck',
     color: '#e74c3c',
@@ -214,7 +214,7 @@ export const tools: Tool[] = [
   {
     id: 'strip-metadata',
     name: 'Strip PDF Metadata',
-    description: 'View and remove hidden author, date, and application metadata from PDFs',
+    description: 'Reveal and remove hidden author, GPS, software, and revision data from PDFs',
     category: 'pdf',
     icon: 'ShieldOff',
     color: '#e74c3c',

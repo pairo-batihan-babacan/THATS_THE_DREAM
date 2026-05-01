@@ -230,23 +230,37 @@ const data: Record<string, ToolSeo> = {
 
   'redact-pdf': {
     metaDescription:
-      'Permanently remove sensitive text and images from PDF files. Black-box redaction burns content out of the PDF — cannot be undone. GDPR/legal compliance ready. Free.',
+      'Permanently black out sensitive text, names, and images in PDF files. True content destruction — not just a cover layer. GDPR, HIPAA, and legal compliance ready. Free, no account.',
     keywords: [
-      'redact pdf', 'pdf redaction online', 'black out text in pdf',
-      'remove sensitive information pdf', 'redact pdf free', 'pdf black box',
-      'permanently remove text pdf',
+      'redact pdf', 'pdf redaction online free', 'black out text in pdf',
+      'remove sensitive information pdf', 'permanently delete text from pdf',
+      'pdf black box redaction', 'censor pdf online', 'pdf sanitization tool',
+      'redact names in pdf', 'redact ssn in pdf free', 'legal pdf redaction',
+      'gdpr pdf redaction', 'hipaa pdf redaction', 'remove pii from pdf',
     ],
     faqs: [
       {
-        question: 'Is the redaction permanent?',
-        answer: 'Yes. PDFworks burns the redaction boxes into the PDF — the original content is destroyed, not merely hidden. This is true redaction, not just a black overlay.',
+        question: 'Is the redaction truly permanent, or just a cover layer?',
+        answer: 'True permanent redaction. PDFworks burns the black boxes into the PDF page graphics and destroys the underlying content — text, images, and vector data beneath the redaction zones are permanently removed from the file. This is not a cosmetic black rectangle that can be removed or copied from.',
       },
       {
-        question: 'Can redacted text be recovered?',
-        answer: 'No. Unlike placing a black rectangle on top of text (which search engines and PDF tools can still read underneath), PDFworks removes the underlying content entirely.',
+        question: 'Can redacted content be recovered using PDF tools?',
+        answer: 'No. PDFworks performs content-level removal, not cosmetic masking. Many low-quality "redaction" tools simply draw a black box on top of text that remains selectable underneath — PDFworks does not. After redaction, no PDF editor, search engine, or forensic tool can recover the removed content.',
+      },
+      {
+        question: 'What should I redact in a PDF before sharing?',
+        answer: 'Common items to redact include: Social Security Numbers (SSNs), passport or ID numbers, bank account or credit card numbers, personal addresses and phone numbers, medical diagnoses or prescription information (HIPAA), names and identifying details in legal filings, internal reference codes and pricing, and email addresses or login credentials embedded in documents.',
+      },
+      {
+        question: 'Should I combine redaction with flattening?',
+        answer: 'Yes, for maximum security. After redacting, use Flatten PDF to merge all remaining annotations and form layers into the static page. This eliminates any possibility of metadata or annotation data revealing information about what was redacted.',
+      },
+      {
+        question: 'Does PDFworks redaction comply with GDPR or HIPAA?',
+        answer: 'PDFworks performs true content destruction that satisfies the technical requirement of permanent data removal under GDPR Article 17 (right to erasure) and HIPAA de-identification standards. For legal compliance certification, consult your organization\'s legal or compliance team — tool output should be verified before use in regulated contexts.',
       },
     ],
-    howToAction: 'Draw redaction boxes over sensitive content, then click Apply Redactions',
+    howToAction: 'Draw black-box redaction areas over sensitive content by clicking and dragging, then click Apply Redactions to permanently destroy the covered content',
   },
 
   'watermark-pdf': {
@@ -299,22 +313,36 @@ const data: Record<string, ToolSeo> = {
 
   'flatten-pdf': {
     metaDescription:
-      'Flatten PDF form fields and annotations into permanent, uneditable content. Lock down forms before distribution. Free, instant, runs in your browser, no account.',
+      'Permanently merge form fields, annotations, and interactive layers into static PDF content. Lock down documents before sharing — irreversible, no account, runs in your browser.',
     keywords: [
-      'flatten pdf', 'flatten pdf form', 'make pdf uneditable', 'lock pdf form fields',
-      'pdf flatten online free', 'merge annotations pdf', 'bake pdf annotations',
+      'flatten pdf', 'flatten pdf form fields', 'make pdf uneditable', 'lock pdf form',
+      'bake annotations into pdf', 'pdf flatten online free', 'merge pdf annotations',
+      'remove interactive fields pdf', 'finalize pdf form', 'lock fillable pdf',
+      'convert fillable pdf to static', 'flatten acrobat form free',
     ],
     faqs: [
       {
-        question: 'What does flattening a PDF do?',
-        answer: 'Flattening merges all form fields, annotations, and interactive elements into the static page content. The result looks identical but cannot be edited in any PDF tool.',
+        question: 'What exactly does flattening a PDF do?',
+        answer: 'Flattening permanently merges all interactive layers — form fields, checkboxes, dropdown menus, digital signatures, and PDF annotations — into the static page graphics. After flattening, the document looks exactly the same on screen and in print, but no PDF editor can modify or extract the form data. It is a one-way, irreversible operation.',
       },
       {
-        question: 'Does flattening reduce file size?',
-        answer: 'Sometimes. Removing interactive form structures can reduce file size, but the effect varies by document. Flattening is primarily for locking content, not compression.',
+        question: 'Can I unflatten a PDF after flattening?',
+        answer: 'No. Flattening is permanently irreversible by design. Once form fields and annotations are merged into the page graphics, they cannot be separated or restored — not by PDFworks, not by Adobe Acrobat, not by any software. Always keep an editable copy of your original before flattening.',
+      },
+      {
+        question: 'When should I flatten a PDF?',
+        answer: 'Flatten when you need to: (1) prevent recipients from modifying or clearing form answers before submitting, (2) ensure a filled-out form looks identical in every PDF viewer, (3) archive a signed document so no further edits are possible, or (4) prepare a file for professional printing where interactive layers can interfere with print workflows.',
+      },
+      {
+        question: 'Does flattening reduce PDF file size?',
+        answer: 'It depends. Removing the interactive form data structure often shrinks the file slightly (5–20%). However, if your document has many complex annotations, the flattened graphics can occasionally be slightly larger. Use Compress PDF afterwards if file size is a priority.',
+      },
+      {
+        question: 'Should I flatten before or after adding a password?',
+        answer: 'Flatten first, then protect with a password using Protect PDF. Flattening locks the content; password protection restricts access. Combining both gives you maximum security for sensitive documents.',
       },
     ],
-    howToAction: 'Upload your PDF and click Flatten — no configuration needed',
+    howToAction: 'Upload your PDF and click Flatten — the operation completes in seconds with no configuration needed',
   },
 
   'protect-pdf': {
@@ -447,28 +475,34 @@ const data: Record<string, ToolSeo> = {
 
   'strip-metadata': {
     metaDescription:
-      'Remove hidden author, creation date, software name, and revision history from PDFs before sharing. See exactly what is inside, then strip it in one click. Free, no account.',
+      'See and permanently remove hidden author name, creation date, software, GPS, and revision history from PDFs before sharing. One click to clean — free, no account required.',
     keywords: [
-      'strip pdf metadata', 'remove pdf metadata', 'clean pdf metadata',
-      'hide pdf author', 'pdf metadata remover free', 'remove document properties pdf',
-      'remove author from pdf', 'how to remove metadata from pdf before sending',
-      'pdf privacy cleaner', 'delete pdf document properties', 'anonymize pdf online',
+      'strip pdf metadata', 'remove pdf metadata', 'clean pdf metadata online free',
+      'remove author from pdf', 'delete pdf document properties', 'hide pdf author name',
+      'pdf metadata remover free', 'anonymize pdf online', 'pdf privacy cleaner',
+      'how to remove metadata from pdf before sending', 'remove personal info from pdf',
+      'remove creation date from pdf', 'pdf document properties remover',
+      'scrub pdf metadata', 'clean pdf before sharing',
     ],
     faqs: [
       {
-        question: 'What metadata is hidden inside a PDF?',
-        answer: 'PDFs can contain author name, organization, creation and modification dates, software used (e.g. Word, Acrobat), revision history, GPS coordinates (if from a mobile scan), and custom document properties. All of this is invisible when reading the file but readable by anyone who inspects the document properties.',
+        question: 'What personal data is hidden inside a PDF?',
+        answer: 'PDFs routinely carry: your full name and organization (embedded automatically by Word, Excel, and Acrobat when you save), creation and last-modified timestamps, the software and version that created the file (e.g. "Microsoft Word 16.0" or "Adobe Acrobat Pro 2023"), GPS coordinates if scanned from a mobile device, revision history including previous author names, and any custom document properties set by your organization\'s IT templates. None of this is visible when you read the PDF, but anyone can see it by opening Document Properties.',
       },
       {
-        question: 'Why should I strip PDF metadata before sharing?',
-        answer: 'Metadata can reveal your name, employer, the software you use, draft timestamps, and internal revision notes — information you may not want clients, reviewers, or competitors to see. Stripping it takes seconds and gives you full control over what leaves your device.',
+        question: 'Why strip metadata before sending a PDF?',
+        answer: 'Real-world reasons include: (1) A freelancer submitting a proposal doesn\'t want the client seeing the internal document filename or company name of the agency behind the work. (2) A journalist protecting a source strips the author field before publishing leaked documents. (3) A legal team removes draft timestamps that could reveal when a contract was actually written. (4) A business strips software information to avoid revealing IT infrastructure to competitors. Metadata removal takes under a second — it is a basic privacy hygiene step before any external share.',
       },
       {
-        question: 'Does removing metadata change the content or appearance of the PDF?',
-        answer: 'No. The tool removes only the hidden metadata entries. All visible text, images, links, bookmarks, and formatting are preserved exactly as they were.',
+        question: 'Does removing metadata affect the PDF content or formatting?',
+        answer: 'No. Metadata is stored in a separate section of the PDF file, completely independent of the visual content. Stripping it removes only the hidden property fields — all text, images, links, bookmarks, fonts, and page layout remain byte-for-byte identical.',
+      },
+      {
+        question: 'Is this different from using the PDF editor to "save as"?',
+        answer: '"Save as" in most PDF editors preserves all existing metadata and may even add new fields (such as the editor\'s software name and current date). Dedicated metadata stripping using PDFworks performs a deliberate wipe of all XMP, DocInfo, and custom metadata streams — something "save as" does not do.',
       },
     ],
-    howToAction: 'Review the metadata found in your PDF, then click Strip All Metadata',
+    howToAction: 'Upload your PDF to see all hidden metadata fields, review what will be removed, then click Strip All Metadata to clean the file',
   },
 
   // ── Convert Tools ──────────────────────────────────────────────────────────

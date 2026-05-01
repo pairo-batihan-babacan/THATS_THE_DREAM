@@ -7,8 +7,14 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const nextConfig = {
   async redirects() {
     return [
-      // Fix: Google discovered /tools/convert-pdf (not a real route) — redirect to the actual tool
-      { source: '/tools/convert-pdf', destination: '/tools/pdf-converter', permanent: true },
+      { source: '/tools/convert-pdf',    destination: '/tools/pdf-converter',    permanent: true  },
+      // Legacy / externally-linked routes that had no matching page
+      { source: '/pdf',                  destination: '/tools/pdf',              permanent: true  },
+      { source: '/tools/pdf-scanner',    destination: '/tools/pdf-ocr',          permanent: false },
+      { source: '/tools/crop-pdf',       destination: '/tools/edit-pdf',         permanent: false },
+      { source: '/tools/image-cropper',  destination: '/tools/image-convert',    permanent: false },
+      { source: '/tools/text-to-pdf',    destination: '/tools/markdown-to-pdf',  permanent: false },
+      { source: '/tools/extract-frames', destination: '/tools/video-convert',    permanent: false },
     ]
   },
   webpack: (config) => {
