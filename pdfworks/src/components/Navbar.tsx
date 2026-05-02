@@ -291,14 +291,6 @@ export default function Navbar() {
           {/* Desktop nav */}
           <div className="hidden lg:flex items-center gap-0.5 flex-1 justify-end">
 
-            {/* Invisible click-away overlay — closes hover dropdown on outside click */}
-            {openDropdown && (
-              <div
-                className="fixed inset-0 z-[9998]"
-                onClick={() => setOpenDropdown(null)}
-              />
-            )}
-
             {/* Category hover-dropdowns */}
             {navData.map((category) => (
               <div

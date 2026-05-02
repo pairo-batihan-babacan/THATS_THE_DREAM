@@ -6284,7 +6284,7 @@ function RedactPdfInterface({ tool, category }: { tool: Tool; category: ToolCate
     setFile(files[0]); setLoading(true); setBoxes([]); setDone(false)
     try {
       const pdfjsLib = await import('pdfjs-dist')
-      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`
+      pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js'
       const buf = await files[0].arrayBuffer()
       const doc = await pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise
       setNumPages(doc.numPages)
@@ -6343,12 +6343,20 @@ function RedactPdfInterface({ tool, category }: { tool: Tool; category: ToolCate
     if (!file || boxes.length === 0) return
     setSaving(true)
     try {
-      const { PDFDocument, rgb } = await import('pdf-lib')
-      const buf = await file.arrayBuffer()
-      const pdfDoc = await PDFDocument.load(buf)
-      const pages = pdfDoc.getPages()
+      const [{ PDFDocument, rgb }, pdfjsLib] = await Promise.all([
+        import('pdf-lib'),
+        import('pdfjs-dist'),
+      ])
+      pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js'
+
+      const originalBuf = await file.arrayBuffer()
+
+      // Step 1: Draw black rectangles into an intermediate PDF so PDF.js can render them
+      const interDoc = await PDFDocument.load(originalBuf)
+      const interPages = interDoc.getPages()
+      const redactedPageIndexes = Array.from(new Set(boxes.map(b => b.pageIndex)))
       for (const box of boxes) {
-        const page = pages[box.pageIndex]
+        const page = interPages[box.pageIndex]
         if (!page) continue
         const { width: pw, height: ph } = page.getSize()
         page.drawRectangle({
@@ -6359,8 +6367,50 @@ function RedactPdfInterface({ tool, category }: { tool: Tool; category: ToolCate
           color: rgb(0, 0, 0),
         })
       }
-      const bytes = await pdfDoc.save()
-      const blob = new Blob([bytes.buffer as ArrayBuffer], { type: 'application/pdf' })
+      const interBytes = await interDoc.save()
+
+      // Step 2: Render each redacted page as a high-res JPEG via PDF.js (text is destroyed)
+      const pdfJsDoc = await pdfjsLib.getDocument({ data: new Uint8Array(interBytes) }).promise
+      const pageImageMap = new Map<number, string>()
+      for (const pageIdx of redactedPageIndexes) {
+        const pdfJsPage = await pdfJsDoc.getPage(pageIdx + 1)
+        const vp = pdfJsPage.getViewport({ scale: 1 })
+        const scale = Math.max(2, 1200 / vp.width)
+        const svp = pdfJsPage.getViewport({ scale })
+        const cv = document.createElement('canvas')
+        cv.width = svp.width; cv.height = svp.height
+        await pdfJsPage.render({ canvasContext: cv.getContext('2d')!, viewport: svp }).promise
+        pageImageMap.set(pageIdx, cv.toDataURL('image/jpeg', 0.92))
+        pdfJsPage.cleanup()
+      }
+      pdfJsDoc.destroy()
+
+      // Step 3: Build final PDF by assembling pages from scratch
+      // Redacted pages become fresh image-only pages (content streams gone entirely).
+      // Clean pages are copied from the original (text preserved).
+      const originalDoc = await PDFDocument.load(originalBuf)
+      const finalDoc = await PDFDocument.create()
+      const totalPages = originalDoc.getPageCount()
+
+      for (let i = 0; i < totalPages; i++) {
+        if (pageImageMap.has(i)) {
+          const origPage = originalDoc.getPage(i)
+          const { width: pw, height: ph } = origPage.getSize()
+          const newPage = finalDoc.addPage([pw, ph])
+          const jpegDataUrl = pageImageMap.get(i)!
+          const jpegBuf = await fetch(jpegDataUrl).then(r => r.arrayBuffer())
+          const img = await finalDoc.embedJpg(jpegBuf)
+          newPage.drawImage(img, { x: 0, y: 0, width: pw, height: ph })
+        } else {
+          const [copied] = await finalDoc.copyPages(originalDoc, [i])
+          finalDoc.addPage(copied)
+        }
+      }
+      // Flatten forms so field values can't reveal hidden text
+      try { finalDoc.getForm().flatten() } catch { /* no form fields */ }
+
+      const finalBytes = await finalDoc.save()
+      const blob = new Blob([finalBytes.buffer as ArrayBuffer], { type: 'application/pdf' })
       const url = URL.createObjectURL(blob)
       setOutputUrl(url)
       setOutputName(file.name.replace(/\.pdf$/i, '') + '_redacted.pdf')
@@ -6418,8 +6468,7 @@ function RedactPdfInterface({ tool, category }: { tool: Tool; category: ToolCate
           <div className="text-center">
             <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
             <h2 className="text-2xl font-black text-gray-900 dark:text-white mb-2">Redacted!</h2>
-            <p className="text-gray-500 mb-2">Sensitive areas have been permanently blacked out.</p>
-            <p className="text-xs text-amber-600 dark:text-amber-400 mb-8">Note: text under redaction boxes may still exist in the PDF data layer. For maximum security, combine with Flatten PDF.</p>
+            <p className="text-gray-500 mb-8">Sensitive areas have been permanently removed from the document.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <a href={outputUrl} download={outputName}
                 className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-red-600 text-white font-semibold hover:bg-red-500 transition-colors">
