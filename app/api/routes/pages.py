@@ -265,6 +265,16 @@ async def tool_extract_audio(request: Request):
     return templates.TemplateResponse(request, "tools/extract-audio.html")
 
 
+@router.get("/tools/protect-pdf")
+async def tool_protect_pdf(request: Request):
+    return templates.TemplateResponse(request, "tools/protect-pdf.html")
+
+
+@router.get("/tools/flatten-pdf")
+async def tool_flatten_pdf(request: Request):
+    return templates.TemplateResponse(request, "tools/flatten-pdf.html")
+
+
 # ── SEO files ─────────────────────────────────────────────────────────────────
 
 SITEMAP_URLS = [
@@ -300,6 +310,8 @@ SITEMAP_URLS = [
     ("/tools/pdf-to-images", "0.8", "monthly"),
     ("/tools/rotate-pdf", "0.85", "monthly"),
     ("/tools/extract-audio", "0.85", "monthly"),
+    ("/tools/protect-pdf", "0.85", "monthly"),
+    ("/tools/flatten-pdf", "0.85", "monthly"),
 ]
 
 

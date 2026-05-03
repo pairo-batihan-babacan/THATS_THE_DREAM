@@ -84,6 +84,24 @@ const TOOLS = {
         endpoint: '/api/pdf/strip-metadata', accept: '.pdf', multiple: false, options: [],
         inspectEndpoint: '/api/pdf/inspect-metadata'
       },
+      {
+        id: 'unlock', label: 'Unlock PDF',
+        desc: 'Remove password',
+        endpoint: '/api/pdf/unlock', accept: '.pdf', multiple: false,
+        options: [{ type: 'password', name: 'password', label: 'Password (leave blank if unsure)', placeholder: 'Enter password…', required: false }]
+      },
+      {
+        id: 'protect', label: 'Protect PDF',
+        desc: 'Add password',
+        customUrl: '/tools/protect-pdf',
+        endpoint: '/api/pdf/protect', accept: '.pdf', multiple: false, options: []
+      },
+      {
+        id: 'flatten', label: 'Flatten PDF',
+        desc: 'Lock form fields',
+        customUrl: '/tools/flatten-pdf',
+        endpoint: '/api/pdf/flatten', accept: '.pdf', multiple: false, options: []
+      },
     ]
   },
   image: {
@@ -441,6 +459,17 @@ function buildOptions(options) {
       inp.id = `opt_${opt.name}`;
       inp.name = opt.name;
       inp.placeholder = opt.placeholder || '';
+      group.appendChild(inp);
+
+    } else if (opt.type === 'password') {
+      const inp = document.createElement('input');
+      inp.type = 'password';
+      inp.className = 'option-input';
+      inp.id = `opt_${opt.name}`;
+      inp.name = opt.name;
+      inp.placeholder = opt.placeholder || '';
+      if (opt.required) inp.required = true;
+      inp.autocomplete = 'off';
       group.appendChild(inp);
     }
 

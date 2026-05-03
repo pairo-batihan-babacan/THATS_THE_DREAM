@@ -1,0 +1,440 @@
+{% extends "base.html" %}
+{% block title %}Protect PDF — Add Password to PDF Free Online — PDFWorks{% endblock %}
+{% block meta_description %}Password-protect your PDF with AES-256 encryption. Set an open password so the file can't be viewed without it. Free, no account, files deleted in 30 minutes.{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebApplication","name":"PDFWorks Protect PDF","url":"https://pdfworks.io/tools/protect-pdf","description":"Free online PDF password protection. Encrypt PDFs with AES-256 so only people with the password can open them. No account needed.","applicationCategory":"Utility","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+</script>
+{% endblock %}
+
+{% block content %}
+<style>
+.pp-page{max-width:720px;margin:0 auto;padding:1.5rem 1.5rem 6rem}
+.pp-drop-zone{border:2px dashed var(--border2);border-radius:var(--radius);background:var(--surface);padding:3.5rem 2rem;text-align:center;cursor:pointer;transition:border-color var(--transition),background var(--transition)}
+.pp-drop-zone.drag-over{border-color:var(--accent);background:var(--accent-dim)}
+.pp-drop-zone-icon{font-size:3rem;margin-bottom:.75rem}
+.pp-drop-zone h2{font-size:1.1rem;font-weight:600;margin-bottom:.4rem}
+.pp-drop-zone p{color:var(--text-2);font-size:.9rem}
+.pp-browse-link{color:var(--accent);cursor:pointer}
+#ppFileInput{display:none}
+.pp-form-card{display:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem}
+.pp-form-card.visible{display:block}
+.pp-file-row{display:flex;align-items:center;gap:.6rem;padding:.6rem .8rem;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:1.25rem;font-size:.87rem;color:var(--text-2)}
+.pp-file-row strong{color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:300px}
+.pp-file-row button{margin-left:auto;background:none;border:none;cursor:pointer;color:var(--text-3);font-size:1rem;line-height:1;padding:.1rem .3rem;border-radius:3px}
+.pp-file-row button:hover{color:var(--text);background:var(--border)}
+.pp-field{margin-bottom:1rem}
+.pp-label{display:flex;align-items:baseline;gap:.4rem;font-size:.85rem;font-weight:500;color:var(--text);margin-bottom:.4rem}
+.pp-label .pp-optional{font-size:.75rem;color:var(--text-3);font-weight:400}
+.pp-input{width:100%;padding:.55rem .75rem;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:.9rem;outline:none;transition:border-color var(--transition);box-sizing:border-box}
+.pp-input:focus{border-color:var(--accent)}
+.pp-input.error{border-color:var(--error)}
+.pp-field-err{font-size:.78rem;color:var(--error);margin-top:.3rem;display:none}
+.pp-field-err.visible{display:block}
+.pp-hint{font-size:.78rem;color:var(--text-3);margin-top:.3rem}
+.pp-toggle-row{display:flex;align-items:center;gap:.5rem;margin:.3rem 0 .8rem;cursor:pointer;user-select:none;font-size:.85rem;color:var(--text-2)}
+.pp-toggle-row:hover{color:var(--text)}
+.pp-toggle-icon{font-size:.8rem;transition:transform .2s}
+.pp-toggle-icon.open{transform:rotate(90deg)}
+.pp-owner-section{display:none;padding:.9rem 1rem;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:1rem}
+.pp-owner-section.visible{display:block}
+.pp-owner-note{font-size:.8rem;color:var(--text-2);margin-bottom:.85rem;line-height:1.55}
+.pp-owner-note strong{color:var(--text)}
+.pp-warn-box{display:flex;gap:.6rem;align-items:flex-start;padding:.75rem .9rem;background:rgba(202,138,4,.07);border:1px solid rgba(202,138,4,.28);border-radius:var(--radius-sm);margin-bottom:1.1rem;font-size:.82rem;color:var(--text-2);line-height:1.55}
+.pp-warn-icon{font-size:1rem;flex-shrink:0;margin-top:.05rem}
+.pp-btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;padding:.55rem 1.2rem;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:.9rem;font-weight:500;cursor:pointer;transition:background var(--transition),border-color var(--transition)}
+.pp-btn:hover{background:var(--border2)}
+.pp-btn:disabled{opacity:.45;cursor:not-allowed}
+.pp-btn-accent{background:var(--accent);border-color:var(--accent);color:#fff;width:100%;padding:.65rem 1.2rem;font-size:.95rem;margin-top:.25rem}
+.pp-btn-accent:hover:not(:disabled){background:var(--accent-hov);border-color:var(--accent-hov)}
+.pp-btn-ghost{background:transparent;border-color:transparent}
+.pp-btn-ghost:hover{background:var(--surface2);border-color:var(--border)}
+.pp-processing{display:none}
+.pp-processing.visible{display:block}
+.pp-progress-area{max-width:460px;margin:3.5rem auto;text-align:center}
+.pp-progress-title{font-weight:600;font-size:1.05rem;margin-bottom:.2rem}
+.pp-pb-wrap{height:5px;background:var(--border);border-radius:99px;overflow:hidden;margin:.9rem 0 .6rem}
+.pp-pb{height:100%;background:var(--accent);border-radius:99px;transition:width .4s ease;width:0%}
+.pp-pl{font-size:.875rem;color:var(--text-2)}
+.pp-result-box{display:none;flex-direction:column;align-items:center;gap:1rem;max-width:380px;margin:3.5rem auto;text-align:center}
+.pp-result-box.visible{display:flex}
+.pp-result-icon{width:52px;height:52px;border-radius:50%;background:var(--success-bg);border:1px solid var(--success-border);color:var(--success);font-size:1.4rem;display:flex;align-items:center;justify-content:center}
+.pp-result-box h3{font-size:1.05rem}
+.pp-result-box>p{font-size:.85rem;color:var(--text-2)}
+.pp-error-box{display:none;flex-direction:column;align-items:center;gap:1rem;max-width:380px;margin:3.5rem auto;text-align:center}
+.pp-error-box.visible{display:flex}
+.pp-error-icon{width:52px;height:52px;border-radius:50%;background:var(--error-bg);border:1px solid var(--error-border);color:var(--error);font-size:1.4rem;display:flex;align-items:center;justify-content:center}
+.pp-error-box h3{font-size:1.05rem;color:var(--error)}
+.pp-error-box>p{font-size:.85rem;color:var(--text-2)}
+.pp-prose{margin-top:3rem;padding-top:2rem;border-top:1px solid var(--border)}
+.pp-prose h2{font-size:1.1rem;font-weight:600;margin:1.6rem 0 .55rem}
+.pp-prose p,.pp-prose li{font-size:.93rem;color:var(--text-2);line-height:1.7}
+.pp-prose ul,.pp-prose ol{padding-left:1.4rem;margin:.4rem 0}
+.pp-risk-box{display:flex;gap:.7rem;padding:.9rem 1rem;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.22);border-radius:var(--radius-sm);margin:.8rem 0;font-size:.875rem;line-height:1.6;color:var(--text-2)}
+.pp-risk-box strong{color:var(--error)}
+</style>
+
+<div class="pp-page">
+  <nav class="breadcrumb">
+    <a href="/">Home</a><span class="sep">›</span>
+    <a href="/pdf">PDF Tools</a><span class="sep">›</span>
+    <span>Protect PDF</span>
+  </nav>
+
+  <h1>Protect PDF with Password</h1>
+  <p style="color:var(--text-2);margin:.35rem 0 1.5rem;font-size:.93rem;">Add AES-256 encryption to your PDF. Anyone who tries to open the file will be asked for the password you set.</p>
+
+  <!-- ── Phase 1: Upload ── -->
+  <div id="ppUpload">
+    <div class="pp-drop-zone" id="ppDropZone">
+      <input type="file" id="ppFileInput" accept=".pdf" />
+      <div class="pp-drop-zone-icon">🔒</div>
+      <h2>Drop your PDF here</h2>
+      <p>or <span class="pp-browse-link" id="ppBrowse">click to browse</span></p>
+      <p style="margin-top:.5rem;font-size:.8rem;color:var(--text-3);">PDF files up to 50 MB &middot; Auto-deleted in 30 min</p>
+    </div>
+  </div>
+
+  <!-- ── Phase 2: Password form ── -->
+  <div class="pp-form-card" id="ppForm">
+
+    <div class="pp-file-row">
+      <span>📄</span>
+      <strong id="ppFileName">file.pdf</strong>
+      <button id="ppChangeFile" title="Choose a different file">✕</button>
+    </div>
+
+    <div class="pp-warn-box">
+      <span class="pp-warn-icon">⚠</span>
+      <span><strong>Warning:</strong> If you forget the open password, the PDF cannot be recovered — not even by PDFWorks. There is no "forgot password" for AES-encrypted PDFs. Store your password securely before protecting the file.</span>
+    </div>
+
+    <div class="pp-field">
+      <label class="pp-label" for="ppPassword">Open Password <span style="color:var(--error)">*</span></label>
+      <input type="password" class="pp-input" id="ppPassword" autocomplete="new-password" placeholder="Enter password…" />
+      <div class="pp-hint">Anyone opening this PDF will be asked for this password.</div>
+      <div class="pp-field-err" id="ppPasswordErr"></div>
+    </div>
+
+    <div class="pp-field">
+      <label class="pp-label" for="ppConfirm">Confirm Password <span style="color:var(--error)">*</span></label>
+      <input type="password" class="pp-input" id="ppConfirm" autocomplete="new-password" placeholder="Re-enter password…" />
+      <div class="pp-field-err" id="ppConfirmErr"></div>
+    </div>
+
+    <!-- Owner password (advanced) -->
+    <div class="pp-toggle-row" id="ppOwnerToggle">
+      <span class="pp-toggle-icon" id="ppToggleIcon">▶</span>
+      <span>Set a separate <strong>Owner / Permissions Password</strong> <span style="color:var(--text-3);font-size:.8rem">(optional)</span></span>
+    </div>
+    <div class="pp-owner-section" id="ppOwnerSection">
+      <p class="pp-owner-note">
+        The <strong>Owner (Permissions) Password</strong> controls what recipients can do with the file — printing, copying text, modifying the document. It is separate from the Open Password above.<br><br>
+        <strong>Important:</strong> The owner password provides only "soft" protection. It can be bypassed by many PDF tools and is not cryptographically enforced the same way the open password is. Do not rely on it to prevent a determined user from printing or copying.
+      </p>
+      <div class="pp-field" style="margin-bottom:0">
+        <label class="pp-label" for="ppOwner">Owner Password <span class="pp-optional">(optional — defaults to open password)</span></label>
+        <input type="password" class="pp-input" id="ppOwner" autocomplete="off" placeholder="Leave blank to use same as open password" />
+      </div>
+    </div>
+
+    <button class="pp-btn pp-btn-accent" id="ppSubmit">🔒 Protect PDF</button>
+  </div>
+
+  <!-- ── Phase 3: Processing & Result ── -->
+  <div id="ppProcessing" class="pp-processing">
+    <div class="pp-progress-area" id="ppProgressArea">
+      <p class="pp-progress-title">Encrypting PDF…</p>
+      <div class="pp-pb-wrap"><div class="pp-pb" id="ppPB"></div></div>
+      <p class="pp-pl" id="ppPL">Uploading file…</p>
+      <button class="btn-cancel" id="ppCancelBtn">✕ Cancel</button>
+    </div>
+
+    <div class="pp-result-box" id="ppResultBox">
+      <div class="pp-result-icon">🔒</div>
+      <h3>PDF protected successfully</h3>
+      <p>The file is encrypted with AES-256. Anyone opening it will need your password.<br>The file will be deleted from our servers in 30 minutes.</p>
+      <a class="pp-btn pp-btn-accent" id="ppDownload" href="#" download style="width:100%;padding:.65rem 1.2rem;font-size:.95rem;text-decoration:none;text-align:center">↓ Download Protected PDF</a>
+      <button class="pp-btn pp-btn-ghost" id="ppAnother">Protect another file</button>
+    </div>
+
+    <div class="pp-error-box" id="ppErrorBox">
+      <div class="pp-error-icon">✕</div>
+      <h3>Protection failed</h3>
+      <p id="ppErrMsg">Something went wrong. Please try again.</p>
+      <button class="pp-btn" id="ppRetry">Go back</button>
+    </div>
+  </div>
+
+  <!-- ── SEO Prose ── -->
+  <div class="pp-prose">
+    <h2>What Does "Protect PDF" Actually Do?</h2>
+    <p>When you protect a PDF, the file's content is encrypted using <strong>AES-256</strong> — the same standard used by governments, banks, and cloud storage providers. Without the correct password, the file cannot be opened, viewed, or read. It is not merely hidden; it is mathematically scrambled.</p>
+    <p>Specifically, when anyone opens the protected PDF in any viewer — Adobe Acrobat, Preview, Chrome's built-in viewer, mobile apps — they will see a password prompt before any content is shown. Entering the wrong password (or no password) shows nothing.</p>
+
+    <h2>The Two Types of PDF Password</h2>
+    <p>PDFs support two distinct passwords with very different behaviours:</p>
+    <ul>
+      <li><strong>Open Password (User Password)</strong> — Required just to view the file. This is what this tool sets. It is enforced by cryptography. Without it, the file content is inaccessible.</li>
+      <li><strong>Owner Password (Permissions Password)</strong> — Controls what an authorised viewer can do: print, copy text, fill in forms, modify the document. This is NOT cryptographically enforced — some PDF tools can bypass it even without the password. It is "soft" access control, not a lock.</li>
+    </ul>
+
+    <h2>What Is AES-256?</h2>
+    <p>AES-256 (Advanced Encryption Standard, 256-bit key) is a symmetric encryption algorithm standardised by the U.S. NIST and classified for top-secret government use. It has no known practical attacks — a brute-force attack on AES-256 is computationally infeasible with any hardware that exists or is expected to exist. Your PDF is safe as long as the password itself is strong (avoid short or common passwords).</p>
+    <p>PDFs can also use older, weaker encryption (RC4-128 or RC4-40). This tool always uses AES-256, the strongest option in the PDF specification.</p>
+
+    <h2>What Can Go Wrong — Risks to Know</h2>
+    <div class="pp-risk-box">
+      <span style="font-size:1.1rem;flex-shrink:0">🔑</span>
+      <span><strong>Forgotten password = permanent data loss.</strong> AES-256 has no back door. If you lose the open password, the file cannot be decrypted — not by PDFWorks, not by any tool, not by law enforcement without a court order and significant computing resources. Always keep a secure copy of the password (a password manager like Bitwarden or 1Password is ideal).</span>
+    </div>
+    <div class="pp-risk-box">
+      <span style="font-size:1.1rem;flex-shrink:0">📱</span>
+      <span><strong>Compatibility.</strong> Some very old PDF readers (pre-2008) do not support AES-256 and will refuse to open the file. All modern viewers — Adobe Acrobat, Apple Preview, Microsoft Edge, Chrome, Foxit — fully support it.</span>
+    </div>
+    <div class="pp-risk-box">
+      <span style="font-size:1.1rem;flex-shrink:0">🖨</span>
+      <span><strong>Owner password limitations.</strong> The Owner/Permissions Password prevents compliant viewers from printing or copying — but non-compliant tools and some PDF libraries can ignore permissions restrictions. Do not rely on permissions alone to prevent determined misuse.</span>
+    </div>
+
+    <h2>How to Protect a PDF on PDFWorks</h2>
+    <ol>
+      <li>Drop or browse to select your PDF above.</li>
+      <li>Enter an <strong>Open Password</strong> and confirm it. This is the password anyone opening the file must enter.</li>
+      <li>Optionally, expand <em>Owner / Permissions Password</em> to set a separate password controlling print/copy rights.</li>
+      <li>Click <strong>Protect PDF</strong>. The file is encrypted server-side and you download the result.</li>
+      <li>Verify: try opening the downloaded file — your PDF viewer should ask for the password immediately.</li>
+    </ol>
+
+    <h2>Privacy</h2>
+    <p>Your file is uploaded over HTTPS. The password is transmitted securely and used only to encrypt your file — it is never stored or logged. The encrypted output file is deleted from our servers within 30 minutes. We never read or retain the content of your files.</p>
+
+    <div style="margin-top:1.5rem">
+      <strong>Related tools:</strong>
+      <div class="related-tools" style="margin-top:.5rem">
+        <a href="/tools/unlock-pdf" class="related-tool-link">Unlock PDF</a>
+        <a href="/tools/flatten-pdf" class="related-tool-link">Flatten PDF</a>
+        <a href="/tools/strip-pdf-metadata" class="related-tool-link">Strip Metadata</a>
+        <a href="/tools/compress-pdf" class="related-tool-link">Compress PDF</a>
+      </div>
+    </div>
+    <p style="margin-top:1.5rem"><strong>Further reading:</strong> <a href="/blog/pdf-security-encryption-guide">PDF Security and Encryption: A Complete Guide</a></p>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ── State ── */
+  let file = null;
+  let _abortCtrl = null;
+  let _pollTimer = null;
+
+  /* ── DOM ── */
+  const $upload     = document.getElementById('ppUpload');
+  const $dropZone   = document.getElementById('ppDropZone');
+  const $fileInput  = document.getElementById('ppFileInput');
+  const $browse     = document.getElementById('ppBrowse');
+  const $form       = document.getElementById('ppForm');
+  const $fileName   = document.getElementById('ppFileName');
+  const $changeFile = document.getElementById('ppChangeFile');
+  const $password   = document.getElementById('ppPassword');
+  const $confirm    = document.getElementById('ppConfirm');
+  const $owner      = document.getElementById('ppOwner');
+  const $submit     = document.getElementById('ppSubmit');
+  const $processing = document.getElementById('ppProcessing');
+  const $progArea   = document.getElementById('ppProgressArea');
+  const $pb         = document.getElementById('ppPB');
+  const $pl         = document.getElementById('ppPL');
+  const $resultBox  = document.getElementById('ppResultBox');
+  const $errorBox   = document.getElementById('ppErrorBox');
+  const $errMsg     = document.getElementById('ppErrMsg');
+  const $download   = document.getElementById('ppDownload');
+  const $passwordErr= document.getElementById('ppPasswordErr');
+  const $confirmErr = document.getElementById('ppConfirmErr');
+
+  /* ── Upload zone ── */
+  $browse.addEventListener('click', (e) => { e.stopPropagation(); $fileInput.click(); });
+  $dropZone.addEventListener('click', () => $fileInput.click());
+  $fileInput.addEventListener('change', () => { if ($fileInput.files[0]) loadFile($fileInput.files[0]); });
+  $dropZone.addEventListener('dragover', (e) => { e.preventDefault(); $dropZone.classList.add('drag-over'); });
+  $dropZone.addEventListener('dragleave', () => $dropZone.classList.remove('drag-over'));
+  $dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    $dropZone.classList.remove('drag-over');
+    const f = e.dataTransfer.files[0];
+    if (f && f.name.toLowerCase().endsWith('.pdf')) loadFile(f);
+  });
+
+  function loadFile(f) {
+    file = f;
+    $fileName.textContent = f.name;
+    $upload.style.display = 'none';
+    $form.classList.add('visible');
+    $password.focus();
+  }
+
+  $changeFile.addEventListener('click', resetToUpload);
+
+  /* ── Owner password toggle ── */
+  const $ownerToggle  = document.getElementById('ppOwnerToggle');
+  const $ownerSection = document.getElementById('ppOwnerSection');
+  const $toggleIcon   = document.getElementById('ppToggleIcon');
+  $ownerToggle.addEventListener('click', () => {
+    const open = $ownerSection.classList.toggle('visible');
+    $toggleIcon.classList.toggle('open', open);
+  });
+
+  /* ── Validation ── */
+  function validate() {
+    let ok = true;
+    const pw = $password.value;
+    const cf = $confirm.value;
+
+    hideErr($passwordErr, $password);
+    hideErr($confirmErr, $confirm);
+
+    if (!pw) {
+      showErr($passwordErr, $password, 'Please enter a password');
+      ok = false;
+    } else if (pw.length < 4) {
+      showErr($passwordErr, $password, 'Password must be at least 4 characters');
+      ok = false;
+    }
+    if (!cf) {
+      showErr($confirmErr, $confirm, 'Please confirm the password');
+      ok = false;
+    } else if (pw && cf !== pw) {
+      showErr($confirmErr, $confirm, 'Passwords do not match');
+      ok = false;
+    }
+    return ok;
+  }
+
+  function showErr(el, input, msg) {
+    el.textContent = msg;
+    el.classList.add('visible');
+    input.classList.add('error');
+  }
+
+  function hideErr(el, input) {
+    el.classList.remove('visible');
+    input.classList.remove('error');
+  }
+
+  $password.addEventListener('input', () => hideErr($passwordErr, $password));
+  $confirm.addEventListener('input', () => hideErr($confirmErr, $confirm));
+
+  /* ── Submit ── */
+  $submit.addEventListener('click', async () => {
+    if (!file || !validate()) return;
+
+    _abortCtrl = new AbortController();
+    $form.classList.remove('visible');
+    $processing.classList.add('visible');
+    setProgress(10, 'Uploading file…');
+
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('password', $password.value);
+      if ($owner.value) fd.append('owner_password', $owner.value);
+
+      const res = await fetch('/api/pdf/protect', {
+        method: 'POST',
+        body: fd,
+        signal: _abortCtrl.signal,
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || `Upload failed (${res.status})`);
+      }
+      const data = await res.json();
+      _abortCtrl = null;
+      setProgress(35, 'Queued…');
+      pollJob(data.job_id);
+    } catch (e) {
+      if (e.name === 'AbortError') return;
+      showError(e.message);
+    }
+  });
+
+  /* ── Polling ── */
+  function pollJob(jobId) {
+    setProgress(55, 'Encrypting…');
+    _pollTimer = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/jobs/${jobId}`);
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        if (data.status === 'done') {
+          clearInterval(_pollTimer); _pollTimer = null;
+          setProgress(100, 'Done!');
+          setTimeout(() => {
+            $progArea.style.display = 'none';
+            $download.href = data.download_url || `/api/jobs/${jobId}/download`;
+            $resultBox.classList.add('visible');
+          }, 350);
+        } else if (data.status === 'failed') {
+          clearInterval(_pollTimer); _pollTimer = null;
+          showError(data.error_message || 'Protection failed.');
+        } else {
+          setProgress(70, 'Encrypting…');
+        }
+      } catch (_) {
+        clearInterval(_pollTimer); _pollTimer = null;
+        showError('Lost connection. Please try again.');
+      }
+    }, 2000);
+  }
+
+  function setProgress(pct, label) {
+    $pb.style.width = pct + '%';
+    if (label) $pl.textContent = label;
+  }
+
+  function showError(msg) {
+    $progArea.style.display = 'none';
+    $errMsg.textContent = msg;
+    $errorBox.classList.add('visible');
+  }
+
+  /* ── Cancel ── */
+  document.getElementById('ppCancelBtn').addEventListener('click', () => {
+    if (_abortCtrl) { _abortCtrl.abort(); _abortCtrl = null; }
+    if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+    $processing.classList.remove('visible');
+    $progArea.style.display = 'block';
+    setProgress(0, '');
+    $form.classList.add('visible');
+  });
+
+  /* ── Reset ── */
+  function resetToUpload() {
+    file = null;
+    $password.value = '';
+    $confirm.value = '';
+    $owner.value = '';
+    hideErr($passwordErr, $password);
+    hideErr($confirmErr, $confirm);
+    $form.classList.remove('visible');
+    $upload.style.display = 'block';
+    $fileInput.value = '';
+  }
+
+  function resetAll() {
+    resetToUpload();
+    $resultBox.classList.remove('visible');
+    $errorBox.classList.remove('visible');
+    $progArea.style.display = 'block';
+    setProgress(0, '');
+    $processing.classList.remove('visible');
+  }
+
+  document.getElementById('ppAnother').addEventListener('click', resetAll);
+  document.getElementById('ppRetry').addEventListener('click', resetAll);
+})();
+</script>
+{% endblock %}

@@ -131,6 +131,18 @@ def rotate_pdf_task(local_path: str, job_id: str, rotations: dict):
     _run_task(job_id, lambda: rotate_pdf(local_path, job_id, rotations), local_path)
 
 
+@celery_app.task(name="app.workers.pdf_tasks.protect_pdf_task")
+def protect_pdf_task(local_path: str, job_id: str, password: str, owner_password: str = ""):
+    from app.services.pdf_service import protect_pdf
+    _run_task(job_id, lambda: protect_pdf(local_path, job_id, password, owner_password), local_path)
+
+
+@celery_app.task(name="app.workers.pdf_tasks.flatten_pdf_task")
+def flatten_pdf_task(local_path: str, job_id: str):
+    from app.services.pdf_service import flatten_pdf
+    _run_task(job_id, lambda: flatten_pdf(local_path, job_id), local_path)
+
+
 @celery_app.task(name="app.workers.pdf_tasks.pdf_to_excel_task")
 def pdf_to_excel_task(local_path: str, job_id: str):
     from app.services.pdf_service import pdf_to_excel

@@ -394,6 +394,91 @@ def analyze_pdf_orientation(content: bytes) -> list[dict]:
     return pages
 
 
+def protect_pdf(input_path: str, job_id: str, password: str, owner_password: str = "") -> str:
+    """Encrypt a PDF with AES-256. password is required to open the file."""
+    if not password or not password.strip():
+        raise ValueError("A password is required to protect a PDF")
+
+    output_filename = f"{job_id}_protected.pdf"
+    output_path = _output_path(job_id, output_filename)
+
+    try:
+        reader = PdfReader(input_path)
+        if reader.is_encrypted:
+            raise RuntimeError(
+                "This PDF is already password-protected. "
+                "Use Unlock PDF to remove the existing protection first, "
+                "then re-protect with a new password."
+            )
+        writer = PdfWriter()
+        for page in reader.pages:
+            writer.add_page(page)
+        # AES-256 — strongest PDF encryption standard
+        # user_password: must be entered to open the file
+        # owner_password: controls permissions (print/copy/edit); defaults to user_password
+        writer.encrypt(
+            user_password=password,
+            owner_password=owner_password if owner_password else password,
+            algorithm="AES-256",
+        )
+        with open(output_path, "wb") as f:
+            writer.write(f)
+    except RuntimeError:
+        raise
+    except Exception as e:
+        raise RuntimeError(f"Failed to protect PDF: {e}")
+
+    return output_filename
+
+
+def flatten_pdf(input_path: str, job_id: str) -> str:
+    """Flatten form fields and annotations into static page content.
+
+    Uses PyMuPDF show_pdf_page to render each source page (including all widget
+    appearances and annotations) as static vector content into a new PDF — no
+    AcroForm, no interactivity, text remains searchable.
+    Fallback: Ghostscript pdfwrite re-render.
+    """
+    import fitz
+
+    output_filename = f"{job_id}_flattened.pdf"
+    output_path = _output_path(job_id, output_filename)
+
+    try:
+        src = fitz.open(input_path)
+        out = fitz.open()
+        for i, page in enumerate(src):
+            # Creates a new page and renders the source page (with all widget appearances
+            # baked in as static vector content) — no interactive elements survive
+            new_page = out.new_page(width=page.rect.width, height=page.rect.height)
+            new_page.show_pdf_page(new_page.rect, src, i)
+        src.close()
+        out.save(output_path, garbage=4, deflate=True)
+        out.close()
+        return output_filename
+    except Exception as fitz_err:
+        # Fallback: Ghostscript pdfwrite re-render
+        gs_result = subprocess.run(
+            [
+                GS_BINARY,
+                "-sDEVICE=pdfwrite",
+                "-dCompatibilityLevel=1.4",
+                "-dNOPAUSE", "-dQUIET", "-dBATCH",
+                f"-sOutputFile={output_path}",
+                input_path,
+            ],
+            capture_output=True,
+            text=True,
+        )
+        if gs_result.returncode == 0 and os.path.exists(output_path):
+            return output_filename
+        raise RuntimeError(
+            f"PDF flatten failed. "
+            f"PyMuPDF: {fitz_err}. "
+            f"Ghostscript: {gs_result.stderr.strip() or 'failed'}"
+        )
+
+
 def pdf_to_excel(input_path: str, job_id: str) -> str:
     """Extract text content from a PDF and export it as an Excel spreadsheet."""
     import pandas as pd  # pandas is already in requirements

@@ -240,6 +240,41 @@ async def rotate_pdf(
     return {"job_id": job_id, "status": "queued"}
 
 
+@router.post("/protect")
+async def protect_pdf(
+    file: UploadFile = File(...),
+    password: str = Form(...),
+    owner_password: str = Form(default=""),
+    session: AsyncSession = Depends(get_session),
+):
+    """Password-protect a PDF with AES-256 encryption. password is required to open the file."""
+    if not allowed_file(file.filename, PDF_EXTS):
+        raise HTTPException(400, "Only PDF files accepted")
+    if not password or not password.strip():
+        raise HTTPException(400, "A password is required")
+    job_id, saved_path = await save_upload_file(file)
+    await create_job(session, job_id, "pdf_protect", file.filename)
+    celery_app.send_task(
+        "app.workers.pdf_tasks.protect_pdf_task",
+        args=[saved_path, job_id, password, owner_password],
+    )
+    return {"job_id": job_id, "status": "queued"}
+
+
+@router.post("/flatten")
+async def flatten_pdf(
+    file: UploadFile = File(...),
+    session: AsyncSession = Depends(get_session),
+):
+    """Flatten form fields and annotations into static page content."""
+    if not allowed_file(file.filename, PDF_EXTS):
+        raise HTTPException(400, "Only PDF files accepted")
+    job_id, saved_path = await save_upload_file(file)
+    await create_job(session, job_id, "pdf_flatten", file.filename)
+    celery_app.send_task("app.workers.pdf_tasks.flatten_pdf_task", args=[saved_path, job_id])
+    return {"job_id": job_id, "status": "queued"}
+
+
 @router.post("/to-excel")
 async def pdf_to_excel(
     file: UploadFile = File(...),

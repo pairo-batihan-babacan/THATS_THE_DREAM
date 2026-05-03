@@ -1,0 +1,368 @@
+{% extends "base.html" %}
+{% block title %}Flatten PDF — Bake Form Fields & Annotations Free Online — PDFWorks{% endblock %}
+{% block meta_description %}Flatten PDF form fields and annotations into static page content. Filled forms become non-editable, interactive elements are removed. Free, no account, files deleted in 30 minutes.{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebApplication","name":"PDFWorks Flatten PDF","url":"https://pdfworks.io/tools/flatten-pdf","description":"Free online PDF flattener. Converts interactive form fields and annotations into static page content. No account needed.","applicationCategory":"Utility","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+</script>
+{% endblock %}
+
+{% block content %}
+<style>
+.fp-page{max-width:720px;margin:0 auto;padding:1.5rem 1.5rem 6rem}
+.fp-drop-zone{border:2px dashed var(--border2);border-radius:var(--radius);background:var(--surface);padding:3.5rem 2rem;text-align:center;cursor:pointer;transition:border-color var(--transition),background var(--transition)}
+.fp-drop-zone.drag-over{border-color:var(--accent);background:var(--accent-dim)}
+.fp-drop-zone-icon{font-size:3rem;margin-bottom:.75rem}
+.fp-drop-zone h2{font-size:1.1rem;font-weight:600;margin-bottom:.4rem}
+.fp-drop-zone p{color:var(--text-2);font-size:.9rem}
+.fp-browse-link{color:var(--accent);cursor:pointer}
+#fpFileInput{display:none}
+.fp-confirm-card{display:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem}
+.fp-confirm-card.visible{display:block}
+.fp-file-row{display:flex;align-items:center;gap:.6rem;padding:.6rem .8rem;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:1.1rem;font-size:.87rem;color:var(--text-2)}
+.fp-file-row strong{color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:300px}
+.fp-file-row button{margin-left:auto;background:none;border:none;cursor:pointer;color:var(--text-3);font-size:1rem;line-height:1;padding:.1rem .3rem;border-radius:3px}
+.fp-file-row button:hover{color:var(--text);background:var(--border)}
+.fp-info-box{display:flex;gap:.65rem;align-items:flex-start;padding:.8rem 1rem;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:1.1rem;font-size:.83rem;color:var(--text-2);line-height:1.6}
+.fp-info-icon{font-size:1.1rem;flex-shrink:0;margin-top:.05rem}
+.fp-warn-box{display:flex;gap:.65rem;align-items:flex-start;padding:.8rem 1rem;background:rgba(202,138,4,.07);border:1px solid rgba(202,138,4,.28);border-radius:var(--radius-sm);margin-bottom:1.1rem;font-size:.83rem;color:var(--text-2);line-height:1.6}
+.fp-btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;padding:.55rem 1.2rem;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:.9rem;font-weight:500;cursor:pointer;transition:background var(--transition),border-color var(--transition)}
+.fp-btn:hover{background:var(--border2)}
+.fp-btn:disabled{opacity:.45;cursor:not-allowed}
+.fp-btn-accent{background:var(--accent);border-color:var(--accent);color:#fff;width:100%;padding:.65rem 1.2rem;font-size:.95rem}
+.fp-btn-accent:hover:not(:disabled){background:var(--accent-hov);border-color:var(--accent-hov)}
+.fp-btn-ghost{background:transparent;border-color:transparent}
+.fp-btn-ghost:hover{background:var(--surface2);border-color:var(--border)}
+.fp-processing{display:none}
+.fp-processing.visible{display:block}
+.fp-progress-area{max-width:460px;margin:3.5rem auto;text-align:center}
+.fp-progress-title{font-weight:600;font-size:1.05rem;margin-bottom:.2rem}
+.fp-pb-wrap{height:5px;background:var(--border);border-radius:99px;overflow:hidden;margin:.9rem 0 .6rem}
+.fp-pb{height:100%;background:var(--accent);border-radius:99px;transition:width .4s ease;width:0%}
+.fp-pl{font-size:.875rem;color:var(--text-2)}
+.fp-result-box{display:none;flex-direction:column;align-items:center;gap:1rem;max-width:380px;margin:3.5rem auto;text-align:center}
+.fp-result-box.visible{display:flex}
+.fp-result-icon{width:52px;height:52px;border-radius:50%;background:var(--success-bg);border:1px solid var(--success-border);color:var(--success);font-size:1.4rem;display:flex;align-items:center;justify-content:center}
+.fp-result-box h3{font-size:1.05rem}
+.fp-result-box>p{font-size:.85rem;color:var(--text-2)}
+.fp-error-box{display:none;flex-direction:column;align-items:center;gap:1rem;max-width:380px;margin:3.5rem auto;text-align:center}
+.fp-error-box.visible{display:flex}
+.fp-error-icon{width:52px;height:52px;border-radius:50%;background:var(--error-bg);border:1px solid var(--error-border);color:var(--error);font-size:1.4rem;display:flex;align-items:center;justify-content:center}
+.fp-error-box h3{font-size:1.05rem;color:var(--error)}
+.fp-error-box>p{font-size:.85rem;color:var(--text-2)}
+.fp-prose{margin-top:3rem;padding-top:2rem;border-top:1px solid var(--border)}
+.fp-prose h2{font-size:1.1rem;font-weight:600;margin:1.6rem 0 .55rem}
+.fp-prose p,.fp-prose li{font-size:.93rem;color:var(--text-2);line-height:1.7}
+.fp-prose ul,.fp-prose ol{padding-left:1.4rem;margin:.4rem 0}
+.fp-risk-box{display:flex;gap:.7rem;padding:.85rem 1rem;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.22);border-radius:var(--radius-sm);margin:.8rem 0;font-size:.875rem;line-height:1.6;color:var(--text-2)}
+</style>
+
+<div class="fp-page">
+  <nav class="breadcrumb">
+    <a href="/">Home</a><span class="sep">›</span>
+    <a href="/pdf">PDF Tools</a><span class="sep">›</span>
+    <span>Flatten PDF</span>
+  </nav>
+
+  <h1>Flatten PDF</h1>
+  <p style="color:var(--text-2);margin:.35rem 0 1.5rem;font-size:.93rem;">Convert form fields, annotations, and interactive elements into permanent static page content — the PDF will look the same but nothing can be edited or deleted.</p>
+
+  <!-- ── Phase 1: Upload ── -->
+  <div id="fpUpload">
+    <div class="fp-drop-zone" id="fpDropZone">
+      <input type="file" id="fpFileInput" accept=".pdf" />
+      <div class="fp-drop-zone-icon">🗜</div>
+      <h2>Drop your PDF here</h2>
+      <p>or <span class="fp-browse-link" id="fpBrowse">click to browse</span></p>
+      <p style="margin-top:.5rem;font-size:.8rem;color:var(--text-3);">PDF files up to 50 MB &middot; Auto-deleted in 30 min</p>
+    </div>
+  </div>
+
+  <!-- ── Phase 2: Confirm ── -->
+  <div class="fp-confirm-card" id="fpConfirm">
+
+    <div class="fp-file-row">
+      <span>📄</span>
+      <strong id="fpFileName">file.pdf</strong>
+      <button id="fpChangeFile" title="Choose a different file">✕</button>
+    </div>
+
+    <div class="fp-info-box">
+      <span class="fp-info-icon">ℹ</span>
+      <span>
+        All <strong>form fields</strong>, <strong>annotations</strong> (comments, highlights, stamps), and <strong>interactive elements</strong> will be permanently baked into the page content. The visual appearance is preserved — filled-in values, checkmarks, and annotation marks all remain visible as static graphics. This action cannot be undone.
+      </span>
+    </div>
+
+    <div class="fp-warn-box">
+      <span style="font-size:1rem;flex-shrink:0">⚠</span>
+      <span>
+        <strong>Flattening is irreversible.</strong> Once flattened, form fields cannot be edited again and annotations cannot be deleted individually. Make sure you have the original (unflattened) PDF saved separately if you might need to edit it later.
+      </span>
+    </div>
+
+    <button class="fp-btn fp-btn-accent" id="fpSubmit">🗜 Flatten PDF</button>
+  </div>
+
+  <!-- ── Phase 3: Processing & Result ── -->
+  <div id="fpProcessing" class="fp-processing">
+    <div class="fp-progress-area" id="fpProgressArea">
+      <p class="fp-progress-title">Flattening PDF…</p>
+      <div class="fp-pb-wrap"><div class="fp-pb" id="fpPB"></div></div>
+      <p class="fp-pl" id="fpPL">Uploading file…</p>
+      <button class="btn-cancel" id="fpCancelBtn">✕ Cancel</button>
+    </div>
+
+    <div class="fp-result-box" id="fpResultBox">
+      <div class="fp-result-icon">✓</div>
+      <h3>PDF flattened successfully</h3>
+      <p>All form fields and annotations are now static page content.<br>The file will be deleted from our servers in 30 minutes.</p>
+      <a class="fp-btn fp-btn-accent" id="fpDownload" href="#" download style="text-decoration:none;text-align:center">↓ Download Flattened PDF</a>
+      <button class="fp-btn fp-btn-ghost" id="fpAnother">Flatten another file</button>
+    </div>
+
+    <div class="fp-error-box" id="fpErrorBox">
+      <div class="fp-error-icon">✕</div>
+      <h3>Flattening failed</h3>
+      <p id="fpErrMsg">Something went wrong. Please try again.</p>
+      <button class="fp-btn" id="fpRetry">Go back</button>
+    </div>
+  </div>
+
+  <!-- ── SEO Prose ── -->
+  <div class="fp-prose">
+    <h2 id="redaction-warning" style="color:var(--error)">⚠ Critical: Always Flatten a PDF After Redacting</h2>
+    <p>This is one of the most common and dangerous mistakes in document handling. When you "redact" a PDF by placing a black box, shape, or annotation over sensitive text, <strong>the original text is still in the file</strong> — it is merely hidden visually. Anyone who receives the file can:</p>
+    <ul>
+      <li>Copy-paste the text from underneath the black box — many PDF viewers let you select text through overlapping annotations</li>
+      <li>Remove or toggle the annotation layer to reveal the original content</li>
+      <li>Open the file in a text editor, grep for plain text strings, or use PDF extraction tools to dump all text content regardless of what's drawn on top</li>
+      <li>Use tools like <code>pdftotext</code>, Python's pypdf, or even Adobe Acrobat's "Save as Text" to recover every word on every page</li>
+    </ul>
+    <div class="fp-risk-box" style="border-color:rgba(239,68,68,.45);background:rgba(239,68,68,.08)">
+      <span style="font-size:1.1rem;flex-shrink:0">🚨</span>
+      <span>
+        <strong>This has caused real classified-information leaks.</strong> The U.S. National Security Agency, the U.S. Department of Justice, and numerous other government agencies have accidentally published documents with sensitive information "hidden" under annotation-based black boxes — only for journalists and researchers to trivially recover the redacted text. The mistake is embarrassingly common and the consequences can be severe.
+      </span>
+    </div>
+    <p><strong>The correct redaction workflow:</strong></p>
+    <ol>
+      <li>Use a proper redaction tool (Adobe Acrobat's "Redact" feature, or an equivalent) that <em>permanently deletes</em> the underlying text and image data from the PDF, not just covers it visually.</li>
+      <li><strong>After applying the redaction, flatten the PDF.</strong> This bakes the black redaction marks into the page as static content and removes all annotation layers, making it impossible to peel back the marks.</li>
+      <li>Verify: open the flattened PDF, try to select text in the redacted areas — nothing should be selectable there.</li>
+    </ol>
+    <p>If you used annotation-based "redaction" (drawing boxes, rectangles, or stamps over sensitive content) and did not use a tool that deletes the underlying data, <strong>flattening alone is not sufficient</strong> — the text is still stored in the page content stream underneath the drawn shape. In that case, you need to start over with a true redaction tool. Flattening after <em>proper</em> redaction is the final safety step to prevent the annotation layer from being removed.</p>
+
+    <h2>What Does "Flatten PDF" Mean?</h2>
+    <p>A PDF can contain two kinds of content: <strong>static content</strong> (text, images, vector graphics drawn permanently on the page) and <strong>interactive content</strong> (form fields you can type into, annotation layers like highlights and comments, digital signature fields, and interactive widgets like checkboxes and dropdowns).</p>
+    <p>Flattening merges the interactive layer into the static layer. The result is a PDF that <em>looks exactly the same</em> — any text typed into a form field is still there, any highlight is still visible — but all of it is now fixed, permanent page content. Nothing can be edited, deleted, or filled in again.</p>
+
+    <h2>What Gets Flattened?</h2>
+    <ul>
+      <li><strong>Form fields</strong> — Text boxes, checkboxes, radio buttons, dropdown menus, and date pickers. After flattening, the currently entered or selected values are baked in as text/graphics.</li>
+      <li><strong>Annotations</strong> — Sticky notes, highlights, underlines, strike-throughs, stamps, free-text callouts, ink drawings, and review comments. All become permanent marks.</li>
+      <li><strong>Digital signature widgets</strong> — The signature appearance is baked in (note: cryptographic signature validity is typically broken after flattening, which is expected when the goal is archival).</li>
+      <li><strong>Watermarks placed as annotations</strong> — Become permanently embedded in each page.</li>
+    </ul>
+
+    <h2>What Does NOT Change?</h2>
+    <ul>
+      <li>The visual appearance of the page — everything still looks the same.</li>
+      <li>The page count, layout, fonts, and embedded images.</li>
+      <li>Text searchability — text content remains selectable and searchable after flattening (it is not rasterized to an image).</li>
+      <li>Hyperlinks within the document body (URL links embedded in text are preserved as static text; external link annotations may be removed).</li>
+    </ul>
+
+    <h2>Why Would You Need to Flatten a PDF?</h2>
+    <ul>
+      <li><strong>Sending a filled form</strong> — You filled in a government form or contract and want to prevent the recipient from changing the entered values. Flattening locks the data in place.</li>
+      <li><strong>Archiving documents</strong> — Interactive elements can become unrenderable in future PDF viewers as standards evolve. Flattening produces a simpler PDF that will display correctly in any viewer for decades.</li>
+      <li><strong>Printing-safe PDFs</strong> — Some printers and print-service workflows do not correctly render annotation layers. A flattened PDF prints exactly as it appears on screen.</li>
+      <li><strong>Removing edit capability</strong> — If you distributed a form template and later receive a filled copy you want to archive without any chance of modification.</li>
+      <li><strong>Consistent display across viewers</strong> — Different PDF readers render form fields and annotations with different fonts, colors, and styles. After flattening, the appearance is fixed regardless of the viewer.</li>
+    </ul>
+
+    <h2>What Problems Can Occur If You Don't Flatten?</h2>
+    <div class="fp-risk-box">
+      <span style="font-size:1rem;flex-shrink:0">✏</span>
+      <span><strong>Editable fields in "finished" documents.</strong> A recipient can still type into or delete values in form fields of an unflattened PDF. Any signed or filled-in form sent as an interactive PDF is technically still modifiable by the recipient.</span>
+    </div>
+    <div class="fp-risk-box">
+      <span style="font-size:1rem;flex-shrink:0">🖨</span>
+      <span><strong>Printing inconsistencies.</strong> Some PDF printers and professional print workflows strip annotation layers, meaning comments and form field content that appears on screen simply disappears when printed.</span>
+    </div>
+    <div class="fp-risk-box">
+      <span style="font-size:1rem;flex-shrink:0">📂</span>
+      <span><strong>Long-term display issues.</strong> The AcroForm specification for interactive form fields has evolved over PDF versions. A PDF with interactive forms created in 2010 may render incorrectly in a PDF viewer in 2030. Flattening eliminates this dependency.</span>
+    </div>
+    <div class="fp-risk-box">
+      <span style="font-size:1rem;flex-shrink:0">📋</span>
+      <span><strong>Reviewer annotation clutter.</strong> Shared review workflows leave annotation layers on the document. If you intend to send a clean "final" version, those annotations need to be either deleted or flattened first.</span>
+    </div>
+
+    <h2>How to Flatten a PDF on PDFWorks</h2>
+    <ol>
+      <li>Drop or browse to upload your PDF above.</li>
+      <li>Review the confirmation — you will see what will be affected.</li>
+      <li>Click <strong>Flatten PDF</strong>. The server processes the file and returns a flattened PDF.</li>
+      <li>Download and verify: open the result — form fields should no longer be clickable and annotations should be permanent marks.</li>
+    </ol>
+
+    <h2>Privacy</h2>
+    <p>Your PDF is uploaded over HTTPS. The file is processed on our secure servers and deleted automatically within 30 minutes. We do not read, retain, or share the content of your files.</p>
+
+    <div style="margin-top:1.5rem">
+      <strong>Related tools:</strong>
+      <div class="related-tools" style="margin-top:.5rem">
+        <a href="/tools/protect-pdf" class="related-tool-link">Protect PDF</a>
+        <a href="/tools/unlock-pdf" class="related-tool-link">Unlock PDF</a>
+        <a href="/tools/strip-pdf-metadata" class="related-tool-link">Strip Metadata</a>
+        <a href="/tools/compress-pdf" class="related-tool-link">Compress PDF</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  let file = null;
+  let _abortCtrl = null;
+  let _pollTimer = null;
+
+  const $upload    = document.getElementById('fpUpload');
+  const $dropZone  = document.getElementById('fpDropZone');
+  const $fileInput = document.getElementById('fpFileInput');
+  const $browse    = document.getElementById('fpBrowse');
+  const $confirm   = document.getElementById('fpConfirm');
+  const $fileName  = document.getElementById('fpFileName');
+  const $processing= document.getElementById('fpProcessing');
+  const $progArea  = document.getElementById('fpProgressArea');
+  const $pb        = document.getElementById('fpPB');
+  const $pl        = document.getElementById('fpPL');
+  const $resultBox = document.getElementById('fpResultBox');
+  const $errorBox  = document.getElementById('fpErrorBox');
+  const $errMsg    = document.getElementById('fpErrMsg');
+  const $download  = document.getElementById('fpDownload');
+
+  $browse.addEventListener('click', (e) => { e.stopPropagation(); $fileInput.click(); });
+  $dropZone.addEventListener('click', () => $fileInput.click());
+  $fileInput.addEventListener('change', () => { if ($fileInput.files[0]) loadFile($fileInput.files[0]); });
+  $dropZone.addEventListener('dragover', (e) => { e.preventDefault(); $dropZone.classList.add('drag-over'); });
+  $dropZone.addEventListener('dragleave', () => $dropZone.classList.remove('drag-over'));
+  $dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    $dropZone.classList.remove('drag-over');
+    const f = e.dataTransfer.files[0];
+    if (f && f.name.toLowerCase().endsWith('.pdf')) loadFile(f);
+  });
+
+  function loadFile(f) {
+    file = f;
+    $fileName.textContent = f.name;
+    $upload.style.display = 'none';
+    $confirm.classList.add('visible');
+  }
+
+  document.getElementById('fpChangeFile').addEventListener('click', resetToUpload);
+
+  document.getElementById('fpSubmit').addEventListener('click', async () => {
+    if (!file) return;
+    _abortCtrl = new AbortController();
+    $confirm.classList.remove('visible');
+    $processing.classList.add('visible');
+    setProgress(10, 'Uploading file…');
+
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch('/api/pdf/flatten', {
+        method: 'POST',
+        body: fd,
+        signal: _abortCtrl.signal,
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || `Upload failed (${res.status})`);
+      }
+      const data = await res.json();
+      _abortCtrl = null;
+      setProgress(35, 'Queued…');
+      pollJob(data.job_id);
+    } catch (e) {
+      if (e.name === 'AbortError') return;
+      showError(e.message);
+    }
+  });
+
+  function pollJob(jobId) {
+    setProgress(55, 'Flattening…');
+    _pollTimer = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/jobs/${jobId}`);
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        if (data.status === 'done') {
+          clearInterval(_pollTimer); _pollTimer = null;
+          setProgress(100, 'Done!');
+          setTimeout(() => {
+            $progArea.style.display = 'none';
+            $download.href = data.download_url || `/api/jobs/${jobId}/download`;
+            $resultBox.classList.add('visible');
+          }, 350);
+        } else if (data.status === 'failed') {
+          clearInterval(_pollTimer); _pollTimer = null;
+          showError(data.error_message || 'Flatten failed.');
+        } else {
+          setProgress(70, 'Flattening…');
+        }
+      } catch (_) {
+        clearInterval(_pollTimer); _pollTimer = null;
+        showError('Lost connection. Please try again.');
+      }
+    }, 2000);
+  }
+
+  function setProgress(pct, label) {
+    $pb.style.width = pct + '%';
+    if (label) $pl.textContent = label;
+  }
+
+  function showError(msg) {
+    $progArea.style.display = 'none';
+    $errMsg.textContent = msg;
+    $errorBox.classList.add('visible');
+  }
+
+  document.getElementById('fpCancelBtn').addEventListener('click', () => {
+    if (_abortCtrl) { _abortCtrl.abort(); _abortCtrl = null; }
+    if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+    $processing.classList.remove('visible');
+    $progArea.style.display = 'block';
+    setProgress(0, '');
+    $confirm.classList.add('visible');
+  });
+
+  function resetToUpload() {
+    file = null;
+    $confirm.classList.remove('visible');
+    $upload.style.display = 'block';
+    $fileInput.value = '';
+  }
+
+  function resetAll() {
+    resetToUpload();
+    $resultBox.classList.remove('visible');
+    $errorBox.classList.remove('visible');
+    $progArea.style.display = 'block';
+    setProgress(0, '');
+    $processing.classList.remove('visible');
+  }
+
+  document.getElementById('fpAnother').addEventListener('click', resetAll);
+  document.getElementById('fpRetry').addEventListener('click', resetAll);
+})();
+</script>
+{% endblock %}

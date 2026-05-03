@@ -70,11 +70,36 @@
     <h2>What the Tool Does NOT Change</h2>
     <p>The visible content of your PDF is not modified in any way. Text, images, formatting, fonts, hyperlinks, bookmarks, and all other document content remain exactly as they were.</p>
 
+    <h2 style="color:#dc2626">⚠ Critical Warning: Stripping Metadata Does NOT Redact Document Content</h2>
+    <p>This is a dangerous misconception. Removing metadata <strong>only removes the file's information header</strong> — author name, creation date, software used, and so on. It does <strong>absolutely nothing</strong> to the actual text and images on the pages.</p>
+    <p>If you have tried to "redact" sensitive text in your PDF by drawing black rectangles, shapes, or annotation boxes over it, <strong>the underlying text is still in the file</strong> after metadata stripping. Anyone who receives the file can recover it by:</p>
+    <ul>
+      <li>Selecting and copying text through the annotation layer in most PDF viewers</li>
+      <li>Removing the annotation layer entirely in Adobe Acrobat or free tools like pdftk</li>
+      <li>Extracting all text with tools like <code>pdftotext</code>, Python's pypdf, or Acrobat's "Save as Text"</li>
+      <li>Simply opening the file in a text editor and searching for the "hidden" content</li>
+    </ul>
+    <div style="display:flex;gap:.7rem;padding:.9rem 1rem;background:rgba(220,38,38,.07);border:1px solid rgba(220,38,38,.3);border-radius:6px;margin:.9rem 0;font-size:.875rem;line-height:1.65;color:var(--text-2)">
+      <span style="font-size:1.1rem;flex-shrink:0">🚨</span>
+      <span>
+        <strong style="color:#dc2626">This exact mistake has caused real information leaks.</strong> Government agencies — including the U.S. NSA and DOJ — have published documents with classified or sensitive text "hidden" under annotation boxes, only for the content to be trivially recovered and published by journalists. Stripping metadata beforehand did not help.
+      </span>
+    </div>
+    <p><strong>If you need to redact document content, the correct approach is:</strong></p>
+    <ol>
+      <li>Use a tool that <em>permanently deletes</em> the underlying text and image data — not one that merely draws over it. Adobe Acrobat Pro's built-in "Redact" feature does this correctly.</li>
+      <li>After redacting, <strong><a href="/tools/flatten-pdf">flatten the PDF</a></strong> to bake the redaction marks as permanent static content and remove all annotation layers.</li>
+      <li>Strip metadata as a final step for additional privacy.</li>
+      <li>Verify the result: try to select text in the redacted areas — nothing should be selectable.</li>
+    </ol>
+    <p>Stripping metadata is a privacy best practice for normal document sharing — but for documents with sensitive content you have "redacted," it is not a safety measure. Use it as the final polish step after proper redaction and flattening, not as a substitute for either.</p>
+
     <p style="margin-top:2rem"><strong>Related tools:</strong></p>
     <div class="related-tools">
+      <a href="/tools/flatten-pdf" class="related-tool-link">Flatten PDF</a>
+      <a href="/tools/protect-pdf" class="related-tool-link">Protect PDF</a>
       <a href="/tools/compress-pdf" class="related-tool-link">Compress PDF</a>
       <a href="/tools/unlock-pdf" class="related-tool-link">Unlock PDF</a>
-      <a href="/tools/merge-pdf" class="related-tool-link">Merge PDFs</a>
     </div>
     <p style="margin-top:1.5rem"><strong>Further reading:</strong> <a href="/blog/pdf-security-encryption-guide">PDF Security and Encryption Guide</a></p>
   </div>
