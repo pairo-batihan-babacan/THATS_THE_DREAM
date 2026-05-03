@@ -6,7 +6,6 @@
   <url><loc>https://pdfworks.io/privacy</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
   <url><loc>https://pdfworks.io/tools/pdf</loc><changefreq>weekly</changefreq><priority>0.85</priority></url>
   <url><loc>https://pdfworks.io/tools/convert</loc><changefreq>weekly</changefreq><priority>0.85</priority></url>
-  <url><loc>https://pdfworks.io/tools/ai</loc><changefreq>weekly</changefreq><priority>0.85</priority></url>
   <url><loc>https://pdfworks.io/tools/image</loc><changefreq>weekly</changefreq><priority>0.85</priority></url>
   <url><loc>https://pdfworks.io/tools/document</loc><changefreq>weekly</changefreq><priority>0.85</priority></url>
   <url><loc>https://pdfworks.io/tools/audio</loc><changefreq>weekly</changefreq><priority>0.85</priority></url>
@@ -42,11 +41,6 @@
   <url><loc>https://pdfworks.io/tools/jpg-to-pdf</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://pdfworks.io/tools/html-to-pdf</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://pdfworks.io/tools/markdown-to-pdf</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://pdfworks.io/tools/ai-pdf-assistant</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://pdfworks.io/tools/chat-with-pdf</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://pdfworks.io/tools/ai-summarizer</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://pdfworks.io/tools/translate-pdf</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://pdfworks.io/tools/ai-question-generator</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://pdfworks.io/tools/image-compress</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://pdfworks.io/tools/heic-to-jpg</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://pdfworks.io/tools/image-resize</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>

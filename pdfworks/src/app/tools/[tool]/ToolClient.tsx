@@ -6,7 +6,7 @@ import { useDropzone, type Accept } from 'react-dropzone'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Upload, X, CheckCircle, Download, AlertCircle, Clock,
-  ChevronRight, Home, ArrowLeft, Send, Bot, RotateCcw, RotateCw,
+  ChevronRight, Home, ArrowLeft, RotateCcw, RotateCw,
   Loader2, FileText, Zap, Shield, Trash2, Plus, Copy, Eye,
   MapPin, Camera, SlidersHorizontal, CalendarDays, ImageIcon, AlertTriangle, Info,
   Pen, ExternalLink,
