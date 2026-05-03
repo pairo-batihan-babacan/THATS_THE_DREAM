@@ -38,17 +38,6 @@ export const categories: ToolCategory[] = [
     hasComingSoon: getToolsByCategory('convert').some((t) => t.comingSoon),
   },
   {
-    id: 'ai',
-    name: 'AI Tools',
-    description:
-      'AI-powered tools to summarize, translate, chat with, and extract insight from your PDFs — powered by large language models.',
-    color: '#9b59b6',
-    icon: 'Sparkles',
-    href: '/tools?cat=ai',
-    toolCount: getToolsByCategory('ai').length,
-    hasComingSoon: getToolsByCategory('ai').some((t) => t.comingSoon),
-  },
-  {
     id: 'image',
     name: 'Image Tools',
     description:

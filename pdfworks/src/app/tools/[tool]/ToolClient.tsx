@@ -147,7 +147,6 @@ interface OptionsState {
   rotation: number
   watermarkText: string
   password: string
-  targetLanguage: string
   outputFormat: string
   width: string
   height: string
@@ -190,7 +189,6 @@ const SERVER_TOOLS = new Set([
   'heic-to-jpg', 'png-to-jpg',
   'audio-convert', 'compress-audio', 'extract-audio',
   'video-convert', 'compress-video',
-  'translate-pdf',
 ])
 
 // Map tool IDs to their backend endpoint and output file extension
@@ -215,7 +213,6 @@ const SERVER_TOOL_ENDPOINTS: Record<string, string> = {
   'strip-audio-metadata':   '/api/audio/strip-metadata',
   'video-convert':    '/api/video/convert',
   'compress-video':   '/api/video/compress',
-  'translate-pdf':    '/api/ai/translate-pdf',
 }
 
 function getServerOutputExt(toolId: string, outputFormat: string): string {
@@ -254,10 +251,6 @@ async function runServerTool(
     case 'unlock-pdf':
       fd.append('file', files[0])
       fd.append('password', options.password)
-      break
-    case 'translate-pdf':
-      fd.append('file', files[0])
-      fd.append('target_language', options.targetLanguage || 'Spanish')
       break
     case 'heic-to-jpg':
     case 'png-to-jpg':
@@ -358,7 +351,6 @@ const DEFAULT_OPTIONS: OptionsState = {
   rotation: 90,
   watermarkText: 'CONFIDENTIAL',
   password: '',
-  targetLanguage: 'Spanish',
   outputFormat: 'jpg',
   width: '',
   height: '',
@@ -373,7 +365,7 @@ function getDefaultOptions(toolId: string): OptionsState {
 
 const TOOLS_WITH_OPTIONS = [
   'compress-pdf', 'image-compress', 'split-pdf', 'extract-pages', 'delete-pages',
-  'rotate-pdf', 'watermark-pdf', 'protect-pdf', 'unlock-pdf', 'translate-pdf',
+  'rotate-pdf', 'watermark-pdf', 'protect-pdf', 'unlock-pdf',
   'image-convert', 'png-to-jpg', 'heic-to-jpg', 'image-resize',
   'compress-audio', 'audio-convert',
   'compress-video', 'video-convert',
@@ -649,27 +641,6 @@ function ToolOptions({
     )
   }
 
-  if (toolId === 'translate-pdf') {
-    const LANGUAGES = [
-      'Spanish', 'French', 'German', 'Italian', 'Portuguese',
-      'Chinese', 'Japanese', 'Korean', 'Arabic', 'Russian', 'Dutch', 'Polish',
-    ]
-    return (
-      <div>
-        <label className={labelCls}>Target Language</label>
-        <select
-          className={inputCls}
-          value={options.targetLanguage}
-          onChange={(e) => onChange({ targetLanguage: e.target.value })}
-        >
-          {LANGUAGES.map((l) => (
-            <option key={l}>{l}</option>
-          ))}
-        </select>
-      </div>
-    )
-  }
-
   if (toolId === 'image-convert' || toolId === 'png-to-jpg' || toolId === 'heic-to-jpg') {
     const formats =
       toolId === 'png-to-jpg' || toolId === 'heic-to-jpg'
@@ -896,353 +867,6 @@ function ComingSoonPage({ tool, category }: { tool: Tool; category: ToolCategory
             Browse available tools
           </Link>
         </div>
-      </div>
-    </div>
-  )
-}
-
-// ─── AI Tool Interface ────────────────────────────────────────────────────────
-
-interface Message {
-  id: string
-  role: 'user' | 'ai'
-  content: string
-}
-
-const AI_CANNED: Record<string, string> = {
-  'ai-summarizer':
-    "Here's a structured summary of your document:\n\n**Key Points:**\n• The document presents a comprehensive overview of the subject matter\n• Several supporting arguments and data points are discussed\n• Key conclusions are drawn with actionable recommendations\n\nWould you like me to expand on any particular section?",
-  'translate-pdf':
-    "I've translated your document. The translation preserves the original formatting and structure. Click the download button below to get your translated PDF.",
-  'ai-question-generator':
-    "Here are 5 questions based on your document:\n\n**Q1:** What is the central argument or thesis presented?\n**Q2:** What evidence supports the main claims?\n**Q3:** What are the key recommendations or conclusions?\n**Q4:** How does the document address potential counterarguments?\n**Q5:** What is the significance of the findings described?\n\nWould you like the answer key as well?",
-}
-
-const AI_DEFAULT = [
-  "I've analyzed your document. What would you like to know?",
-  "Based on the content, I can identify several key themes. What specific aspect are you most interested in?",
-  "Great question. Based on the document, the answer relates to the context discussed in the main sections. Would you like me to elaborate?",
-  "I found relevant passages in your document. Here's what the text says about that topic — let me know if you'd like a deeper analysis.",
-]
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function getAIResponse(toolId: string, _msg: string): string {
-  if (AI_CANNED[toolId]) return AI_CANNED[toolId]
-  return AI_DEFAULT[Math.floor(Math.random() * AI_DEFAULT.length)]
-}
-
-function AIToolInterface({
-  tool,
-  category,
-  relatedTools,
-}: {
-  tool: Tool
-  category: ToolCategory | undefined
-  relatedTools: Tool[]
-}) {
-  const rgb = hexToRgb(tool.color)
-  const [pdfFile, setPdfFile] = useState<File | null>(null)
-  const [messages, setMessages] = useState<Message[]>([])
-  const [input, setInput] = useState('')
-  const [isTyping, setIsTyping] = useState(false)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-  const chatScrollRef  = useRef<HTMLDivElement>(null)
-
-  const onDrop = useCallback(
-    async (files: File[]) => {
-      if (!files[0]) return
-      setPdfFile(files[0])
-
-      if (tool.id === 'ai-summarizer') {
-        setIsTyping(true)
-        try {
-          const formData = new FormData()
-          formData.append('file', files[0])
-          const base = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
-          const res = await fetch(`${base}/api/ai/summarize`, {
-            method: 'POST',
-            body: formData,
-          })
-          const json = await res.json().catch(() => ({}))
-          if (!res.ok) throw new Error((json as { detail?: string }).detail ?? 'Summarization failed')
-          setMessages([
-            {
-              id: Date.now().toString(),
-              role: 'ai',
-              content: `Here's a summary of **${files[0].name}**:\n\n${(json as { summary: string }).summary}`,
-            },
-          ])
-        } catch (err) {
-          setMessages([
-            {
-              id: Date.now().toString(),
-              role: 'ai',
-              content: `Sorry, I couldn't summarize that file. ${err instanceof Error ? err.message : 'Please try again.'}`,
-            },
-          ])
-        } finally {
-          setIsTyping(false)
-        }
-      } else {
-        setTimeout(() => {
-          setMessages([
-            {
-              id: Date.now().toString(),
-              role: 'ai',
-              content: `I've loaded **${files[0].name}**. ${getAIResponse(tool.id, '')}`,
-            },
-          ])
-        }, 700)
-      }
-    },
-    [tool.id],
-  )
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: PDF_ACCEPT,
-    maxFiles: 1,
-    disabled: !!pdfFile,
-  })
-
-  const sendMessage = useCallback(() => {
-    if (!input.trim() || isTyping) return
-    const userMsg: Message = { id: Date.now().toString(), role: 'user', content: input }
-    setMessages((prev) => [...prev, userMsg])
-    setInput('')
-    setIsTyping(true)
-    setTimeout(
-      () => {
-        const aiMsg: Message = {
-          id: (Date.now() + 1).toString(),
-          role: 'ai',
-          content: getAIResponse(tool.id, input),
-        }
-        setMessages((prev) => [...prev, aiMsg])
-        setIsTyping(false)
-      },
-      1000 + Math.random() * 800,
-    )
-  }, [input, isTyping, tool.id])
-
-  useEffect(() => {
-    if (chatScrollRef.current) {
-      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight
-    }
-  }, [messages, isTyping])
-
-  const howSteps = [
-    { title: 'Upload your PDF', description: 'Drag and drop or click to select your PDF document.' },
-    {
-      title:
-        tool.id === 'chat-with-pdf' || tool.id === 'ai-pdf-assistant'
-          ? 'Ask a question'
-          : tool.id === 'ai-summarizer'
-            ? 'AI generates a summary'
-            : tool.id === 'translate-pdf'
-              ? 'Choose target language'
-              : 'AI processes the document',
-      description:
-        tool.id === 'chat-with-pdf' || tool.id === 'ai-pdf-assistant'
-          ? 'Type any question about your PDF in plain English.'
-          : 'The AI reads and understands your document automatically.',
-    },
-    {
-      title:
-        tool.id === 'translate-pdf' ? 'Download translated PDF' : 'Review the output',
-      description:
-        tool.id === 'translate-pdf'
-          ? 'Your fully translated PDF is ready to download.'
-          : 'Get instant answers, summaries, or generated questions.',
-    },
-  ]
-
-  return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-      <Breadcrumb tool={tool} category={category} />
-
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="flex items-center gap-4 mb-8"
-        >
-          <div
-            className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ background: `rgba(${rgb}, 0.15)`, color: tool.color }}
-          >
-            <ToolIcon name={tool.icon} className="w-6 h-6" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">{tool.name}</h1>
-            <p className="text-gray-500 dark:text-gray-400 text-sm">{tool.description}</p>
-          </div>
-          {category && (
-            <span
-              className="hidden sm:inline-flex ml-auto text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded-full"
-              style={{ background: `rgba(${rgb}, 0.1)`, color: tool.color }}
-            >
-              {category.name}
-            </span>
-          )}
-        </motion.div>
-
-        <div className="grid lg:grid-cols-[1fr_300px] gap-6 mb-12">
-          {/* Chat panel */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.08 }}
-            className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl overflow-hidden flex flex-col min-h-[360px] sm:min-h-[480px] lg:min-h-[520px]"
-          >
-            {!pdfFile ? (
-              <div
-                {...getRootProps()}
-                className={`flex-1 flex flex-col items-center justify-center p-10 cursor-pointer transition-colors ${
-                  isDragActive ? 'bg-gray-100 dark:bg-gray-800/50' : 'hover:bg-gray-50 dark:hover:bg-gray-800/20'
-                }`}
-              >
-                <input {...getInputProps()} />
-                <div className="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex items-center justify-center mb-4">
-                  <Upload className={`w-7 h-7 transition-colors ${isDragActive ? 'text-purple-400' : 'text-gray-500'}`} />
-                </div>
-                <p className="text-gray-700 dark:text-gray-300 font-semibold mb-1">Upload your PDF to get started</p>
-                <p className="text-gray-500 dark:text-gray-600 text-sm">Drag & drop or click to select</p>
-              </div>
-            ) : (
-              <>
-                {/* File bar */}
-                <div className="px-4 py-3 border-b border-gray-800 flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center flex-shrink-0">
-                    <FileText className="w-4 h-4 text-red-400" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-900 dark:text-white font-medium truncate">{pdfFile.name}</p>
-                    <p className="text-xs text-gray-500">{formatBytes(pdfFile.size)}</p>
-                  </div>
-                  <button
-                    onClick={() => { setPdfFile(null); setMessages([]) }}
-                    className="flex items-center justify-center w-9 h-9 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex-shrink-0"
-                    aria-label="Remove file"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-
-                {/* Messages */}
-                <div ref={chatScrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-                  {messages.map((msg) => (
-                    <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                      {msg.role === 'ai' && (
-                        <div
-                          className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mr-2 mt-0.5"
-                          style={{ background: `rgba(${rgb}, 0.15)`, color: tool.color }}
-                        >
-                          <Bot className="w-3.5 h-3.5" />
-                        </div>
-                      )}
-                      <div
-                        className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
-                          msg.role === 'user'
-                            ? 'bg-purple-600 text-white rounded-br-sm'
-                            : 'bg-gray-800 text-gray-200 rounded-bl-sm'
-                        }`}
-                        style={{ whiteSpace: 'pre-wrap' }}
-                      >
-                        {msg.content}
-                      </div>
-                    </div>
-                  ))}
-
-                  {isTyping && (
-                    <div className="flex justify-start">
-                      <div
-                        className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mr-2 mt-0.5"
-                        style={{ background: `rgba(${rgb}, 0.15)`, color: tool.color }}
-                      >
-                        <Bot className="w-3.5 h-3.5" />
-                      </div>
-                      <div className="bg-gray-800 rounded-2xl rounded-bl-sm px-4 py-3.5">
-                        <div className="flex gap-1">
-                          {[0, 1, 2].map((i) => (
-                            <motion.div
-                              key={i}
-                              className="w-1.5 h-1.5 rounded-full bg-gray-500"
-                              animate={{ y: [0, -4, 0] }}
-                              transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.15 }}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  <div ref={messagesEndRef} />
-                </div>
-
-                {/* Input */}
-                <div
-                  className="px-4 pt-3 border-t border-gray-200 dark:border-gray-800 flex gap-2"
-                  style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 0px))' }}
-                >
-                  <input
-                    type="text"
-                    inputMode="text"
-                    autoComplete="off"
-                    placeholder="Ask anything about your PDF…"
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-                    className="flex-1 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none focus:border-purple-500 transition-colors"
-                  />
-                  <button
-                    onClick={sendMessage}
-                    disabled={!input.trim() || isTyping}
-                    className="flex items-center justify-center w-11 h-11 flex-shrink-0 rounded-xl bg-purple-600 hover:bg-purple-500 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-                  >
-                    <Send className="w-4 h-4 text-white" />
-                  </button>
-                </div>
-              </>
-            )}
-          </motion.div>
-
-          {/* Sidebar */}
-          <div className="space-y-4">
-            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-5">
-              <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-                <Zap className="w-4 h-4 text-yellow-400" />
-                How it works
-              </h3>
-              <ol className="space-y-3">
-                {howSteps.map((s, i) => (
-                  <li key={i} className="flex gap-2.5 text-sm text-gray-400">
-                    <span className="flex-shrink-0 w-5 h-5 rounded-full bg-gray-800 text-gray-500 flex items-center justify-center text-xs font-bold">
-                      {i + 1}
-                    </span>
-                    {s.title}
-                  </li>
-                ))}
-              </ol>
-            </div>
-
-            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-5">
-              <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-                <Shield className="w-4 h-4 text-green-400" />
-                Privacy
-              </h3>
-              <p className="text-sm text-gray-500 leading-relaxed">
-                Your file is encrypted in transit and deleted automatically after 30 minutes. We never read, store, or
-                sell your content.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <ToolFaqSection toolId={tool.id} color={tool.color} />
-        {relatedTools.length > 0 && <RelatedTools tools={relatedTools} />}
       </div>
     </div>
   )
@@ -3269,252 +2893,6 @@ function OrganizePdfInterface({
                 onClick={reset}
                 className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white text-sm font-semibold transition-colors"
               >
-                <RotateCcw className="w-4 h-4" /> Try again
-              </button>
-            </motion.div>
-          )}
-
-        </AnimatePresence>
-      </div>
-    </div>
-  )
-}
-
-// ─── AI Summarizer Interface ──────────────────────────────────────────────────
-
-function SummaryText({ text }: { text: string }) {
-  const paragraphs = text.split(/\n\n+/)
-  return (
-    <div className="space-y-4">
-      {paragraphs.map((para, pi) => {
-        const lines = para.split('\n').filter(Boolean)
-        const isList = lines.length > 1 && lines.every(l => /^[*•\-]\s/.test(l.trim()))
-        if (isList) {
-          return (
-            <ul key={pi} className="space-y-2">
-              {lines.map((line, li) => {
-                const content = line.replace(/^[*•\-]\s*/, '')
-                return (
-                  <li key={li} className="flex gap-2.5 text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
-                    <span className="w-1.5 h-1.5 rounded-full bg-purple-500 flex-shrink-0 mt-2" />
-                    <span dangerouslySetInnerHTML={{ __html: content.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>') }} />
-                  </li>
-                )
-              })}
-            </ul>
-          )
-        }
-        const boldLine = para.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-        const isHeading = /^\*\*.+\*\*:?$/.test(para.trim())
-        return isHeading
-          ? <h3 key={pi} className="text-sm font-bold text-gray-900 dark:text-white mt-2" dangerouslySetInnerHTML={{ __html: boldLine }} />
-          : <p key={pi} className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed" dangerouslySetInnerHTML={{ __html: boldLine }} />
-      })}
-    </div>
-  )
-}
-
-function AISummarizerInterface({
-  tool,
-  category,
-  relatedTools,
-}: {
-  tool: Tool
-  category: ToolCategory | undefined
-  relatedTools: Tool[]
-}) {
-  const rgb = hexToRgb(tool.color)
-  const [file, setFile]       = useState<File | null>(null)
-  const [stage, setStage]     = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
-  const [summary, setSummary] = useState('')
-  const [pages, setPages]     = useState(0)
-  const [copied, setCopied]   = useState(false)
-  const [errorMsg, setErrorMsg] = useState('')
-  const [detail, setDetail]   = useState<'brief' | 'standard' | 'detailed'>('standard')
-
-  const onDrop = useCallback(async (files: File[]) => {
-    const f = files[0]
-    if (!f) return
-    setFile(f)
-    setStage('loading')
-    setSummary('')
-    try {
-      const formData = new FormData()
-      formData.append('file', f)
-      formData.append('detail', detail)
-      const base = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
-      const res  = await fetch(`${base}/api/ai/summarize`, { method: 'POST', body: formData })
-      const json = await res.json().catch(() => ({})) as { summary?: string; pages?: number; detail?: string }
-      if (!res.ok) throw new Error(json.detail ?? 'Summarization failed')
-      setSummary(json.summary ?? '')
-      setPages(json.pages ?? 0)
-      setStage('done')
-    } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'Summarization failed')
-      setStage('error')
-    }
-  }, [detail])
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: PDF_ACCEPT,
-    maxFiles: 1,
-    disabled: stage === 'loading',
-  })
-
-  const reset = useCallback(() => {
-    setFile(null); setStage('idle'); setSummary(''); setErrorMsg(''); setPages(0)
-  }, [])
-
-  const copySummary = useCallback(async () => {
-    await navigator.clipboard.writeText(summary)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }, [summary])
-
-  const downloadSummary = useCallback(() => {
-    if (!summary || !file) return
-    const blob = new Blob([summary], { type: 'text/plain' })
-    const url  = URL.createObjectURL(blob)
-    const a    = document.createElement('a')
-    a.href     = url
-    a.download = file.name.replace(/\.pdf$/i, '_summary.txt')
-    a.click()
-    URL.revokeObjectURL(url)
-  }, [summary, file])
-
-  return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-      <Breadcrumb tool={tool} category={category} />
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-
-        {/* Header */}
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-4 mb-8">
-          <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: `rgba(${rgb}, 0.15)`, color: tool.color }}>
-            <ToolIcon name={tool.icon} className="w-6 h-6" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">{tool.name}</h1>
-            <p className="text-gray-500 dark:text-gray-400 text-sm">{tool.description}</p>
-          </div>
-        </motion.div>
-
-        <AnimatePresence mode="wait">
-
-          {/* ── IDLE ── */}
-          {stage === 'idle' && (
-            <motion.div key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              {/* Detail level selector */}
-              <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-4 mb-4">
-                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Summary Detail</p>
-                <div className="grid grid-cols-3 gap-2">
-                  {([
-                    { id: 'brief',    label: 'Brief',    desc: '3–5 bullet points' },
-                    { id: 'standard', label: 'Standard', desc: '6–8 bullet points' },
-                    { id: 'detailed', label: 'Detailed', desc: 'Full coverage' },
-                  ] as const).map(opt => (
-                    <button
-                      key={opt.id}
-                      onClick={() => setDetail(opt.id)}
-                      className={`rounded-xl px-3 py-2.5 text-left transition-all border ${
-                        detail === opt.id
-                          ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
-                          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                      }`}
-                    >
-                      <p className={`text-sm font-semibold ${detail === opt.id ? 'text-purple-600 dark:text-purple-400' : 'text-gray-700 dark:text-gray-200'}`}>{opt.label}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">{opt.desc}</p>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div
-                {...getRootProps()}
-                className={`border-2 border-dashed rounded-2xl p-20 text-center cursor-pointer transition-colors ${
-                  isDragActive ? 'border-purple-400 bg-purple-50 dark:bg-purple-900/10' : 'border-gray-300 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-600'
-                }`}
-              >
-                <input {...getInputProps()} />
-                <div className="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex items-center justify-center mx-auto mb-4">
-                  <Upload className={`w-7 h-7 transition-colors ${isDragActive ? 'text-purple-500' : 'text-gray-400'}`} />
-                </div>
-                <p className="text-gray-700 dark:text-gray-200 font-semibold text-lg mb-1">Drop your PDF here</p>
-                <p className="text-gray-400 dark:text-gray-500 text-sm">The AI will summarize it in the document&apos;s own language</p>
-              </div>
-              <ToolFaqSection toolId={tool.id} color={tool.color} />
-              {relatedTools.length > 0 && <RelatedTools tools={relatedTools} />}
-            </motion.div>
-          )}
-
-          {/* ── LOADING ── */}
-          {stage === 'loading' && (
-            <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-16 text-center"
-            >
-              <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-5" style={{ background: `rgba(${rgb}, 0.12)` }}>
-                <Loader2 className="w-7 h-7 animate-spin" style={{ color: tool.color }} />
-              </div>
-              <p className="text-gray-700 dark:text-gray-200 font-semibold mb-1">Summarizing…</p>
-              <p className="text-gray-400 text-sm">{file?.name}</p>
-            </motion.div>
-          )}
-
-          {/* ── DONE ── */}
-          {stage === 'done' && (
-            <motion.div key="done" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-              {/* Meta bar */}
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2 text-xs text-gray-400">
-                  <FileText className="w-3.5 h-3.5" />
-                  <span className="truncate max-w-xs">{file?.name}</span>
-                  {pages > 0 && <span>· {pages} pages</span>}
-                </div>
-                <button onClick={reset} className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 flex items-center gap-1 transition-colors">
-                  <X className="w-3.5 h-3.5" /> New file
-                </button>
-              </div>
-
-              {/* Summary card */}
-              <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 mb-4">
-                <div className="flex items-center gap-2 mb-4 pb-3 border-b border-gray-100 dark:border-gray-800">
-                  <Bot className="w-4 h-4" style={{ color: tool.color }} />
-                  <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">AI Summary</span>
-                </div>
-                <SummaryText text={summary} />
-              </div>
-
-              {/* Actions */}
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={copySummary}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 text-sm font-semibold hover:text-gray-900 dark:hover:text-white transition-colors"
-                >
-                  {copied ? <CheckCircle className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-                  {copied ? 'Copied!' : 'Copy text'}
-                </button>
-                <button
-                  onClick={downloadSummary}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-bold transition-opacity hover:opacity-90"
-                  style={{ background: tool.color }}
-                >
-                  <Download className="w-4 h-4" /> Save as .txt
-                </button>
-              </div>
-            </motion.div>
-          )}
-
-          {/* ── ERROR ── */}
-          {stage === 'error' && (
-            <motion.div key="error" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="bg-white dark:bg-gray-900 border border-red-200 dark:border-red-900/40 rounded-2xl p-14 text-center"
-            >
-              <div className="w-14 h-14 rounded-full bg-red-50 dark:bg-red-900/20 flex items-center justify-center mx-auto mb-4">
-                <AlertCircle className="w-7 h-7 text-red-500" />
-              </div>
-              <h3 className="text-gray-900 dark:text-white font-bold text-lg mb-2">Summarization failed</h3>
-              <p className="text-red-400 text-sm mb-6 max-w-sm mx-auto">{errorMsg}</p>
-              <button onClick={reset} className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white text-sm font-semibold transition-colors">
                 <RotateCcw className="w-4 h-4" /> Try again
               </button>
             </motion.div>
@@ -6619,9 +5997,6 @@ export default function ToolClient({
   relatedTools: Tool[]
 }) {
   if (tool.comingSoon) return <ComingSoonPage tool={tool} category={category} />
-  if (tool.id === 'ai-summarizer') return <AISummarizerInterface tool={tool} category={category} relatedTools={relatedTools} />
-  if (tool.id === 'translate-pdf') return <FileToolInterface tool={tool} category={category} relatedTools={relatedTools} />
-  if (tool.category === 'ai') return <AIToolInterface tool={tool} category={category} relatedTools={relatedTools} />
   if (tool.id === 'markdown-editor') return <MarkdownEditorTool tool={tool} category={category} relatedTools={relatedTools} />
   if (tool.id === 'merge-pdf') return <MergePdfInterface tool={tool} category={category} relatedTools={relatedTools} />
   if (tool.id === 'organize-pdf') return <OrganizePdfInterface tool={tool} category={category} relatedTools={relatedTools} />

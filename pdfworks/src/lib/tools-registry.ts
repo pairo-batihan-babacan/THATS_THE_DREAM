@@ -324,58 +324,6 @@ export const tools: Tool[] = [
     route: '/tools/markdown-to-pdf',
   },
 
-  // ─── AI Tools ─────────────────────────────────────────────────────────────
-  {
-    id: 'ai-pdf-assistant',
-    name: 'AI PDF Assistant',
-    description: 'Use AI to process and understand your documents',
-    category: 'ai',
-    icon: 'Bot',
-    color: '#9b59b6',
-    comingSoon: false,
-    route: '/tools/ai-pdf-assistant',
-  },
-  {
-    id: 'chat-with-pdf',
-    name: 'Chat with PDF',
-    description: 'Ask questions about your PDF and get instant answers',
-    category: 'ai',
-    icon: 'MessageSquare',
-    color: '#9b59b6',
-    comingSoon: false,
-    route: '/tools/chat-with-pdf',
-  },
-  {
-    id: 'ai-summarizer',
-    name: 'AI PDF Summarizer',
-    description: 'Get AI-powered summaries of your documents',
-    category: 'ai',
-    icon: 'Sparkles',
-    color: '#9b59b6',
-    comingSoon: false,
-    route: '/tools/ai-summarizer',
-  },
-  {
-    id: 'translate-pdf',
-    name: 'Translate PDF',
-    description: 'Translate your PDF to any language',
-    category: 'ai',
-    icon: 'Languages',
-    color: '#9b59b6',
-    comingSoon: false,
-    route: '/tools/translate-pdf',
-  },
-  {
-    id: 'ai-question-generator',
-    name: 'AI Question Generator',
-    description: 'Create quizzes and tests from your PDF',
-    category: 'ai',
-    icon: 'BrainCircuit',
-    color: '#9b59b6',
-    comingSoon: false,
-    route: '/tools/ai-question-generator',
-  },
-
   // ─── Image Tools ──────────────────────────────────────────────────────────
   {
     id: 'image-compress',

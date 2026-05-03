@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from app.api.routes import audio, auth, document, image, jobs, payments, pdf, video, pages, ai
+from app.api.routes import audio, auth, document, image, jobs, payments, pdf, video, pages
 from app.core.database import init_database
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
@@ -72,8 +72,6 @@ app.include_router(image.router)
 app.include_router(jobs.router)
 app.include_router(payments.router)
 app.include_router(video.router)
-app.include_router(ai.router)
-
 # Page routes (must be last — catches / and tool paths)
 app.include_router(pages.router)
 

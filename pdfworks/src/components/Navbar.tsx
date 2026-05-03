@@ -57,11 +57,6 @@ const navData: NavCategory[] = [
       { label: 'Merge PDF',          slug: 'merge-pdf'         },
       { label: 'Organize PDF',       slug: 'organize-pdf'      },
       { label: 'Split PDF',          slug: 'split-pdf'         },
-      { label: 'AI PDF Assistant',   slug: 'ai-pdf-assistant'  },
-      { label: 'Chat with PDF',      slug: 'chat-with-pdf'     },
-      { label: 'AI PDF Summarizer',  slug: 'ai-summarizer'     },
-      { label: 'Translate PDF',      slug: 'translate-pdf'     },
-      { label: 'AI Question Gen.',   slug: 'ai-question-generator' },
     ],
   },
   {
@@ -442,7 +437,7 @@ export default function Navbar() {
                 className="h-[2px] w-full"
                 style={{
                   background:
-                    'linear-gradient(to right, #e74c3c, #3498db, #9b59b6, #2ecc71, #f39c12, #1abc9c, #e67e22)',
+                    'linear-gradient(to right, #e74c3c, #3498db, #2ecc71, #f39c12, #1abc9c, #e67e22)',
                 }}
               />
 
@@ -466,7 +461,7 @@ export default function Navbar() {
                   className="grid gap-6"
                   style={{
                     gridTemplateColumns:
-                      'minmax(0,2fr) minmax(0,1.5fr) repeat(5, minmax(0,1fr))',
+                      'minmax(0,2fr) minmax(0,1.5fr) repeat(4, minmax(0,1fr))',
                   }}
                 >
                   {categories.map((cat) => (
