@@ -1499,6 +1499,8 @@ function FileToolInterface({
         blob.text().then(setOcrText)
         if (tool.id === 'ocr-image-to-text' && files[0]) {
           setImgPreviewUrl(URL.createObjectURL(files[0]))
+        } else if (tool.id === 'pdf-ocr' && files[0]) {
+          generatePdfThumb(files[0]).then(({ thumb }) => setImgPreviewUrl(thumb)).catch(() => {})
         }
       }
       setTimeout(() => setStage('done'), 250)
@@ -1826,46 +1828,20 @@ function FileToolInterface({
 
                 {/* ── OCR result ── */}
                 {ocrText !== null && (
-                  tool.id === 'ocr-image-to-text' && imgPreviewUrl ? (
-                    /* Side-by-side: source image + extracted text */
-                    <div className="mt-5 mb-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
-                      {/* Source image */}
-                      <div className="flex flex-col">
-                        <span className="text-xs text-gray-500 font-medium uppercase tracking-wide block mb-1.5">Source</span>
-                        <div className="flex-1 rounded-xl overflow-hidden border border-gray-700 bg-gray-950 flex items-center justify-center min-h-[16rem]">
-                          <img
-                            src={imgPreviewUrl}
-                            alt="Source"
-                            className="max-h-72 w-full object-contain"
-                          />
-                        </div>
-                      </div>
-                      {/* Extracted text */}
-                      <div className="flex flex-col">
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-xs text-gray-500 font-medium uppercase tracking-wide">Extracted text</span>
-                          <button
-                            onClick={() => {
-                              navigator.clipboard.writeText(ocrText)
-                              setOcrCopied(true)
-                              setTimeout(() => setOcrCopied(false), 2000)
-                            }}
-                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-gray-700/60 transition-colors"
-                          >
-                            <Copy className="w-3.5 h-3.5" />
-                            {ocrCopied ? 'Copied!' : 'Copy'}
-                          </button>
-                        </div>
-                        <textarea
-                          readOnly
-                          value={ocrText}
-                          className="flex-1 min-h-[16rem] w-full rounded-xl bg-gray-950 border border-gray-700 text-gray-200 text-sm font-mono p-4 resize-y focus:outline-none focus:border-gray-500 leading-relaxed"
-                        />
+                  <div className="mt-5 mb-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+                    {/* Source preview */}
+                    <div className="flex flex-col">
+                      <span className="text-xs text-gray-500 font-medium uppercase tracking-wide block mb-1.5">Source</span>
+                      <div className="flex-1 rounded-xl overflow-hidden border border-gray-700 bg-gray-950 flex items-center justify-center min-h-[16rem]">
+                        {imgPreviewUrl ? (
+                          <img src={imgPreviewUrl} alt="Source" className="max-h-72 w-full object-contain" />
+                        ) : (
+                          <Loader2 className="w-6 h-6 text-gray-600 animate-spin" />
+                        )}
                       </div>
                     </div>
-                  ) : (
-                    /* pdf-ocr: text only */
-                    <div className="mt-4 mb-6 text-left">
+                    {/* Editable extracted text */}
+                    <div className="flex flex-col">
                       <div className="flex items-center justify-between mb-1.5">
                         <span className="text-xs text-gray-500 font-medium uppercase tracking-wide">Extracted text</span>
                         <button
@@ -1881,13 +1857,22 @@ function FileToolInterface({
                         </button>
                       </div>
                       <textarea
-                        readOnly
                         value={ocrText}
-                        rows={10}
-                        className="w-full rounded-xl bg-gray-950 border border-gray-700 text-gray-200 text-sm font-mono p-4 resize-y focus:outline-none focus:border-gray-500 leading-relaxed"
+                        onChange={e => {
+                          const newText = e.target.value
+                          setOcrText(newText)
+                          // Keep download blob in sync with edits
+                          if (outputUrl) URL.revokeObjectURL(outputUrl)
+                          const newBlob = new Blob([newText], { type: 'text/plain' })
+                          setOutputBlob(newBlob)
+                          setOutputUrl(URL.createObjectURL(newBlob))
+                        }}
+                        className="flex-1 min-h-[16rem] w-full rounded-xl bg-gray-950 border border-gray-700 text-gray-200 text-sm font-mono p-4 resize-y focus:outline-none focus:border-indigo-500 leading-relaxed"
+                        spellCheck={false}
                       />
+                      <p className="text-[10px] text-gray-500 mt-1">Edit above — download will reflect your changes</p>
                     </div>
-                  )
+                  </div>
                 )}
 
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
