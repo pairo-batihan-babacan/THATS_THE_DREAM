@@ -155,7 +155,7 @@ interface OptionsState {
 // Tools that are fully implemented with real client-side processing (WebAssembly / pdf-lib)
 const REAL_TOOLS = new Set([
   'compress-pdf', 'merge-pdf', 'split-pdf', 'rotate-pdf',
-  'delete-pages', 'extract-pages', 'number-pages', 'protect-pdf',
+  'delete-pages', 'extract-pages', 'number-pages',
   'watermark-pdf', 'flatten-pdf',
   'pdf-ocr', 'ocr-image-to-text',
   'image-compress', 'image-resize', 'image-convert', 'strip-exif',
@@ -185,6 +185,7 @@ const SERVER_TOOLS = new Set([
   'csv-to-json',
   'strip-metadata',
   'unlock-pdf',
+  'protect-pdf',
   'pdf-to-excel',
   'heic-to-jpg', 'png-to-jpg',
   'audio-convert', 'compress-audio', 'extract-audio',
@@ -204,6 +205,7 @@ const SERVER_TOOL_ENDPOINTS: Record<string, string> = {
   'csv-to-json':      '/api/document/csv-to-json',
   'strip-metadata':   '/api/pdf/strip-metadata',
   'unlock-pdf':       '/api/pdf/unlock',
+  'protect-pdf':      '/api/pdf/protect',
   'pdf-to-excel':     '/api/pdf/to-excel',
   'heic-to-jpg':      '/api/image/convert',
   'png-to-jpg':       '/api/image/convert',
@@ -249,6 +251,10 @@ async function runServerTool(
       for (const f of files) fd.append('files', f)
       break
     case 'unlock-pdf':
+      fd.append('file', files[0])
+      fd.append('password', options.password)
+      break
+    case 'protect-pdf':
       fd.append('file', files[0])
       fd.append('password', options.password)
       break
@@ -1430,11 +1436,6 @@ function FileToolInterface({
         case 'number-pages': {
           const { numberPagesPdf } = await import('@/lib/processors/pdf')
           blob = await numberPagesPdf(files[0], {}, onProgress)
-          break
-        }
-        case 'protect-pdf': {
-          const { protectPdf } = await import('@/lib/processors/pdf')
-          blob = await protectPdf(files[0], options.password, onProgress)
           break
         }
         case 'watermark-pdf': {
