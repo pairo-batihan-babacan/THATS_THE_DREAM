@@ -148,21 +148,82 @@ const TOOLS = {
   },
   audio: {
     title: 'Audio Tools',
-    hint: 'MP3, WAV, M4A, OGG, FLAC up to 50MB',
+    hint: 'MP3, WAV, M4A, OGG, FLAC, AAC up to 50MB',
     tools: [
       {
         id: 'convert', label: 'Convert',
         desc: 'Change format',
-        endpoint: '/api/audio/convert', accept: '.mp3,.wav,.m4a,.ogg,.flac,.aac',
+        endpoint: '/api/audio/convert', accept: '.mp3,.wav,.m4a,.ogg,.flac,.aac,.aiff',
         multiple: false,
-        options: [{ type: 'select', name: 'target_format', label: 'Convert to', choices: ['mp3', 'wav', 'ogg', 'm4a', 'flac', 'aac'] }]
+        options: [
+          { type: 'select', name: 'target_format', label: 'Convert to',
+            choices: ['mp3', 'aac', 'ogg', 'm4a', 'flac', 'wav', 'aiff'] },
+          { type: 'select', name: 'quality', label: 'Quality (lossy output)',
+            choices: [
+              { value: 'high',   label: 'High — 192 kbps' },
+              { value: 'medium', label: 'Medium — 128 kbps' },
+              { value: 'low',    label: 'Low — 96 kbps' }
+            ], default: 'high' }
+        ]
       },
       {
         id: 'compress', label: 'Compress',
         desc: 'Reduce file size',
-        endpoint: '/api/audio/compress', accept: '.mp3,.wav,.m4a,.ogg,.flac,.aac',
+        endpoint: '/api/audio/compress', accept: '.mp3,.wav,.m4a,.ogg,.flac,.aac,.aiff',
         multiple: false,
-        options: [{ type: 'select', name: 'bitrate', label: 'Quality (bitrate)', choices: ['64k', '128k', '192k', '320k'], default: '128k' }]
+        options: [
+          { type: 'select', name: 'bitrate', label: 'Target bitrate',
+            choices: [
+              { value: '64k',  label: '64 kbps — very small, lower quality' },
+              { value: '96k',  label: '96 kbps — small, acceptable quality' },
+              { value: '128k', label: '128 kbps — good balance (recommended)' },
+              { value: '192k', label: '192 kbps — high quality, moderate size' },
+              { value: '320k', label: '320 kbps — near-lossless quality' }
+            ], default: '128k' }
+        ]
+      },
+      {
+        id: 'trim', label: 'Trim',
+        desc: 'Cut a time range',
+        endpoint: '/api/audio/trim', accept: '.mp3,.wav,.m4a,.ogg,.flac,.aac,.aiff',
+        multiple: false,
+        options: [
+          { type: 'text', name: 'start', label: 'Start time',
+            placeholder: '0:30  or  30  (seconds)' },
+          { type: 'text', name: 'end',   label: 'End time',
+            placeholder: '1:45  or  105  (seconds)' }
+        ]
+      },
+      {
+        id: 'normalize', label: 'Normalize',
+        desc: 'Fix volume levels',
+        endpoint: '/api/audio/normalize', accept: '.mp3,.wav,.m4a,.ogg,.flac,.aac,.aiff',
+        multiple: false,
+        options: [
+          { type: 'select', name: 'target_loudness', label: 'Target loudness',
+            choices: [
+              { value: '-14', label: '-14 LUFS — Streaming (Spotify, YouTube, Apple Music)' },
+              { value: '-16', label: '-16 LUFS — General / Podcasting' },
+              { value: '-23', label: '-23 LUFS — Broadcast (EBU R128 standard)' }
+            ], default: '-16' }
+        ]
+      },
+      {
+        id: 'change-speed', label: 'Change Speed',
+        desc: 'Speed up or slow down',
+        endpoint: '/api/audio/change-speed', accept: '.mp3,.wav,.m4a,.ogg,.flac,.aac,.aiff',
+        multiple: false,
+        options: [
+          { type: 'select', name: 'speed', label: 'Speed',
+            choices: [
+              { value: '0.5',  label: '0.5× — Half speed' },
+              { value: '0.75', label: '0.75× — Slow' },
+              { value: '1.25', label: '1.25× — Slightly faster' },
+              { value: '1.5',  label: '1.5× — Faster' },
+              { value: '1.75', label: '1.75× — Very fast' },
+              { value: '2.0',  label: '2.0× — Double speed' }
+            ], default: '1.5' }
+        ]
       },
       {
         id: 'extract-from-video', label: 'Extract Audio',
@@ -170,14 +231,20 @@ const TOOLS = {
         endpoint: '/api/audio/extract-from-video', accept: '.mp4,.mov,.mkv,.avi,.webm',
         multiple: false,
         options: [
-          { type: 'select', name: 'format', label: 'Output format', choices: ['mp3', 'aac', 'wav', 'ogg', 'flac', 'm4a'], default: 'mp3' },
-          { type: 'select', name: 'quality', label: 'Quality', choices: ['low', 'medium', 'high'], default: 'high' }
+          { type: 'select', name: 'format', label: 'Output format',
+            choices: ['mp3', 'aac', 'wav', 'ogg', 'flac', 'm4a'], default: 'mp3' },
+          { type: 'select', name: 'quality', label: 'Quality',
+            choices: [
+              { value: 'high',   label: 'High — 192 kbps' },
+              { value: 'medium', label: 'Medium — 128 kbps' },
+              { value: 'low',    label: 'Low — 96 kbps' }
+            ], default: 'high' }
         ]
       },
       {
         id: 'strip-metadata', label: 'Strip Metadata',
         desc: 'Remove ID3 tags',
-        endpoint: '/api/audio/strip-metadata', accept: '.mp3,.wav,.m4a,.ogg,.flac',
+        endpoint: '/api/audio/strip-metadata', accept: '.mp3,.wav,.m4a,.ogg,.flac,.aac',
         multiple: false, options: [],
         inspectEndpoint: '/api/audio/inspect-metadata'
       },
@@ -426,9 +493,16 @@ function buildOptions(options) {
       sel.name = opt.name;
       opt.choices.forEach(c => {
         const o = document.createElement('option');
-        o.value = c;
-        o.textContent = c;
-        if (c === opt.default) o.selected = true;
+        // Support both plain strings and {value, label} objects
+        if (typeof c === 'object' && c !== null) {
+          o.value = c.value;
+          o.textContent = c.label;
+          if (c.value === opt.default) o.selected = true;
+        } else {
+          o.value = c;
+          o.textContent = c;
+          if (c === opt.default) o.selected = true;
+        }
         sel.appendChild(o);
       });
       group.appendChild(sel);
