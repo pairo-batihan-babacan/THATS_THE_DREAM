@@ -250,10 +250,12 @@ export async function protectPdf(
 
 export interface WatermarkOpts {
   text?: string
-  position?: string   // 'diagonal'|'center'|'top'|'bottom'|'top-left'|'top-right'|'bottom-left'|'bottom-right'
-  opacity?: number    // 0-100 percentage
-  rotation?: number   // degrees
-  colorHex?: string   // e.g. '#999999'
+  xPct?: number        // 0-1 horizontal position (0=left, 1=right)
+  yPct?: number        // 0-1 vertical screen-space position (0=top, 1=bottom)
+  fontSizePct?: number // font size as % of min(pageW, pageH)
+  opacity?: number     // 0-100 percentage
+  rotation?: number    // clockwise screen degrees
+  colorHex?: string    // e.g. '#999999'
 }
 
 export async function watermarkPdf(
@@ -264,10 +266,12 @@ export async function watermarkPdf(
   const buffer = await file.arrayBuffer()
   const result = await callWorker('watermark', [buffer], {
     watermarkText:     opts.text,
-    watermarkPosition: opts.position,
     watermarkOpacity:  opts.opacity,
     watermarkRotation: opts.rotation,
     watermarkColorHex: opts.colorHex,
+    wmXPct:            opts.xPct,
+    wmYPct:            opts.yPct,
+    wmFontSizePct:     opts.fontSizePct,
   }, onProgress)
   return new Blob([result], { type: 'application/pdf' })
 }

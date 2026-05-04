@@ -15,10 +15,12 @@ interface WorkerRequest {
     pageRange?: string
     rotation?: number
     watermarkText?: string
-    watermarkPosition?: string
     watermarkOpacity?: number      // 0-100 percentage
-    watermarkRotation?: number     // degrees
+    watermarkRotation?: number     // clockwise screen degrees
     watermarkColorHex?: string     // e.g. '#999999'
+    wmXPct?: number                // 0-1 horizontal (0=left)
+    wmYPct?: number                // 0-1 vertical screen space (0=top)
+    wmFontSizePct?: number         // font size as % of min(pageW, pageH)
     password?: string
     numberPosition?: string        // 'TL'|'TC'|'TR'|'ML'|'MC'|'MR'|'BL'|'BC'|'BR'
     numberStartFrom?: number
@@ -255,9 +257,14 @@ async function doWatermark(
   const font = await doc.embedFont(StandardFonts.HelveticaBold)
   const total = doc.getPageCount()
 
-  const position   = opts.watermarkPosition  ?? 'diagonal'
-  const opacity    = (opts.watermarkOpacity  ?? 22) / 100   // convert % to 0-1
-  const rotDeg     = opts.watermarkRotation  ?? 45
+  const xPct      = opts.wmXPct          ?? 0.5
+  const yPct      = opts.wmYPct          ?? 0.5
+  const fszPct    = opts.wmFontSizePct   ?? 10
+  const opacity   = (opts.watermarkOpacity ?? 22) / 100
+  // wmRotation is CW screen degrees; PDF uses CCW-positive, so negate
+  const rotCW     = opts.watermarkRotation ?? -45
+  const pdfRotDeg = -rotCW
+  const pdfRotRad = pdfRotDeg * Math.PI / 180
   const [cr, cg, cb] = opts.watermarkColorHex
     ? hexToRgb01(opts.watermarkColorHex)
     : [0.6, 0.6, 0.6]
@@ -266,37 +273,25 @@ async function doWatermark(
     progress(id, 10 + (i / total) * 80, `Watermarking page ${i + 1} of ${total}…`)
     const page = doc.getPage(i)
     const { width, height } = page.getSize()
-    const autoSize   = Math.min(width, height) * 0.1
-    const textWidth  = font.widthOfTextAtSize(text, autoSize)
 
-    let x: number, y: number, rot: number
+    const fontSize = fszPct / 100 * Math.min(width, height)
+    const textW    = font.widthOfTextAtSize(text, fontSize)
 
-    switch (position) {
-      case 'center':
-        x = (width - textWidth) / 2; y = (height - autoSize) / 2; rot = rotDeg; break
-      case 'top':
-        x = (width - textWidth) / 2; y = height * 0.82; rot = rotDeg; break
-      case 'bottom':
-        x = (width - textWidth) / 2; y = height * 0.08; rot = rotDeg; break
-      case 'top-left':
-        x = width * 0.05; y = height * 0.82; rot = rotDeg; break
-      case 'top-right':
-        x = width * 0.55; y = height * 0.82; rot = rotDeg; break
-      case 'bottom-left':
-        x = width * 0.05; y = height * 0.08; rot = rotDeg; break
-      case 'bottom-right':
-        x = width * 0.55; y = height * 0.08; rot = rotDeg; break
-      default: // diagonal
-        x = (width - textWidth) / 2; y = (height - autoSize) / 2; rot = 45; break
-    }
+    // Map screen-space position to PDF coordinates (Y-axis flip: yPct=0=top → pdfY=height)
+    const cx = xPct * width
+    const cy = (1 - yPct) * height
+
+    // Compute bottom-left anchor so text visually centers at (cx, cy) with pdfRotRad (CCW)
+    const x = cx - (textW / 2) * Math.cos(pdfRotRad) + (fontSize / 2) * Math.sin(pdfRotRad)
+    const y = cy - (textW / 2) * Math.sin(pdfRotRad) - (fontSize / 2) * Math.cos(pdfRotRad)
 
     page.drawText(text, {
       x, y,
-      size: autoSize,
+      size: fontSize,
       font,
       color: rgb(cr, cg, cb),
       opacity,
-      rotate: degrees(rot),
+      rotate: degrees(pdfRotDeg),
     })
   }
   progress(id, 93, 'Saving…')

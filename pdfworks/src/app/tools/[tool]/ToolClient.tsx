@@ -3928,18 +3928,7 @@ function NumberPagesInterface({
 }
 
 // ─── Watermark Interface ──────────────────────────────────────────────────────
-// Rich options (text / position / opacity / rotation / color) + live preview.
-
-const WM_POSITIONS = [
-  { id: 'diagonal',     label: 'Diagonal',    hint: '45° center (default)' },
-  { id: 'center',       label: 'Center',      hint: 'Centered, horizontal' },
-  { id: 'top',          label: 'Top',         hint: 'Top, horizontally centered' },
-  { id: 'bottom',       label: 'Bottom',      hint: 'Bottom, horizontally centered' },
-  { id: 'top-left',     label: 'Top Left',    hint: 'Top-left corner' },
-  { id: 'top-right',    label: 'Top Right',   hint: 'Top-right corner' },
-  { id: 'bottom-left',  label: 'Bottom Left', hint: 'Bottom-left corner' },
-  { id: 'bottom-right', label: 'Bottom Right',hint: 'Bottom-right corner' },
-]
+// Canvas-based real-time preview. Drag text to position, drag handle to rotate.
 
 const WM_COLORS = [
   { hex: '#999999', label: 'Gray' },
@@ -3948,33 +3937,6 @@ const WM_COLORS = [
   { hex: '#1155cc', label: 'Blue' },
   { hex: '#227722', label: 'Green' },
 ]
-
-function wmPreviewStyle(position: string, rotation: number, opacity: number, color: string): React.CSSProperties {
-  const base: React.CSSProperties = {
-    position: 'absolute',
-    fontSize: '13px',
-    fontFamily: 'Helvetica, Arial, sans-serif',
-    fontWeight: 'bold',
-    color,
-    opacity: opacity / 100,
-    pointerEvents: 'none',
-    whiteSpace: 'nowrap',
-    letterSpacing: '0.04em',
-  }
-  const rot = position === 'diagonal' ? 45 : rotation
-  const transform = `translate(-50%, -50%) rotate(${rot}deg)`
-
-  switch (position) {
-    case 'center':       return { ...base, top: '50%', left: '50%', transform }
-    case 'top':          return { ...base, top: '15%', left: '50%', transform }
-    case 'bottom':       return { ...base, top: '85%', left: '50%', transform }
-    case 'top-left':     return { ...base, top: '20%', left: '25%', transform }
-    case 'top-right':    return { ...base, top: '20%', left: '75%', transform }
-    case 'bottom-left':  return { ...base, top: '80%', left: '25%', transform }
-    case 'bottom-right': return { ...base, top: '80%', left: '75%', transform }
-    default:             return { ...base, top: '50%', left: '50%', transform } // diagonal
-  }
-}
 
 function WatermarkInterface({
   tool,
@@ -3986,23 +3948,195 @@ function WatermarkInterface({
   relatedTools: Tool[]
 }) {
   const rgb = hexToRgb(tool.color)
-  const [file,        setFile]      = useState<File | null>(null)
-  const [thumb,       setThumb]     = useState('')
-  const [pageCount,   setPageCount] = useState(0)
-  const [stage,       setStage]     = useState<'idle' | 'loading' | 'ready' | 'processing' | 'done' | 'error'>('idle')
-  const [progress,    setProgress]  = useState(0)
-  const [statusMsg,   setStatusMsg] = useState('')
-  const [outputBlob,  setOutputBlob] = useState<Blob | null>(null)
-  const [outputUrl,   setOutputUrl]  = useState('')
-  const [errorMsg,    setErrorMsg]   = useState('')
+  const [file,       setFile]      = useState<File | null>(null)
+  const [thumb,      setThumb]     = useState('')
+  const [pageCount,  setPageCount] = useState(0)
+  const [stage,      setStage]     = useState<'idle' | 'loading' | 'ready' | 'processing' | 'done' | 'error'>('idle')
+  const [progress,   setProgress]  = useState(0)
+  const [statusMsg,  setStatusMsg] = useState('')
+  const [outputBlob, setOutputBlob] = useState<Blob | null>(null)
+  const [outputUrl,  setOutputUrl]  = useState('')
+  const [errorMsg,   setErrorMsg]   = useState('')
 
-  // Watermark options
-  const [wmText,     setWmText]     = useState('CONFIDENTIAL')
-  const [wmPosition, setWmPosition] = useState('diagonal')
-  const [wmOpacity,  setWmOpacity]  = useState(22)   // %
-  const [wmRotation, setWmRotation] = useState(45)
-  const [wmColor,    setWmColor]    = useState('#999999')
+  // Watermark state — rotation in clockwise screen degrees
+  const [wmText,        setWmText]        = useState('CONFIDENTIAL')
+  const [wmXPct,        setWmXPct]        = useState(0.5)
+  const [wmYPct,        setWmYPct]        = useState(0.5)
+  const [wmRotation,    setWmRotation]    = useState(-45)
+  const [wmOpacity,     setWmOpacity]     = useState(22)
+  const [wmColor,       setWmColor]       = useState('#999999')
+  const [wmFontSizePct, setWmFontSizePct] = useState(10)
+  const [cursor,        setCursor]        = useState('default')
 
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const imgRef    = useRef<HTMLImageElement>(null)
+  const hitRef    = useRef<{ cx: number; cy: number; textW: number; fh: number; hx: number; hy: number; hr: number } | null>(null)
+  const dragRef   = useRef<{
+    mode: 'move' | 'rotate'
+    startMX: number; startMY: number
+    startXPct: number; startYPct: number
+    startRot: number; startAngle: number
+    cx: number; cy: number
+  } | null>(null)
+
+  // ── Canvas draw ──────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const canvas = canvasRef.current
+    const img    = imgRef.current
+    if (!canvas || !img || !thumb) return
+
+    function draw() {
+      if (!canvas || !img) return
+      canvas.width  = img.naturalWidth
+      canvas.height = img.naturalHeight
+      const ctx = canvas.getContext('2d')!
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      if (!wmText.trim()) { hitRef.current = null; return }
+
+      const cx       = wmXPct * canvas.width
+      const cy       = wmYPct * canvas.height
+      const rotRad   = wmRotation * Math.PI / 180
+      const fontSize = wmFontSizePct / 100 * Math.min(canvas.width, canvas.height)
+      const lw       = Math.max(1, canvas.width / 350)
+
+      ctx.save()
+      ctx.translate(cx, cy)
+      ctx.rotate(rotRad)
+      ctx.font         = `bold ${fontSize}px Helvetica, Arial, sans-serif`
+      ctx.textAlign    = 'center'
+      ctx.textBaseline = 'middle'
+      const textW = ctx.measureText(wmText).width
+
+      // Text
+      ctx.globalAlpha = wmOpacity / 100
+      ctx.fillStyle   = wmColor
+      ctx.fillText(wmText, 0, 0)
+
+      // Dashed bounding box
+      const pad = fontSize * 0.22
+      ctx.globalAlpha  = 0.6
+      ctx.strokeStyle  = '#6366f1'
+      ctx.lineWidth    = lw
+      ctx.setLineDash([5, 4])
+      ctx.strokeRect(-textW / 2 - pad, -fontSize / 2 - pad, textW + pad * 2, fontSize + pad * 2)
+      ctx.restore()
+
+      // Handle stem + circle (screen space)
+      const handleDist = fontSize / 2 + pad + fontSize * 1.3
+      const hx = cx + Math.sin(rotRad) * handleDist
+      const hy = cy - Math.cos(rotRad) * handleDist
+      const hr = Math.max(9, canvas.width / 28)
+
+      ctx.save()
+      ctx.globalAlpha = 0.75
+      ctx.strokeStyle = '#6366f1'
+      ctx.lineWidth   = lw
+      ctx.setLineDash([4, 3])
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(hx, hy); ctx.stroke()
+      ctx.setLineDash([])
+      ctx.beginPath(); ctx.arc(hx, hy, hr, 0, Math.PI * 2)
+      ctx.fillStyle   = '#6366f1'
+      ctx.globalAlpha = 0.85
+      ctx.fill()
+      ctx.strokeStyle = 'rgba(255,255,255,0.9)'
+      ctx.lineWidth   = lw * 1.2
+      ctx.globalAlpha = 1
+      ctx.stroke()
+      ctx.restore()
+
+      hitRef.current = { cx, cy, textW, fh: fontSize, hx, hy, hr }
+    }
+
+    if (img.complete && img.naturalWidth > 0) {
+      draw()
+    } else {
+      img.addEventListener('load', draw, { once: true })
+      return () => img.removeEventListener('load', draw)
+    }
+  }, [wmText, wmXPct, wmYPct, wmRotation, wmOpacity, wmColor, wmFontSizePct, thumb])
+
+  // ── Mouse helpers ────────────────────────────────────────────────────────────
+  const getCanvasPos = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current!
+    const rect   = canvas.getBoundingClientRect()
+    return {
+      x: (e.clientX - rect.left) * (canvas.width / rect.width),
+      y: (e.clientY - rect.top)  * (canvas.height / rect.height),
+    }
+  }, [])
+
+  const onMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    e.preventDefault()
+    const { x, y } = getCanvasPos(e)
+    const hit = hitRef.current
+    if (!hit) return
+
+    if (Math.hypot(x - hit.hx, y - hit.hy) <= hit.hr * 1.6) {
+      dragRef.current = {
+        mode: 'rotate', startMX: x, startMY: y,
+        startXPct: wmXPct, startYPct: wmYPct, startRot: wmRotation,
+        startAngle: Math.atan2(y - hit.cy, x - hit.cx),
+        cx: hit.cx, cy: hit.cy,
+      }
+      setCursor('grabbing')
+      return
+    }
+
+    const rotRad = wmRotation * Math.PI / 180
+    const dx = x - hit.cx, dy = y - hit.cy
+    const localX =  dx * Math.cos(rotRad) + dy * Math.sin(rotRad)
+    const localY = -dx * Math.sin(rotRad) + dy * Math.cos(rotRad)
+    const pad    = hit.fh * 0.22
+    if (Math.abs(localX) <= hit.textW / 2 + pad && Math.abs(localY) <= hit.fh / 2 + pad) {
+      dragRef.current = {
+        mode: 'move', startMX: x, startMY: y,
+        startXPct: wmXPct, startYPct: wmYPct, startRot: wmRotation,
+        startAngle: 0, cx: hit.cx, cy: hit.cy,
+      }
+      setCursor('grabbing')
+    }
+  }, [getCanvasPos, wmXPct, wmYPct, wmRotation])
+
+  const onMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current!
+    const { x, y } = getCanvasPos(e)
+    const drag = dragRef.current
+
+    if (!drag) {
+      const hit = hitRef.current
+      if (!hit) { setCursor('default'); return }
+      if (Math.hypot(x - hit.hx, y - hit.hy) <= hit.hr * 1.6) { setCursor('grab'); return }
+      const rotRad = wmRotation * Math.PI / 180
+      const dx = x - hit.cx, dy = y - hit.cy
+      const localX =  dx * Math.cos(rotRad) + dy * Math.sin(rotRad)
+      const localY = -dx * Math.sin(rotRad) + dy * Math.cos(rotRad)
+      const pad = hit.fh * 0.22
+      setCursor(Math.abs(localX) <= hit.textW / 2 + pad && Math.abs(localY) <= hit.fh / 2 + pad ? 'move' : 'default')
+      return
+    }
+
+    if (drag.mode === 'move') {
+      setWmXPct(Math.max(0.02, Math.min(0.98, drag.startXPct + (x - drag.startMX) / canvas.width)))
+      setWmYPct(Math.max(0.02, Math.min(0.98, drag.startYPct + (y - drag.startMY) / canvas.height)))
+    } else {
+      const curAngle = Math.atan2(y - drag.cy, x - drag.cx)
+      let delta = (curAngle - drag.startAngle) * 180 / Math.PI
+      while (delta > 180)  delta -= 360
+      while (delta <= -180) delta += 360
+      let newRot = drag.startRot + delta
+      while (newRot > 180)  newRot -= 360
+      while (newRot <= -180) newRot += 360
+      // Snap to multiples of 45° within 5°
+      for (const s of [-180, -135, -90, -45, 0, 45, 90, 135, 180]) {
+        if (Math.abs(newRot - s) < 5) { newRot = s; break }
+      }
+      setWmRotation(Math.round(newRot * 10) / 10)
+    }
+  }, [getCanvasPos, wmRotation])
+
+  const onMouseUp = useCallback(() => { dragRef.current = null; setCursor('default') }, [])
+
+  // ── File handling ────────────────────────────────────────────────────────────
   const onDrop = useCallback(async (accepted: File[]) => {
     const f = accepted[0]
     if (!f) return
@@ -4032,10 +4166,9 @@ function WatermarkInterface({
     setStage('processing'); setProgress(0); setStatusMsg('')
     try {
       const { watermarkPdf } = await import('@/lib/processors/pdf')
-      const effectiveRotation = wmPosition === 'diagonal' ? 45 : wmRotation
       const blob = await watermarkPdf(
         file,
-        { text: wmText, position: wmPosition, opacity: wmOpacity, rotation: effectiveRotation, colorHex: wmColor },
+        { text: wmText, xPct: wmXPct, yPct: wmYPct, rotation: wmRotation, opacity: wmOpacity, colorHex: wmColor, fontSizePct: wmFontSizePct },
         (pct, msg) => { setProgress(pct); setStatusMsg(msg) },
       )
       const url = URL.createObjectURL(blob)
@@ -4045,7 +4178,7 @@ function WatermarkInterface({
       setErrorMsg(err instanceof Error ? err.message : 'Processing failed.')
       setStage('error')
     }
-  }, [file, wmText, wmPosition, wmOpacity, wmRotation, wmColor])
+  }, [file, wmText, wmXPct, wmYPct, wmRotation, wmOpacity, wmColor, wmFontSizePct])
 
   const outputName = file ? `${file.name.replace(/\.pdf$/i, '')}_watermarked.pdf` : 'watermarked.pdf'
 
@@ -4093,11 +4226,11 @@ function WatermarkInterface({
 
           {stage === 'ready' && (
             <motion.div key="ready" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <div className="grid lg:grid-cols-2 gap-6 mb-6">
+              <div className="grid lg:grid-cols-[300px_1fr] gap-5 mb-6">
 
                 {/* ── Options panel ── */}
-                <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 space-y-5">
-                  {/* File label */}
+                <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-5 space-y-4">
+
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 min-w-0">
                       <FileText className="w-4 h-4 flex-shrink-0" style={{ color: tool.color }} />
@@ -4109,58 +4242,23 @@ function WatermarkInterface({
                     </button>
                   </div>
 
-                  {/* Watermark text */}
                   <div>
                     <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wide">Watermark text</label>
-                    <input
-                      type="text"
-                      value={wmText}
-                      onChange={e => setWmText(e.target.value)}
+                    <input type="text" value={wmText} onChange={e => setWmText(e.target.value)}
                       placeholder="CONFIDENTIAL"
-                      className="w-full bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-purple-500 transition-colors"
-                    />
+                      className="w-full bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-purple-500 transition-colors" />
                   </div>
 
-                  {/* Position */}
                   <div>
-                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wide">Position</label>
-                    <div className="grid grid-cols-2 gap-1.5">
-                      {WM_POSITIONS.map(p => (
-                        <button key={p.id} onClick={() => setWmPosition(p.id)}
-                          title={p.hint}
-                          className={`py-1.5 px-3 rounded-lg text-xs font-medium border text-left transition-all ${
-                            wmPosition === p.id
-                              ? 'border-transparent text-white'
-                              : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-400'
-                          }`}
-                          style={wmPosition === p.id ? { background: tool.color } : {}}>
-                          {p.label}
-                        </button>
-                      ))}
-                    </div>
+                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
+                      Size — <span className="text-gray-300 normal-case tracking-normal">{wmFontSizePct}%</span>
+                    </label>
+                    <input type="range" min={4} max={30} step={1} value={wmFontSizePct}
+                      onChange={e => setWmFontSizePct(parseInt(e.target.value))}
+                      className="w-full" style={{ accentColor: tool.color }} />
+                    <div className="flex justify-between text-[10px] text-gray-400 mt-0.5"><span>Small</span><span>Large</span></div>
                   </div>
 
-                  {/* Rotation (hidden when diagonal, since diagonal forces 45°) */}
-                  {wmPosition !== 'diagonal' && (
-                    <div>
-                      <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wide">Rotation</label>
-                      <div className="flex gap-2">
-                        {[0, 45, -45, 90].map(deg => (
-                          <button key={deg} onClick={() => setWmRotation(deg)}
-                            className={`flex-1 py-2 rounded-lg text-xs font-semibold border transition-all ${
-                              wmRotation === deg
-                                ? 'border-transparent text-white'
-                                : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-400'
-                            }`}
-                            style={wmRotation === deg ? { background: tool.color } : {}}>
-                            {deg}°
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Opacity */}
                   <div>
                     <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
                       Opacity — <span className="text-gray-300 normal-case tracking-normal">{wmOpacity}%</span>
@@ -4171,7 +4269,6 @@ function WatermarkInterface({
                     <div className="flex justify-between text-[10px] text-gray-400 mt-0.5"><span>Subtle (5%)</span><span>Bold (80%)</span></div>
                   </div>
 
-                  {/* Color */}
                   <div>
                     <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wide">Color</label>
                     <div className="flex gap-2 flex-wrap">
@@ -4182,14 +4279,56 @@ function WatermarkInterface({
                           }`}
                           style={{ background: c.hex }} />
                       ))}
-                      {/* Custom color */}
                       <label title="Custom color"
-                        className="w-8 h-8 rounded-full border-2 border-dashed border-gray-400 flex items-center justify-center cursor-pointer hover:border-gray-300 transition-colors overflow-hidden">
+                        className="w-8 h-8 rounded-full border-2 flex items-center justify-center cursor-pointer transition-colors overflow-hidden"
+                        style={!WM_COLORS.find(c => c.hex === wmColor)
+                          ? { background: wmColor, borderColor: 'white', borderStyle: 'solid' }
+                          : { borderStyle: 'dashed', borderColor: '#9ca3af' }}>
                         <input type="color" value={wmColor} onChange={e => setWmColor(e.target.value)}
                           className="opacity-0 absolute w-0 h-0" />
-                        <span className="text-[9px] text-gray-400 font-bold">+</span>
+                        {WM_COLORS.find(c => c.hex === wmColor) && <span className="text-[9px] text-gray-400 font-bold">+</span>}
                       </label>
                     </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wide">Quick position</label>
+                    <div className="grid grid-cols-3 gap-1" style={{ width: '6rem' }}>
+                      {([
+                        [0.15, 0.15], [0.5, 0.15], [0.85, 0.15],
+                        [0.15, 0.5 ], [0.5, 0.5 ], [0.85, 0.5 ],
+                        [0.15, 0.85], [0.5, 0.85], [0.85, 0.85],
+                      ] as [number, number][]).map(([qx, qy], idx) => {
+                        const active = Math.abs(wmXPct - qx) < 0.06 && Math.abs(wmYPct - qy) < 0.06
+                        return (
+                          <button key={idx} onClick={() => { setWmXPct(qx); setWmYPct(qy) }}
+                            className={`w-7 h-7 rounded border transition-all ${
+                              active ? 'border-transparent' : 'border-gray-300 dark:border-gray-600 hover:border-gray-400'
+                            }`}
+                            style={active ? { background: tool.color } : {}} />
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
+                      Rotation — <span className="text-gray-300 normal-case tracking-normal">{wmRotation}°</span>
+                    </label>
+                    <div className="flex gap-1.5 flex-wrap">
+                      {[-45, 0, 45, -90, 90].map(deg => (
+                        <button key={deg} onClick={() => setWmRotation(deg)}
+                          className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                            wmRotation === deg
+                              ? 'border-transparent text-white'
+                              : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-400'
+                          }`}
+                          style={wmRotation === deg ? { background: tool.color } : {}}>
+                          {deg}°
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-[10px] text-gray-400 mt-1.5">Or drag the ● handle in the preview</p>
                   </div>
 
                   <button onClick={process} disabled={!wmText.trim()}
@@ -4199,22 +4338,25 @@ function WatermarkInterface({
                   </button>
                 </div>
 
-                {/* ── Preview panel ── */}
-                <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6">
-                  <p className="text-xs font-medium text-gray-400 mb-4 flex items-center gap-1.5 uppercase tracking-wide">
-                    <Eye className="w-3.5 h-3.5" /> Live preview
+                {/* ── Canvas preview panel ── */}
+                <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-5">
+                  <p className="text-xs font-medium text-gray-400 mb-3 uppercase tracking-wide flex items-center gap-1.5">
+                    <Eye className="w-3.5 h-3.5" /> Interactive preview — drag text to position · drag ● to rotate
                   </p>
                   {thumb ? (
-                    <div className="relative mx-auto shadow-lg rounded-lg overflow-hidden" style={{ maxWidth: '260px' }}>
-                      <img src={thumb} alt="First page" className="w-full block" />
-                      {wmText.trim() && (
-                        <div style={wmPreviewStyle(wmPosition, wmRotation, wmOpacity, wmColor)}>
-                          {wmText}
-                        </div>
-                      )}
+                    <div className="relative mx-auto shadow-lg rounded-lg overflow-hidden select-none" style={{ maxWidth: '440px' }}>
+                      <img ref={imgRef} src={thumb} alt="First page" className="w-full block" draggable={false} />
+                      <canvas ref={canvasRef}
+                        className="absolute inset-0 w-full h-full"
+                        style={{ cursor, touchAction: 'none' }}
+                        onMouseDown={onMouseDown}
+                        onMouseMove={onMouseMove}
+                        onMouseUp={onMouseUp}
+                        onMouseLeave={onMouseUp}
+                      />
                     </div>
                   ) : (
-                    <div className="aspect-[3/4] max-w-[260px] mx-auto bg-gray-100 dark:bg-gray-800 rounded flex items-center justify-center">
+                    <div className="aspect-[3/4] max-w-[440px] mx-auto bg-gray-100 dark:bg-gray-800 rounded flex items-center justify-center">
                       <Loader2 className="w-6 h-6 text-gray-400 animate-spin" />
                     </div>
                   )}
