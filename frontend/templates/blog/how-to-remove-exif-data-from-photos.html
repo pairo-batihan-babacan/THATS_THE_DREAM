@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}How to Remove EXIF Data from Photos — PDFWorks{% endblock %}
+{% block meta_description %}Step-by-step guide to removing EXIF metadata from photos — GPS location, camera model, date taken, and other hidden data. Free, online, no software needed.{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","headline":"How to Remove EXIF Data from Photos","datePublished":"2024-05-17","dateModified":"2024-05-17","author":{"@type":"Organization","name":"PDFWorks"},"publisher":{"@type":"Organization","name":"PDFWorks","url":"https://pdfworks.io"},"description":"Step-by-step guide to removing EXIF metadata from photos — GPS location, camera model, date taken, and other hidden data.","mainEntityOfPage":"https://pdfworks.io/blog/how-to-remove-exif-data-from-photos"}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="blog-post-page">
+  <nav class="breadcrumb">
+    <a href="/">Home</a><span class="sep">›</span>
+    <a href="/blog">Blog</a><span class="sep">›</span>
+    <span>How to Remove EXIF Data</span>
+  </nav>
+  <article>
+    <header class="post-header">
+      <h1>How to Remove EXIF Data from Photos</h1>
+      <div class="post-meta">
+        <span>May 17, 2024</span>
+        <span>5 min read</span>
+      </div>
+    </header>
+    <div class="post-divider"></div>
+    <div class="prose">
+      <p>Every photo taken on a modern smartphone or camera contains an invisible data payload called EXIF metadata. This data is embedded inside the image file and is invisible in the photo itself — but anyone who downloads the file can read it using freely available tools. It can reveal your GPS location, the device you used, and exactly when and where you took the photo. This guide explains what EXIF data is, why it matters, and how to remove it before sharing images.</p>
+
+      <h2>What EXIF Data Does Your Photo Contain?</h2>
+      <p>EXIF (Exchangeable Image File Format) stores a wide range of metadata fields. The most privacy-sensitive is GPS data:</p>
+      <ul>
+        <li><strong>GPS coordinates:</strong> Latitude and longitude, accurate to within a few metres — this is the location where the photo was taken</li>
+        <li><strong>GPS altitude:</strong> How high above sea level the photo was taken</li>
+        <li><strong>Date and time:</strong> The exact timestamp when the shutter fired</li>
+        <li><strong>Camera make and model:</strong> e.g. "Apple iPhone 15 Pro Max" or "Sony α7R V"</li>
+        <li><strong>Lens data:</strong> Focal length, aperture, and lens model</li>
+        <li><strong>Shutter speed and ISO:</strong> Camera exposure settings</li>
+        <li><strong>Software:</strong> Which app last processed or exported the photo</li>
+        <li><strong>Orientation:</strong> Which way the camera was held</li>
+      </ul>
+      <p>To see the EXIF data in a photo on Windows, right-click the file → Properties → Details tab. On macOS, open in Preview → Tools → Show Inspector → EXIF.</p>
+
+      <h2>Why Remove EXIF Before Sharing?</h2>
+
+      <h3>GPS location reveals where you live or work</h3>
+      <p>If you post a photo taken at your home, the GPS coordinates embedded in the file tell anyone who checks exactly where your home is. This is not hypothetical — there have been documented cases of people being located, stalked, or targeted through EXIF data in photos posted publicly online.</p>
+      <p>This is particularly relevant for: domestic abuse survivors who have relocated, journalists and activists working in sensitive contexts, people posting "I'm away from home" travel photos, and anyone who has taken photos at a private location they do not want to reveal.</p>
+
+      <h3>Date and time establishes an alibi — or destroys one</h3>
+      <p>EXIF timestamps can confirm or contradict claims about when you were somewhere. In legal and employment contexts, this data can be extracted from photos shared in messaging apps or submitted as evidence.</p>
+
+      <h3>Camera model reveals personal information</h3>
+      <p>A photo taken on an iPhone 15 Pro Max tells the viewer something about your financial situation. A photo taken on a specific professional camera model establishes you as a serious photographer. None of this is necessarily sensitive — but it is data you may not intend to share.</p>
+
+      <h2>Does Social Media Strip EXIF Automatically?</h2>
+      <p>Most major platforms do remove EXIF data when you upload a photo:</p>
+      <ul>
+        <li><strong>Instagram, Facebook, Twitter/X:</strong> Strip EXIF on upload</li>
+        <li><strong>WhatsApp:</strong> Strips EXIF when sending photos (but not documents)</li>
+        <li><strong>iMessage:</strong> Strips location data but may retain other EXIF</li>
+      </ul>
+      <p>However, there are important caveats:</p>
+      <ul>
+        <li>The platform has access to the EXIF data before stripping it — they use it for features like photo tagging and location check-ins</li>
+        <li>Not all platforms strip EXIF — forums, image hosting services, personal websites, Google Drive and Dropbox links typically preserve EXIF data intact</li>
+        <li>If you share the original file (via email, AirDrop, USB, or a link to a Dropbox/Drive file), EXIF is fully preserved</li>
+        <li>Stripping EXIF yourself is the only way to guarantee the data is never transmitted at all</li>
+      </ul>
+
+      <h2>How to Remove EXIF Data — Method 1: Online (Easiest)</h2>
+      <p>The easiest method is to use a free online tool. PDFWorks strips all EXIF metadata from images without any software installation or account registration.</p>
+      <ol class="steps-list">
+        <li>Go to the <a href="/tools/strip-exif">Strip EXIF Data</a> tool on PDFWorks.</li>
+        <li>Upload your image (JPG, PNG, WebP, TIFF, BMP).</li>
+        <li>Click Convert. Processing is near-instant.</li>
+        <li>Download the cleaned image. The visual content is identical; only the invisible metadata is removed.</li>
+      </ol>
+      <p>Your file is automatically deleted from our servers within 30 minutes.</p>
+
+      <h2>How to Remove EXIF Data — Method 2: Windows</h2>
+      <ol class="steps-list">
+        <li>Right-click the image file and select <strong>Properties</strong>.</li>
+        <li>Click the <strong>Details</strong> tab.</li>
+        <li>At the bottom, click <strong>"Remove Properties and Personal Information"</strong>.</li>
+        <li>Choose "Remove the following properties from this file" and select all, or choose "Create a copy with all possible properties removed" to keep the original intact.</li>
+        <li>Click OK.</li>
+      </ol>
+      <p>Note: the Windows method does not remove all EXIF fields — some technical fields (like colour space and image dimensions) are retained. For complete removal, use an online tool or dedicated EXIF editor.</p>
+
+      <h2>How to Remove EXIF Data — Method 3: macOS</h2>
+      <p>macOS does not have a built-in EXIF removal tool. Options include:</p>
+      <ul>
+        <li><strong>Preview → Export:</strong> Re-exporting a JPEG from Preview removes most EXIF, but this re-compresses the image slightly</li>
+        <li><strong>Terminal with ExifTool:</strong> Install ExifTool (<code>brew install exiftool</code>) then run <code>exiftool -all= yourphoto.jpg</code> to strip all metadata</li>
+        <li><strong>An online tool</strong> — easiest if you don't use the terminal</li>
+      </ul>
+
+      <h2>Does Removing EXIF Change the Photo?</h2>
+      <p>No. Stripping EXIF data removes only the invisible metadata header. Every pixel, colour, and detail of the image is completely preserved. The file may be very slightly smaller (by the size of the metadata, typically a few kilobytes), but the image itself is identical.</p>
+
+      <h2>Remove EXIF from Your Photos Now</h2>
+      <p><a href="/tools/strip-exif" class="btn btn-primary" style="display:inline-block;padding:.6rem 1.5rem;border-radius:8px;background:var(--accent);color:#fff;font-weight:600;text-decoration:none">Strip EXIF Data Free →</a></p>
+
+      <p style="margin-top:2rem"><strong>Related tools:</strong> <a href="/tools/strip-pdf-metadata">Strip PDF Metadata</a> · <a href="/tools/compress-image">Compress Image</a> · <a href="/tools/convert-image">Convert Image Format</a></p>
+    </div>
+  </article>
+</div>
+{% endblock %}

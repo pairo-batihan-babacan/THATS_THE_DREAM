@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Compress Audio Online Free — Reduce Audio File Size — PDFWorks{% endblock %}
+{% block meta_description %}Compress MP3, AAC, OGG, WAV, and FLAC audio files online. Reduce bitrate to shrink file size. Free, no account. WAV automatically converts to MP3. Files deleted in 30 min.{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebApplication","name":"PDFWorks Audio Compressor","url":"https://pdfworks.io/tools/compress-audio","description":"Free online audio compressor. Reduce bitrate to compress MP3, AAC, OGG, and WAV files. No account required.","applicationCategory":"MultimediaApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="tool-detail-page">
+  <nav class="breadcrumb">
+    <a href="/">Home</a><span class="sep">›</span>
+    <a href="/audio">Audio Tools</a><span class="sep">›</span>
+    <span>Compress Audio</span>
+  </nav>
+
+  <h1>Compress Audio</h1>
+  <p class="tool-lead">Reduce audio file size by lowering the bitrate. Works on MP3, AAC, OGG, M4A, FLAC, WAV, and AIFF. Free, no account required, files deleted in 30 minutes.</p>
+
+  <div class="tool-action-bar">
+    <p>Compress your audio file now — free, instant.</p>
+    <a href="/audio" class="btn btn-primary" style="padding:.55rem 1.25rem;border-radius:8px;background:var(--accent);color:#fff;font-weight:600;text-decoration:none;white-space:nowrap">Open Audio Compressor →</a>
+  </div>
+
+  <div class="prose">
+    <h2>How to Compress an Audio File</h2>
+    <ol class="steps-list">
+      <li>Go to <a href="/audio">Audio Tools</a> and select <strong>Compress Audio</strong> in the sidebar.</li>
+      <li>Upload your audio file (MP3, AAC, OGG, M4A, WAV, FLAC, AIFF).</li>
+      <li>Choose your target bitrate: 64k, 96k, 128k, 192k, or 320k.</li>
+      <li>Click <strong>Convert</strong> and download your compressed file.</li>
+    </ol>
+
+    <h2>Bitrate Guide</h2>
+    <ul>
+      <li><strong>320 kbps:</strong> Maximum quality MP3. Transparent — indistinguishable from lossless for most listeners. Largest files.</li>
+      <li><strong>192 kbps:</strong> High quality. Good for music. Files roughly half the size of 320 kbps.</li>
+      <li><strong>128 kbps:</strong> Standard streaming quality. Perceptibly similar to original for most content. Good default for podcasts and music.</li>
+      <li><strong>96 kbps:</strong> Noticeably compressed on music. Perfectly fine for speech and voice content.</li>
+      <li><strong>64 kbps:</strong> Very small files. Suitable only for voice recordings. Music will sound degraded.</li>
+    </ul>
+
+    <h2>What Happens with WAV and FLAC?</h2>
+    <p><strong>WAV:</strong> Uncompressed audio — there is no meaningful "compressed WAV." When you compress a WAV file, PDFWorks converts it to MP3 at the chosen bitrate, dramatically reducing file size while keeping the audio content.</p>
+    <p><strong>FLAC:</strong> Lossless compressed audio. PDFWorks re-encodes FLAC at maximum lossless compression level (level 12), which may produce slightly smaller files. If you want to reduce FLAC file size significantly, convert it to MP3 or AAC using the <a href="/tools/audio-converter">Audio Converter</a>.</p>
+
+    <h2>Important: Start from the Original</h2>
+    <p>Re-encoding an already-compressed file at a lower bitrate compounds quality loss. A 128 kbps MP3 re-encoded at 64 kbps will sound noticeably worse than a 64 kbps encode from the original source. Whenever possible, compress from the original lossless (WAV or FLAC) source rather than from an existing compressed copy.</p>
+
+    <p style="margin-top:2rem"><strong>Related tools:</strong></p>
+    <div class="related-tools">
+      <a href="/tools/audio-converter" class="related-tool-link">Audio Converter</a>
+      <a href="/tools/trim-audio" class="related-tool-link">Trim Audio</a>
+      <a href="/tools/normalize-audio" class="related-tool-link">Normalize Audio</a>
+    </div>
+    <p style="margin-top:1.5rem"><strong>Related guide:</strong> <a href="/blog/how-to-reduce-audio-file-size">How to Reduce Audio File Size</a></p>
+  </div>
+</div>
+{% endblock %}

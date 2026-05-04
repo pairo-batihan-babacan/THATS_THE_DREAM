@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Compress Video Online Free — Reduce Video File Size — PDFWorks{% endblock %}
+{% block meta_description %}Compress video files online for free. Reduce MP4, MOV, MKV, AVI, WebM file size using H.264 with quality settings. No account. Files deleted in 30 minutes.{% endblock %}
+{% block og_title %}Free Online Video Compressor — PDFWorks{% endblock %}
+{% block og_description %}Reduce video file size online. Upload MP4, MOV, MKV, AVI or WebM — get a compressed H.264 MP4 back. Free, no account, auto-deleted in 30 min.{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebApplication","name":"PDFWorks Video Compressor","url":"https://pdfworks.io/tools/compress-video","description":"Free online video compressor. Reduces file size using H.264 encoding with quality-optimised settings. Supports MP4, MOV, MKV, AVI, WebM. No account required.","applicationCategory":"MultimediaApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="tool-detail-page">
+  <nav class="breadcrumb">
+    <a href="/">Home</a><span class="sep">›</span>
+    <a href="/video">Video Tools</a><span class="sep">›</span>
+    <span>Compress Video</span>
+  </nav>
+
+  <h1>Compress Video</h1>
+  <p class="tool-lead">Reduce video file size online — upload your video, choose a quality level, and download a smaller H.264 MP4 that plays on every device. Free, no account required, files deleted automatically after 30 minutes.</p>
+
+  <div class="tool-action-bar">
+    <p>Compress your video now — free, no signup.</p>
+    <a href="/video" class="btn btn-primary" style="padding:.55rem 1.25rem;border-radius:8px;background:var(--accent);color:#fff;font-weight:600;text-decoration:none;white-space:nowrap">Open Video Compressor →</a>
+  </div>
+
+  <div class="prose">
+    <h2>How to Compress a Video Online</h2>
+    <ol class="steps-list">
+      <li>Go to <a href="/video">Video Tools</a> and select <strong>Compress Video</strong> in the sidebar.</li>
+      <li>Upload your video file. Supported input formats: <strong>MP4, MOV, MKV, AVI, WebM</strong>. Maximum file size: 50 MB.</li>
+      <li>Select a quality level: High, Medium, or Low.</li>
+      <li>Click <strong>Convert</strong>. Processing time varies by file length — typically 15–90 seconds.</li>
+      <li>Download your compressed MP4.</li>
+    </ol>
+
+    <h2>Quality Levels</h2>
+    <ul>
+      <li><strong>High (CRF 22):</strong> Visually near-lossless. Largest compressed output. Best for archiving or professional content where quality must be preserved.</li>
+      <li><strong>Medium (CRF 28):</strong> Good quality with significant size reduction — typically 40–60% smaller than the original. Recommended for sharing and uploading.</li>
+      <li><strong>Low (CRF 32):</strong> Maximum compression with visible quality reduction. Best when file size is the absolute priority, such as sending via email or messaging apps.</li>
+    </ul>
+
+    <h2>Output Format: Why Always MP4?</h2>
+    <p>All compressed videos are output as <strong>H.264/AAC MP4</strong> — the universal web video format that plays on every browser, phone, TV, and device without plugins or codec installation. Source files in MKV, MOV, AVI, or WebM format are re-encoded into this universally compatible format as part of the compression process.</p>
+
+    <h2>How Much Smaller Will My Video Get?</h2>
+    <p>Results depend on the source content and original encoding:</p>
+    <ul>
+      <li><strong>Camera footage or screen recordings</strong> that have not been previously compressed can often be reduced by 60–80% at Medium quality.</li>
+      <li><strong>Already-compressed videos</strong> (e.g. MP4 downloaded from a streaming site) may only shrink by 20–40% since the source is already efficient.</li>
+      <li><strong>Screen recordings</strong> compress very well due to static areas — often 70–85% smaller at Medium.</li>
+      <li><strong>High-motion content</strong> (sport, action) compresses less efficiently than static or slow-moving scenes.</li>
+    </ul>
+
+    <h2>Tips</h2>
+    <ul>
+      <li>For videos you will upload to YouTube or social media, use Medium or High — the platform will compress further, so starting with a highly compressed file results in double-compression artefacts.</li>
+      <li>For videos to send via email or messaging apps (under 25 MB), use Low quality and ensure the input is under 50 MB.</li>
+      <li>Keep your original video — compression is not reversible.</li>
+    </ul>
+
+    <p style="margin-top:2rem"><strong>Related tools:</strong></p>
+    <div class="related-tools">
+      <a href="/tools/convert-video" class="related-tool-link">Convert Video Format</a>
+      <a href="/tools/extract-audio" class="related-tool-link">Extract Audio from Video</a>
+    </div>
+    <p style="margin-top:1.5rem"><strong>Related guide:</strong> <a href="/blog/how-to-reduce-video-file-size">How to Reduce Video File Size: A Complete Guide</a></p>
+  </div>
+</div>
+{% endblock %}

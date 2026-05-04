@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Compress Image Online Free — Reduce Image File Size — PDFWorks{% endblock %}
+{% block meta_description %}Compress JPG, PNG, and WebP images online for free. Reduce image file size without visible quality loss. No account needed. Files deleted automatically in 30 minutes.{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebApplication","name":"PDFWorks Image Compressor","url":"https://pdfworks.io/tools/compress-image","description":"Free online image compressor. Reduce JPG, PNG, and WebP file sizes while preserving visual quality.","applicationCategory":"UtilitiesApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="tool-detail-page">
+  <nav class="breadcrumb">
+    <a href="/">Home</a><span class="sep">›</span>
+    <a href="/image">Image Tools</a><span class="sep">›</span>
+    <span>Compress Image</span>
+  </nav>
+
+  <h1>Compress Image</h1>
+  <p class="tool-lead">Reduce the file size of your images without noticeable quality loss. Ideal for compressing photos before uploading to a website, emailing, or reducing storage use. Free, no account required.</p>
+
+  <div class="tool-action-bar">
+    <p>Compress your image now — free, instant.</p>
+    <a href="/image" class="btn btn-primary" style="padding:.55rem 1.25rem;border-radius:8px;background:var(--accent);color:#fff;font-weight:600;text-decoration:none;white-space:nowrap">Open Image Compressor →</a>
+  </div>
+
+  <div class="prose">
+    <h2>How to Compress an Image</h2>
+    <ol class="steps-list">
+      <li>Go to <a href="/image">Image Tools</a> and select <strong>Compress Image</strong> in the sidebar.</li>
+      <li>Upload your image. Supported formats: <strong>JPG, PNG, WebP, BMP, TIFF</strong>.</li>
+      <li>Set the quality level (1–95). A quality of 75–85 is recommended for most images.</li>
+      <li>Click <strong>Convert</strong> and download your compressed image.</li>
+    </ol>
+
+    <h2>How Image Compression Works</h2>
+    <p>For JPEG images, compression reduces file size by discarding fine visual detail that is difficult for the human eye to perceive — particularly in areas of complex texture and at high frequencies. A quality setting of 80 typically produces files 60–80% smaller than the original with no visible difference at normal viewing distances.</p>
+    <p>PNG uses lossless compression, so reducing the quality level converts a PNG to JPEG internally to achieve size reduction. If you need to keep the PNG format and lossless quality, converting to WebP lossless is a better approach.</p>
+
+    <h2>Recommended Quality Settings</h2>
+    <ul>
+      <li><strong>85–95:</strong> Near-lossless. Minimal compression. Good for professional photography where quality must be preserved.</li>
+      <li><strong>75–85:</strong> Excellent quality with significant size reduction. The right range for website images and social media.</li>
+      <li><strong>60–75:</strong> Good quality, smaller files. Suitable for thumbnails, previews, and images viewed at small sizes.</li>
+      <li><strong>Below 60:</strong> Visible artefacts. Only appropriate when file size is the absolute priority.</li>
+    </ul>
+
+    <h2>Tips for Best Results</h2>
+    <ul>
+      <li>For photos, JPEG compression at quality 80 is usually imperceptible and dramatically reduces file size.</li>
+      <li>For images with text, logos, or sharp edges, use PNG or WebP to avoid JPEG block artefacts.</li>
+      <li>Always keep your original — compression is lossy for JPEG and cannot be reversed.</li>
+      <li>For web use, also consider converting to WebP for even smaller files with equivalent quality.</li>
+    </ul>
+
+    <p style="margin-top:2rem"><strong>Related tools:</strong></p>
+    <div class="related-tools">
+      <a href="/tools/convert-image" class="related-tool-link">Convert Image Format</a>
+      <a href="/tools/strip-exif" class="related-tool-link">Strip EXIF Data</a>
+      <a href="/tools/resize-image" class="related-tool-link">Resize Image</a>
+    </div>
+    <p style="margin-top:1.5rem"><strong>Related guide:</strong> <a href="/blog/jpeg-vs-png-vs-webp">JPEG vs PNG vs WebP: Which Format Should You Use?</a></p>
+  </div>
+</div>
+{% endblock %}

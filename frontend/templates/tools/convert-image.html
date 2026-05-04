@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Convert Image Format Online Free — JPG, PNG, WebP, TIFF — PDFWorks{% endblock %}
+{% block meta_description %}Convert images between JPG, PNG, WebP, BMP, TIFF, and more online for free. No account needed. Files deleted automatically in 30 minutes.{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebApplication","name":"PDFWorks Image Converter","url":"https://pdfworks.io/tools/convert-image","description":"Free online image format converter. Convert between JPG, PNG, WebP, BMP, TIFF and more. No account required.","applicationCategory":"UtilitiesApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="tool-detail-page">
+  <nav class="breadcrumb">
+    <a href="/">Home</a><span class="sep">›</span>
+    <a href="/image">Image Tools</a><span class="sep">›</span>
+    <span>Convert Image Format</span>
+  </nav>
+
+  <h1>Convert Image Format</h1>
+  <p class="tool-lead">Convert images between JPG, PNG, WebP, BMP, TIFF, and other formats online — free, instant, no account required. The original image quality is preserved wherever the format allows.</p>
+
+  <div class="tool-action-bar">
+    <p>Convert your image now — free, no signup needed.</p>
+    <a href="/image" class="btn btn-primary" style="padding:.55rem 1.25rem;border-radius:8px;background:var(--accent);color:#fff;font-weight:600;text-decoration:none;white-space:nowrap">Open Image Converter →</a>
+  </div>
+
+  <div class="prose">
+    <h2>How to Convert an Image</h2>
+    <ol class="steps-list">
+      <li>Go to <a href="/image">Image Tools</a> and select <strong>Convert Image</strong> in the sidebar.</li>
+      <li>Upload your image (JPG, PNG, WebP, BMP, TIFF, GIF, HEIC, SVG).</li>
+      <li>Choose your target format from the dropdown.</li>
+      <li>Click <strong>Convert</strong> and download your converted image.</li>
+    </ol>
+
+    <h2>When to Use Each Format</h2>
+    <ul>
+      <li><strong>JPG/JPEG:</strong> Best for photographs. Excellent compression with very small file sizes. Lossy — use quality 80+ to preserve detail.</li>
+      <li><strong>PNG:</strong> Best for screenshots, logos, graphics with text or transparency. Lossless — perfect quality, larger files for photographs.</li>
+      <li><strong>WebP:</strong> Best for web images. 25–35% smaller than JPEG at equivalent quality. Supports transparency. Supported by all modern browsers.</li>
+      <li><strong>TIFF:</strong> Best for professional printing and archiving. Lossless, very large files. Not suitable for web.</li>
+      <li><strong>BMP:</strong> Uncompressed Windows format. Very large files. Only use when specifically required by a legacy application.</li>
+    </ul>
+
+    <h2>Common Conversions</h2>
+    <ul>
+      <li><strong>PNG to JPG:</strong> Reduce a large PNG photo to a compact JPEG for web use or email. Images with transparency will have a white background applied.</li>
+      <li><strong>JPG to PNG:</strong> Convert a photo to PNG when you need to overlay it on a transparent background or combine it with graphics.</li>
+      <li><strong>JPG to WebP:</strong> Convert existing JPEG images to WebP to reduce web page load times.</li>
+      <li><strong>HEIC to JPG:</strong> Convert iPhone photos (HEIC) to JPEG for compatibility with Windows, Android, and web platforms.</li>
+      <li><strong>TIFF to JPG/PNG:</strong> Convert large professional-format images to web-friendly formats for online use.</li>
+    </ul>
+
+    <p style="margin-top:2rem"><strong>Related tools:</strong></p>
+    <div class="related-tools">
+      <a href="/tools/compress-image" class="related-tool-link">Compress Image</a>
+      <a href="/tools/resize-image" class="related-tool-link">Resize Image</a>
+      <a href="/tools/strip-exif" class="related-tool-link">Strip EXIF Data</a>
+    </div>
+    <p style="margin-top:1.5rem"><strong>Related guide:</strong> <a href="/blog/jpeg-vs-png-vs-webp">JPEG vs PNG vs WebP: Which Format Should You Use?</a></p>
+  </div>
+</div>
+{% endblock %}

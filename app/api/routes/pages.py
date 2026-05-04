@@ -153,6 +153,76 @@ BLOG_POSTS_META = [
         "date": "2024-03-12",
         "reading_time": "8 min read",
     },
+    {
+        "slug": "mp3-vs-aac",
+        "title": "MP3 vs AAC: Which Audio Format Should You Use?",
+        "description": "A clear comparison of MP3 and AAC audio formats — sound quality, file size, compatibility, and when each format is the right choice.",
+        "date": "2024-05-01",
+        "reading_time": "6 min read",
+    },
+    {
+        "slug": "what-is-audio-normalization",
+        "title": "What Is Audio Normalization? LUFS, EBU R128 and Loudness Explained",
+        "description": "Understand what audio normalization means, how LUFS and EBU R128 loudness targets work, and when you should normalize your audio.",
+        "date": "2024-05-03",
+        "reading_time": "7 min read",
+    },
+    {
+        "slug": "how-to-extract-audio-from-video",
+        "title": "How to Extract Audio from a Video File",
+        "description": "Step-by-step guide to pulling the audio track out of any video file and saving it as MP3, WAV, FLAC, or any other format.",
+        "date": "2024-05-05",
+        "reading_time": "5 min read",
+    },
+    {
+        "slug": "how-to-reduce-audio-file-size",
+        "title": "How to Reduce Audio File Size Without Losing Quality",
+        "description": "Practical techniques to compress audio files — bitrate reduction, format conversion, and when lossless compression makes sense.",
+        "date": "2024-05-07",
+        "reading_time": "6 min read",
+    },
+    {
+        "slug": "flac-vs-mp3",
+        "title": "FLAC vs MP3: Is Lossless Audio Worth It?",
+        "description": "An honest comparison of FLAC and MP3 — sound quality differences, file sizes, compatibility, and which to choose for listening, archiving, and streaming.",
+        "date": "2024-05-09",
+        "reading_time": "6 min read",
+    },
+    {
+        "slug": "how-to-reduce-video-file-size",
+        "title": "How to Reduce Video File Size: A Complete Guide",
+        "description": "Everything you need to know about making video files smaller — codecs, CRF, resolution, bitrate, and the right settings for every use case.",
+        "date": "2024-05-11",
+        "reading_time": "8 min read",
+    },
+    {
+        "slug": "mp4-vs-mkv",
+        "title": "MP4 vs MKV: Key Differences Explained",
+        "description": "Compare MP4 and MKV video containers — compatibility, features, codec support, and which format to use for streaming, editing, and archiving.",
+        "date": "2024-05-13",
+        "reading_time": "6 min read",
+    },
+    {
+        "slug": "jpeg-vs-png-vs-webp",
+        "title": "JPEG vs PNG vs WebP: Which Image Format Should You Use?",
+        "description": "A definitive guide to the three major web image formats — when to use each one, quality vs file size trade-offs, and browser compatibility.",
+        "date": "2024-05-15",
+        "reading_time": "7 min read",
+    },
+    {
+        "slug": "how-to-remove-exif-data-from-photos",
+        "title": "How to Remove EXIF Data from Photos",
+        "description": "Step-by-step guide to removing GPS location, camera model, and all hidden EXIF metadata from photos before sharing them online.",
+        "date": "2024-05-17",
+        "reading_time": "5 min read",
+    },
+    {
+        "slug": "how-to-extract-text-from-image-ocr",
+        "title": "How to Extract Text from an Image Online — Free OCR Guide",
+        "description": "How to use OCR to extract text from scanned documents, photos, and screenshots. Tips for getting the most accurate results.",
+        "date": "2024-05-19",
+        "reading_time": "6 min read",
+    },
 ]
 
 
@@ -211,6 +281,56 @@ async def blog_pdf_accessibility(request: Request):
 @router.get("/blog/create-fillable-pdf-forms")
 async def blog_fillable_forms(request: Request):
     return templates.TemplateResponse(request, "blog/fillable-pdf-forms.html")
+
+
+@router.get("/blog/mp3-vs-aac")
+async def blog_mp3_vs_aac(request: Request):
+    return templates.TemplateResponse(request, "blog/mp3-vs-aac.html")
+
+
+@router.get("/blog/what-is-audio-normalization")
+async def blog_audio_normalization(request: Request):
+    return templates.TemplateResponse(request, "blog/what-is-audio-normalization.html")
+
+
+@router.get("/blog/how-to-extract-audio-from-video")
+async def blog_extract_audio(request: Request):
+    return templates.TemplateResponse(request, "blog/how-to-extract-audio-from-video.html")
+
+
+@router.get("/blog/how-to-reduce-audio-file-size")
+async def blog_reduce_audio(request: Request):
+    return templates.TemplateResponse(request, "blog/how-to-reduce-audio-file-size.html")
+
+
+@router.get("/blog/flac-vs-mp3")
+async def blog_flac_vs_mp3(request: Request):
+    return templates.TemplateResponse(request, "blog/flac-vs-mp3.html")
+
+
+@router.get("/blog/how-to-reduce-video-file-size")
+async def blog_reduce_video(request: Request):
+    return templates.TemplateResponse(request, "blog/how-to-reduce-video-file-size.html")
+
+
+@router.get("/blog/mp4-vs-mkv")
+async def blog_mp4_vs_mkv(request: Request):
+    return templates.TemplateResponse(request, "blog/mp4-vs-mkv.html")
+
+
+@router.get("/blog/jpeg-vs-png-vs-webp")
+async def blog_jpeg_vs_png_vs_webp(request: Request):
+    return templates.TemplateResponse(request, "blog/jpeg-vs-png-vs-webp.html")
+
+
+@router.get("/blog/how-to-remove-exif-data-from-photos")
+async def blog_remove_exif(request: Request):
+    return templates.TemplateResponse(request, "blog/how-to-remove-exif-data-from-photos.html")
+
+
+@router.get("/blog/how-to-extract-text-from-image-ocr")
+async def blog_extract_text_ocr(request: Request):
+    return templates.TemplateResponse(request, "blog/how-to-extract-text-from-image-ocr.html")
 
 
 # ── Tool detail pages ─────────────────────────────────────────────────────────
@@ -275,6 +395,74 @@ async def tool_flatten_pdf(request: Request):
     return templates.TemplateResponse(request, "tools/flatten-pdf.html")
 
 
+# ── Image tool pages ──────────────────────────────────────────────────────────
+
+@router.get("/tools/convert-image")
+async def tool_convert_image(request: Request):
+    return templates.TemplateResponse(request, "tools/convert-image.html")
+
+
+@router.get("/tools/compress-image")
+async def tool_compress_image(request: Request):
+    return templates.TemplateResponse(request, "tools/compress-image.html")
+
+
+@router.get("/tools/resize-image")
+async def tool_resize_image(request: Request):
+    return templates.TemplateResponse(request, "tools/resize-image.html")
+
+
+@router.get("/tools/strip-exif")
+async def tool_strip_exif(request: Request):
+    return templates.TemplateResponse(request, "tools/strip-exif.html")
+
+
+# ── Audio tool pages ──────────────────────────────────────────────────────────
+
+@router.get("/tools/audio-converter")
+async def tool_audio_converter(request: Request):
+    return templates.TemplateResponse(request, "tools/audio-converter.html")
+
+
+@router.get("/tools/compress-audio")
+async def tool_compress_audio(request: Request):
+    return templates.TemplateResponse(request, "tools/compress-audio.html")
+
+
+@router.get("/tools/trim-audio")
+async def tool_trim_audio(request: Request):
+    return templates.TemplateResponse(request, "tools/trim-audio.html")
+
+
+@router.get("/tools/normalize-audio")
+async def tool_normalize_audio(request: Request):
+    return templates.TemplateResponse(request, "tools/normalize-audio.html")
+
+
+@router.get("/tools/change-speed-audio")
+async def tool_change_speed_audio(request: Request):
+    return templates.TemplateResponse(request, "tools/change-speed-audio.html")
+
+
+# ── Video tool pages ──────────────────────────────────────────────────────────
+
+@router.get("/tools/compress-video")
+async def tool_compress_video(request: Request):
+    return templates.TemplateResponse(request, "tools/compress-video.html")
+
+
+@router.get("/tools/convert-video")
+async def tool_convert_video(request: Request):
+    return templates.TemplateResponse(request, "tools/convert-video.html")
+
+
+# ── Document tool pages ───────────────────────────────────────────────────────
+
+@router.get("/tools/ocr")
+async def tool_ocr(request: Request):
+    return templates.TemplateResponse(request, "tools/ocr.html")
+
+
 # ── SEO files ─────────────────────────────────────────────────────────────────
 
 SITEMAP_URLS = [
@@ -300,6 +488,28 @@ SITEMAP_URLS = [
     ("/blog/best-free-pdf-tools", "0.8", "monthly"),
     ("/blog/pdf-accessibility-guide", "0.8", "monthly"),
     ("/blog/create-fillable-pdf-forms", "0.8", "monthly"),
+    ("/blog/mp3-vs-aac", "0.8", "monthly"),
+    ("/blog/what-is-audio-normalization", "0.8", "monthly"),
+    ("/blog/how-to-extract-audio-from-video", "0.8", "monthly"),
+    ("/blog/how-to-reduce-audio-file-size", "0.8", "monthly"),
+    ("/blog/flac-vs-mp3", "0.8", "monthly"),
+    ("/blog/how-to-reduce-video-file-size", "0.8", "monthly"),
+    ("/blog/mp4-vs-mkv", "0.8", "monthly"),
+    ("/blog/jpeg-vs-png-vs-webp", "0.8", "monthly"),
+    ("/blog/how-to-remove-exif-data-from-photos", "0.8", "monthly"),
+    ("/blog/how-to-extract-text-from-image-ocr", "0.8", "monthly"),
+    ("/tools/convert-image", "0.85", "monthly"),
+    ("/tools/compress-image", "0.85", "monthly"),
+    ("/tools/resize-image", "0.85", "monthly"),
+    ("/tools/strip-exif", "0.85", "monthly"),
+    ("/tools/audio-converter", "0.85", "monthly"),
+    ("/tools/compress-audio", "0.85", "monthly"),
+    ("/tools/trim-audio", "0.85", "monthly"),
+    ("/tools/normalize-audio", "0.85", "monthly"),
+    ("/tools/change-speed-audio", "0.85", "monthly"),
+    ("/tools/compress-video", "0.85", "monthly"),
+    ("/tools/convert-video", "0.85", "monthly"),
+    ("/tools/ocr", "0.9", "monthly"),
     ("/tools/compress-pdf", "0.85", "monthly"),
     ("/tools/pdf-to-word", "0.85", "monthly"),
     ("/tools/word-to-pdf", "0.85", "monthly"),

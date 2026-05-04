@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}How to Extract Text from an Image Online — Free OCR Guide — PDFWorks{% endblock %}
+{% block meta_description %}Step-by-step guide to extracting text from images, scanned documents, and PDFs using free online OCR. Tips for getting the most accurate results.{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","headline":"How to Extract Text from an Image Online — Free OCR Guide","datePublished":"2024-05-19","dateModified":"2024-05-19","author":{"@type":"Organization","name":"PDFWorks"},"publisher":{"@type":"Organization","name":"PDFWorks","url":"https://pdfworks.io"},"description":"Step-by-step guide to extracting text from images, scanned documents, and PDFs using free online OCR.","mainEntityOfPage":"https://pdfworks.io/blog/how-to-extract-text-from-image-ocr"}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="blog-post-page">
+  <nav class="breadcrumb">
+    <a href="/">Home</a><span class="sep">›</span>
+    <a href="/blog">Blog</a><span class="sep">›</span>
+    <span>How to Extract Text from an Image</span>
+  </nav>
+  <article>
+    <header class="post-header">
+      <h1>How to Extract Text from an Image Online — Free OCR Guide</h1>
+      <div class="post-meta">
+        <span>May 19, 2024</span>
+        <span>6 min read</span>
+      </div>
+    </header>
+    <div class="post-divider"></div>
+    <div class="prose">
+      <p>You have a photo of a document, a screenshot with text, or a scanned PDF — and you need the actual text content, not just an image of it. OCR (Optical Character Recognition) is the technology that solves this, converting image-based text into real, editable, searchable text. This guide explains how OCR works, when it is accurate, and how to use it online for free.</p>
+
+      <h2>What Is OCR?</h2>
+      <p>OCR stands for <strong>Optical Character Recognition</strong>. It is a technology that analyses an image, identifies shapes that correspond to letters, numbers, and punctuation, and outputs the recognised text. OCR has existed since the 1950s but modern engines — particularly those based on neural networks — have become dramatically more accurate over the last decade.</p>
+      <p>When you scan a document, take a photo of a page, or receive a PDF that is a scanned image, the file contains pixels — not text data. A computer cannot search, copy, or process it as text. OCR bridges this gap by reading the image and producing machine-readable text.</p>
+
+      <h2>How to Extract Text from an Image — Step by Step</h2>
+      <ol class="steps-list">
+        <li>Go to the <a href="/tools/ocr">PDFWorks OCR tool</a>.</li>
+        <li>Upload your image file. Supported formats: <strong>JPG, PNG, WebP, TIFF, BMP</strong>. Maximum 20 MB.</li>
+        <li>Click <strong>Convert</strong>. The OCR engine analyses the image and extracts all readable text.</li>
+        <li>Download the <strong>.txt file</strong> containing the extracted text. Open it in any text editor, word processor, or paste it wherever you need it.</li>
+      </ol>
+      <p>Processing typically takes 5–20 seconds. Your image is automatically deleted from our servers within 30 minutes.</p>
+
+      <h2>What Image Quality Gives the Best Results?</h2>
+      <p>OCR accuracy is heavily dependent on image quality. Here is what to aim for:</p>
+
+      <h3>Resolution: 300 DPI minimum</h3>
+      <p>DPI (dots per inch) measures image resolution. For text, 300 DPI is the minimum for reliable OCR — each letter needs to be rendered with enough pixels for the engine to recognise its shape clearly. At 150 DPI, accuracy drops noticeably. At 72 DPI (typical screen resolution), many characters will be misread.</p>
+      <p>If you are scanning: set your scanner to 300 DPI for standard text, 600 DPI for small fonts or fine print. If you are photographing: get as close as possible and use good lighting — a modern smartphone in good light typically produces more than enough resolution.</p>
+
+      <h3>Straight, flat, undistorted text</h3>
+      <p>Text that is skewed, rotated, or warped (as with photos of open books where pages curve) causes OCR errors. Before uploading, straighten and deskew your image where possible — most image editing apps have a straighten tool. For open books, photograph with the spine pressed flat, or scan one page at a time.</p>
+
+      <h3>High contrast</h3>
+      <p>Black text on white background: perfect. Light grey text on white, or text on a coloured or patterned background: accuracy drops. For low-contrast images, increasing contrast in an image editor before OCR can significantly improve results.</p>
+
+      <h3>Clean, standard typefaces</h3>
+      <p>Standard printed body fonts (Times New Roman, Arial, Helvetica, etc.) are recognised with very high accuracy. Stylised display fonts, ornamental scripts, and heavily decorated text produce more errors. Handwriting is a special case — see below.</p>
+
+      <h2>What About Handwriting?</h2>
+      <p>Standard OCR engines are trained on printed text and are not reliable for handwriting. Results for handwritten content range from partially useful (for very clear, printed block lettering) to entirely wrong (for cursive or fast handwriting). If you need handwriting recognition, dedicated handwriting OCR tools (like Google's handwriting API or Microsoft's Azure OCR with handwriting mode) are more appropriate. Do not expect our standard OCR tool to reliably read handwriting.</p>
+
+      <h2>What OCR Cannot Do</h2>
+      <ul>
+        <li><strong>Preserve formatting:</strong> The output is plain text — no fonts, columns, tables, or images. Page layout information is not preserved. If you need a formatted Word document from a scanned PDF, dedicated PDF-to-Word tools with OCR capability (like Adobe Acrobat) preserve more layout context.</li>
+        <li><strong>Read degraded or faded text:</strong> If text is too faded, smudged, or covered, the OCR engine cannot invent what is not there. Pre-processing the image to improve contrast helps, but very degraded text may produce unreliable output.</li>
+        <li><strong>Guarantee accuracy:</strong> OCR is probabilistic. Always review the extracted text against the original for important documents. Character confusions like l/I/1, O/0, rn/m are common.</li>
+        <li><strong>Read most non-Latin scripts reliably:</strong> Our OCR tool is optimised for Latin script (English and most European languages). Results for Arabic, Chinese, Japanese, Korean, and other non-Latin scripts may be unreliable.</li>
+      </ul>
+
+      <h2>Common Mistakes and How to Fix Them</h2>
+      <ul>
+        <li><strong>"The output is gibberish"</strong> — Usually means the image resolution is too low, the contrast is too poor, or the text is heavily stylised. Try increasing the image resolution or contrast before re-uploading.</li>
+        <li><strong>"Some words are wrong"</strong> — This is normal for complex layouts, unusual fonts, or slightly skewed scans. Review and correct manually. OCR output is a starting point, not a guaranteed perfect transcript.</li>
+        <li><strong>"The columns are mixed up"</strong> — Multi-column layouts (newspapers, academic papers) are read left-to-right across the page rather than column by column. The plain text output will have columns interleaved. Dedicated document OCR tools with layout analysis handle this better.</li>
+      </ul>
+
+      <h2>Extract Text from Your Image Now</h2>
+      <p>Free, online, no account required. Supported formats: JPG, PNG, WebP, TIFF, BMP.</p>
+      <p><a href="/tools/ocr" class="btn btn-primary" style="display:inline-block;padding:.6rem 1.5rem;border-radius:8px;background:var(--accent);color:#fff;font-weight:600;text-decoration:none">Extract Text Free (OCR) →</a></p>
+
+      <p style="margin-top:2rem"><strong>Related tools:</strong> <a href="/tools/pdf-to-word">PDF to Word</a> · <a href="/tools/strip-exif">Strip EXIF from Images</a></p>
+    </div>
+  </article>
+</div>
+{% endblock %}

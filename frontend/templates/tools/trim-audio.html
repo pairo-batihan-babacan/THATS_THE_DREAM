@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Trim Audio Online Free — Cut Audio Clips — PDFWorks{% endblock %}
+{% block meta_description %}Trim audio files online — cut to a specific start and end time. Works on MP3, WAV, FLAC, AAC, OGG, M4A, AIFF. Free, no account, files deleted in 30 minutes.{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebApplication","name":"PDFWorks Audio Trimmer","url":"https://pdfworks.io/tools/trim-audio","description":"Free online audio trimmer. Cut audio files to a specific time range. Supports MP3, WAV, FLAC, AAC, OGG, M4A, AIFF. No account required.","applicationCategory":"MultimediaApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="tool-detail-page">
+  <nav class="breadcrumb">
+    <a href="/">Home</a><span class="sep">›</span>
+    <a href="/audio">Audio Tools</a><span class="sep">›</span>
+    <span>Trim Audio</span>
+  </nav>
+
+  <h1>Trim Audio</h1>
+  <p class="tool-lead">Cut an audio file to a specific time range — specify a start time and end time and download only that portion. Works with MP3, WAV, FLAC, AAC, OGG, M4A, and AIFF. Free, no account required.</p>
+
+  <div class="tool-action-bar">
+    <p>Trim your audio file now — free, instant.</p>
+    <a href="/audio" class="btn btn-primary" style="padding:.55rem 1.25rem;border-radius:8px;background:var(--accent);color:#fff;font-weight:600;text-decoration:none;white-space:nowrap">Open Audio Trimmer →</a>
+  </div>
+
+  <div class="prose">
+    <h2>How to Trim an Audio File</h2>
+    <ol class="steps-list">
+      <li>Go to <a href="/audio">Audio Tools</a> and select <strong>Trim Audio</strong> in the sidebar.</li>
+      <li>Upload your audio file (any of the 7 supported formats).</li>
+      <li>Enter a <strong>start time</strong> and <strong>end time</strong>. You can use <code>MM:SS</code> format (e.g. <code>1:30</code> for 1 minute 30 seconds) or plain seconds (e.g. <code>90</code>).</li>
+      <li>Click <strong>Convert</strong>. The output file contains only the audio between your start and end points.</li>
+      <li>Download your trimmed clip.</li>
+    </ol>
+
+    <h2>Time Format Examples</h2>
+    <ul>
+      <li><code>0</code> or <code>0:00</code> — Start from the beginning</li>
+      <li><code>30</code> — 30 seconds in</li>
+      <li><code>1:30</code> — 1 minute 30 seconds</li>
+      <li><code>10:00</code> — 10 minutes in</li>
+      <li><code>1:23:45</code> — 1 hour, 23 minutes, 45 seconds</li>
+    </ul>
+
+    <h2>Common Use Cases</h2>
+    <ul>
+      <li><strong>Create a ringtone:</strong> Cut the best 30 seconds from a song.</li>
+      <li><strong>Remove silence from recordings:</strong> Trim dead air from the start and end of voice recordings.</li>
+      <li><strong>Extract a clip from a podcast or lecture:</strong> Pull out a specific segment to share or reference.</li>
+      <li><strong>Sample extraction:</strong> Cut a specific passage from a longer recording for use in a music project.</li>
+      <li><strong>Remove intros/outros:</strong> Strip repeated intro music or sign-off segments from a series of recordings.</li>
+    </ul>
+
+    <h2>Does Trimming Reduce Quality?</h2>
+    <p>PDFWorks uses stream copy for trimming when possible — copying the audio data without re-encoding. This is instantaneous and results in no quality loss. For formats where stream copy is not possible, a re-encode is used with the same codec and bitrate as the source.</p>
+
+    <p style="margin-top:2rem"><strong>Related tools:</strong></p>
+    <div class="related-tools">
+      <a href="/tools/audio-converter" class="related-tool-link">Audio Converter</a>
+      <a href="/tools/compress-audio" class="related-tool-link">Compress Audio</a>
+      <a href="/tools/normalize-audio" class="related-tool-link">Normalize Audio</a>
+      <a href="/tools/change-speed-audio" class="related-tool-link">Change Audio Speed</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

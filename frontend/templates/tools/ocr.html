@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Free Online OCR — Extract Text from Images — PDFWorks{% endblock %}
+{% block meta_description %}Free online OCR tool. Extract text from images, scanned PDFs, and photos instantly. No account required. Supports JPG, PNG, WebP, TIFF. Files deleted in 30 minutes.{% endblock %}
+{% block og_title %}Free Online OCR — Extract Text from Images — PDFWorks{% endblock %}
+{% block og_description %}OCR your images and scanned documents online for free. Convert JPG, PNG, TIFF and WebP images to editable text in seconds. No signup, auto-deleted in 30 min.{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebApplication","name":"PDFWorks Free Online OCR","url":"https://pdfworks.io/tools/ocr","description":"Free online OCR (Optical Character Recognition) tool. Extract text from images and scanned documents. No account required.","applicationCategory":"UtilitiesApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="tool-detail-page">
+  <nav class="breadcrumb">
+    <a href="/">Home</a><span class="sep">›</span>
+    <a href="/document">Document Tools</a><span class="sep">›</span>
+    <span>OCR — Extract Text from Image</span>
+  </nav>
+
+  <h1>Free Online OCR — Extract Text from Images</h1>
+  <p class="tool-lead">Upload a scanned document, photo of text, or image file and our OCR engine will extract all readable text into a plain text file — free, instant, and no account required. Files are deleted automatically after 30 minutes.</p>
+
+  <div class="tool-action-bar">
+    <p>Extract text from your image now — free, no signup.</p>
+    <a href="/document" class="btn btn-primary" style="padding:.55rem 1.25rem;border-radius:8px;background:var(--accent);color:#fff;font-weight:600;text-decoration:none;white-space:nowrap">Open OCR Tool →</a>
+  </div>
+
+  <div class="prose">
+    <h2>What Is OCR?</h2>
+    <p>OCR stands for <strong>Optical Character Recognition</strong>. It is the technology that reads text from images — scanned documents, photographs of pages, screenshots, and any image where text appears visually — and converts it into machine-readable, selectable, copyable text.</p>
+    <p>Without OCR, a scanned PDF or photo is just an image. A computer cannot search it, copy text from it, or process it. OCR analyses the shapes of letters and words in the image and outputs the text content, making it editable and searchable.</p>
+
+    <h2>How to Extract Text from an Image</h2>
+    <ol class="steps-list">
+      <li>Go to <a href="/document">Document Tools</a> and select <strong>OCR — Extract Text</strong> in the sidebar.</li>
+      <li>Upload your image file. Supported formats: <strong>JPG, JPEG, PNG, WebP, TIFF, BMP</strong>. Maximum size: 20 MB.</li>
+      <li>Click <strong>Convert</strong>. OCR processing typically takes 5–20 seconds depending on image size and text density.</li>
+      <li>Download the extracted text as a plain <strong>.txt</strong> file, ready to copy, edit, or import.</li>
+    </ol>
+
+    <h2>What Types of Images Work Best?</h2>
+    <p>OCR accuracy depends heavily on image quality. For best results:</p>
+    <ul>
+      <li><strong>High resolution:</strong> Scans at 300 DPI or higher produce the most accurate results. Camera photos should be taken in good lighting, in focus, and as straight-on to the page as possible.</li>
+      <li><strong>High contrast:</strong> Black text on white background is ideal. Coloured backgrounds, low contrast, or faded ink reduce accuracy.</li>
+      <li><strong>Clean fonts:</strong> Standard printed text (Times New Roman, Arial, standard body fonts) is recognised very accurately. Highly stylised, handwritten, or decorative text is harder to process.</li>
+      <li><strong>Flat and unwarped:</strong> Pages photographed at an angle or with significant curvature (as with open books) introduce errors. Flatten the page before photographing where possible.</li>
+    </ul>
+
+    <h2>Common Use Cases</h2>
+    <ul>
+      <li><strong>Scanned documents:</strong> Convert a scanned contract, receipt, invoice, or form into editable text without retyping.</li>
+      <li><strong>Photos of text:</strong> Capture a page from a book or magazine with your phone and extract the text content.</li>
+      <li><strong>Digitising handouts and notes:</strong> Convert printed lecture notes, handouts, or worksheets into searchable digital text.</li>
+      <li><strong>Extracting text from screenshots:</strong> Pull text from error messages, software windows, or UI screenshots where copy-paste is not available.</li>
+      <li><strong>Translating printed text:</strong> Extract text first with OCR, then paste into a translation tool.</li>
+      <li><strong>Data entry automation:</strong> Extract numbers and data from printed reports or forms to use in spreadsheets.</li>
+    </ul>
+
+    <h2>Supported Input Formats</h2>
+    <ul>
+      <li><strong>JPG / JPEG</strong> — Most common image format from cameras, phones, and scanners</li>
+      <li><strong>PNG</strong> — Lossless format, common for screenshots and graphics</li>
+      <li><strong>WebP</strong> — Modern web image format</li>
+      <li><strong>TIFF</strong> — High-resolution format commonly used by professional scanners and document management systems</li>
+      <li><strong>BMP</strong> — Windows bitmap format</li>
+    </ul>
+
+    <h2>Tips for Better OCR Results</h2>
+    <ul>
+      <li><strong>Scan at 300 DPI minimum.</strong> Most modern flatbed scanners default to 200 DPI — change this to 300 or 600 for text extraction.</li>
+      <li><strong>Use greyscale or black and white mode</strong> for text-only documents. Colour scanning adds file size without improving OCR accuracy on printed text.</li>
+      <li><strong>Correct skew before uploading.</strong> If the page is rotated more than a few degrees in the image, OCR accuracy drops. Many scanner apps and photo editors include a straighten/deskew feature.</li>
+      <li><strong>Remove noise.</strong> Speckled, noisy images from old or dirty scanners increase error rates. Use the scanner's cleanup settings or a tool like GIMP to reduce noise before OCR.</li>
+    </ul>
+
+    <h2>What About Handwriting?</h2>
+    <p>Our OCR engine is optimised for printed, typed text — not handwriting. Handwritten text can sometimes be partially recognised if the handwriting is very clear and printed (not cursive), but results are unreliable and should be treated as a starting point requiring significant manual correction rather than a final output.</p>
+
+    <h2>Privacy</h2>
+    <p>Your image and the extracted text are both automatically deleted from our servers within 30 minutes of upload. We do not read, store, or analyse the content of your documents. No account or personal information is required.</p>
+
+    <p style="margin-top:2rem"><strong>Related tools:</strong></p>
+    <div class="related-tools">
+      <a href="/tools/pdf-to-word" class="related-tool-link">PDF to Word</a>
+      <a href="/tools/strip-exif" class="related-tool-link">Strip EXIF from Image</a>
+      <a href="/tools/compress-image" class="related-tool-link">Compress Image</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

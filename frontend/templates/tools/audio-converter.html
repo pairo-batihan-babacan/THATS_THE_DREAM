@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Free Online Audio Converter — MP3, WAV, FLAC, AAC, OGG — PDFWorks{% endblock %}
+{% block meta_description %}Convert audio files online free — MP3 to WAV, WAV to MP3, FLAC to MP3, AAC to MP3, and more. 7 formats supported. No account. Files deleted in 30 minutes.{% endblock %}
+{% block og_title %}Free Audio Converter Online — PDFWorks{% endblock %}
+{% block og_description %}Convert MP3, WAV, FLAC, AAC, OGG, M4A, AIFF to any audio format online. High, medium, or low quality. Free, no signup, auto-deleted in 30 min.{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebApplication","name":"PDFWorks Free Audio Converter","url":"https://pdfworks.io/tools/audio-converter","description":"Free online audio converter supporting MP3, WAV, FLAC, AAC, OGG, M4A, and AIFF. Convert between any audio format in seconds. No account required.","applicationCategory":"MultimediaApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="tool-detail-page">
+  <nav class="breadcrumb">
+    <a href="/">Home</a><span class="sep">›</span>
+    <a href="/audio">Audio Tools</a><span class="sep">›</span>
+    <span>Audio Converter</span>
+  </nav>
+
+  <h1>Free Online Audio Converter</h1>
+  <p class="tool-lead">Convert audio files between any of seven formats — MP3, WAV, FLAC, AAC, OGG, M4A, and AIFF — with three quality levels. Free, no account required, and your file is automatically deleted after 30 minutes.</p>
+
+  <div class="tool-action-bar">
+    <p>Convert your audio file now — free, instant, no account.</p>
+    <a href="/audio" class="btn btn-primary" style="padding:.55rem 1.25rem;border-radius:8px;background:var(--accent);color:#fff;font-weight:600;text-decoration:none;white-space:nowrap">Open Audio Converter →</a>
+  </div>
+
+  <div class="prose">
+    <h2>Supported Conversions</h2>
+    <p>PDFWorks converts between all combinations of the following formats:</p>
+    <ul>
+      <li><strong>MP3</strong> — The universal audio standard. Plays on every device and platform. Lossy compression with excellent compatibility.</li>
+      <li><strong>WAV</strong> — Uncompressed, lossless audio. Large files but perfect quality. Standard format for professional audio editing.</li>
+      <li><strong>FLAC</strong> — Free Lossless Audio Codec. Lossless quality at roughly half the size of WAV. Ideal for archiving.</li>
+      <li><strong>AAC</strong> — Advanced Audio Coding. Better quality than MP3 at the same bitrate. Native to Apple devices and used by YouTube and streaming platforms.</li>
+      <li><strong>OGG</strong> — Open-source Vorbis format. Comparable quality to AAC. Royalty-free and widely supported on Android and Linux.</li>
+      <li><strong>M4A</strong> — AAC audio in an MP4 container. Standard format for Apple Music, iTunes purchases, and iPhone voice memos.</li>
+      <li><strong>AIFF</strong> — Audio Interchange File Format. Apple's lossless uncompressed format, equivalent to WAV. Common in professional macOS audio workflows.</li>
+    </ul>
+
+    <h2>How to Convert Audio Online</h2>
+    <ol class="steps-list">
+      <li>Go to <a href="/audio">Audio Tools</a> and select <strong>Convert Audio</strong> in the sidebar.</li>
+      <li>Upload your audio file (any of the 7 supported formats, up to 20 MB).</li>
+      <li>Choose your <strong>target format</strong> and <strong>quality level</strong>.</li>
+      <li>Click <strong>Convert</strong>. Conversion takes a few seconds.</li>
+      <li>Download your converted file.</li>
+    </ol>
+
+    <h2>Quality Levels</h2>
+    <p>For lossy output formats (MP3, AAC, OGG, M4A), three quality levels are available:</p>
+    <ul>
+      <li><strong>High — 192 kbps:</strong> Near-transparent quality. Recommended for music. Indistinguishable from the original for virtually all listeners.</li>
+      <li><strong>Medium — 128 kbps:</strong> Good quality for most content. The standard for streaming. Suitable for podcasts and voice recordings.</li>
+      <li><strong>Low — 96 kbps:</strong> Smaller files with audible compression. Suitable for voice recordings where file size matters more than fidelity.</li>
+    </ul>
+    <p>Lossless formats (WAV, FLAC, AIFF) always use full quality — the quality setting does not apply.</p>
+
+    <h2>Common Conversion Scenarios</h2>
+    <ul>
+      <li><strong>WAV to MP3:</strong> Reduce a large uncompressed file to a compact, shareable MP3 for sharing or uploading.</li>
+      <li><strong>FLAC to MP3:</strong> Convert a lossless archive to MP3 for a device with limited storage or an app that doesn't support FLAC.</li>
+      <li><strong>MP3 to WAV:</strong> Produce an uncompressed file for editing in Audacity, GarageBand, or a DAW. Note: WAV from MP3 cannot recover quality lost in the original MP3 encoding.</li>
+      <li><strong>AAC/M4A to MP3:</strong> Convert Apple Music or iTunes files to MP3 for non-Apple devices. (DRM-protected files cannot be converted.)</li>
+      <li><strong>MP3 to FLAC:</strong> Technically possible but not recommended — FLAC from an MP3 source will not be lossless in the meaningful sense, as the lossy artefacts from the MP3 encoding are baked in.</li>
+      <li><strong>OGG to MP3:</strong> Convert open-source game audio or Linux media to MP3 for broader compatibility.</li>
+    </ul>
+
+    <h2>Privacy</h2>
+    <p>Files uploaded to PDFWorks are processed in an isolated environment and automatically deleted within 30 minutes. No account or personal information is required. Files are never shared, analysed, or retained beyond the processing window.</p>
+
+    <p style="margin-top:2rem"><strong>More audio tools:</strong></p>
+    <div class="related-tools">
+      <a href="/tools/compress-audio" class="related-tool-link">Compress Audio</a>
+      <a href="/tools/trim-audio" class="related-tool-link">Trim Audio</a>
+      <a href="/tools/normalize-audio" class="related-tool-link">Normalize Audio</a>
+      <a href="/tools/extract-audio" class="related-tool-link">Extract Audio from Video</a>
+    </div>
+    <p style="margin-top:1.5rem"><strong>Related guides:</strong> <a href="/blog/mp3-vs-aac">MP3 vs AAC</a> · <a href="/blog/flac-vs-mp3">FLAC vs MP3</a></p>
+  </div>
+</div>
+{% endblock %}

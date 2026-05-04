@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}MP4 vs MKV: Key Differences Explained — PDFWorks{% endblock %}
+{% block meta_description %}Compare MP4 and MKV video containers — compatibility, features, codec support, and which format to use for streaming, editing, and archiving.{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","headline":"MP4 vs MKV: Key Differences Explained","datePublished":"2024-05-13","dateModified":"2024-05-13","author":{"@type":"Organization","name":"PDFWorks"},"publisher":{"@type":"Organization","name":"PDFWorks","url":"https://pdfworks.io"},"description":"Compare MP4 and MKV video containers — compatibility, features, codec support, and which format to use for streaming, editing, and archiving.","mainEntityOfPage":"https://pdfworks.io/blog/mp4-vs-mkv"}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="blog-post-page">
+  <nav class="breadcrumb">
+    <a href="/">Home</a><span class="sep">›</span>
+    <a href="/blog">Blog</a><span class="sep">›</span>
+    <span>MP4 vs MKV</span>
+  </nav>
+  <article>
+    <header class="post-header">
+      <h1>MP4 vs MKV: Key Differences Explained</h1>
+      <div class="post-meta">
+        <span>May 13, 2024</span>
+        <span>6 min read</span>
+      </div>
+    </header>
+    <div class="post-divider"></div>
+    <div class="prose">
+      <p>MP4 and MKV are both video container formats — they are "wrappers" that hold video, audio, subtitles, and metadata inside a single file. Neither format is a codec: they do not determine video quality directly. But they differ significantly in compatibility, feature support, and the situations they are designed for. This guide explains when to use each.</p>
+
+      <h2>What Is a Video Container?</h2>
+      <p>A video container (or format) is the file structure that holds multiple streams together. Think of it like a box: inside might be a video stream encoded with H.264, an audio stream encoded with AAC, and a subtitle track. The container specifies how these streams are packaged, indexed, and synchronized.</p>
+      <p>The container does not determine quality — that is determined by the codecs used to encode the video and audio streams inside. An MP4 and an MKV file with the same H.264 video stream and AAC audio will look and sound identical. The only difference is the outer packaging.</p>
+
+      <h2>MP4 (MPEG-4 Part 14)</h2>
+      <p>MP4 is the most widely used video container format in the world. It was standardized in 2001 and has become the universal format for web video, mobile video, streaming, and casual sharing.</p>
+
+      <h3>MP4 strengths</h3>
+      <ul>
+        <li><strong>Universal compatibility:</strong> Supported on every device, browser, operating system, and platform. iPhones, Android phones, Windows, macOS, smart TVs, gaming consoles, car entertainment systems — everything plays MP4.</li>
+        <li><strong>Web streaming optimised:</strong> Supports the <code>faststart</code> feature (moov atom at the front of the file), which allows playback to begin before the full file downloads. Essential for web video.</li>
+        <li><strong>Broad codec support:</strong> Officially supports H.264, H.265, AAC, MP3, and others. H.264 + AAC inside MP4 is the universal baseline.</li>
+        <li><strong>Native browser support:</strong> All major browsers play MP4/H.264 natively without plugins.</li>
+      </ul>
+
+      <h3>MP4 limitations</h3>
+      <ul>
+        <li>Limited to a small number of audio tracks</li>
+        <li>Does not natively support many advanced subtitle formats (e.g. ASS/SSA styled subtitles)</li>
+        <li>Less flexible for multi-track features (multiple audio languages, multiple subtitle tracks)</li>
+      </ul>
+
+      <h2>MKV (Matroska Video)</h2>
+      <p>MKV is an open-standard container format developed in 2002. It was designed with flexibility and long-term archival in mind, and it supports virtually any combination of codecs, tracks, and metadata that exists.</p>
+
+      <h3>MKV strengths</h3>
+      <ul>
+        <li><strong>Unlimited tracks:</strong> Can hold any number of video, audio, and subtitle tracks. Ideal for film rips with multiple language dubs and multiple subtitle languages.</li>
+        <li><strong>Advanced subtitle support:</strong> Supports ASS/SSA styled subtitles (with custom fonts, colours, and positioning) — the format used by anime subtitles and many fansub releases.</li>
+        <li><strong>Codec flexibility:</strong> Officially supports virtually any codec — H.264, H.265, AV1, VP9, FLAC audio, AC3 Dolby surround, and more.</li>
+        <li><strong>Chapter support:</strong> Rich chapter and navigation metadata support.</li>
+        <li><strong>Error recovery:</strong> Designed to be recoverable even if the file is damaged or truncated.</li>
+        <li><strong>Open standard:</strong> No licensing fees or patents.</li>
+      </ul>
+
+      <h3>MKV limitations</h3>
+      <ul>
+        <li><strong>Compatibility issues:</strong> Not supported natively in older browsers, most smart TVs, iPhone, iTunes, or many standalone media players and car stereos without a codec pack</li>
+        <li><strong>No native web streaming support:</strong> The MKV container does not support a faststart equivalent — you cannot stream MKV files directly in a browser</li>
+        <li><strong>Overkill for simple content:</strong> All the flexibility adds complexity that is unnecessary for a straightforward single-language home video</li>
+      </ul>
+
+      <h2>Compatibility at a Glance</h2>
+      <table style="width:100%;border-collapse:collapse;margin:1rem 0;font-size:.9rem">
+        <thead>
+          <tr style="border-bottom:2px solid var(--border)">
+            <th style="text-align:left;padding:.5rem .75rem;color:var(--text-2);font-weight:600">Platform / Device</th>
+            <th style="text-align:left;padding:.5rem .75rem;color:var(--text-2);font-weight:600">MP4</th>
+            <th style="text-align:left;padding:.5rem .75rem;color:var(--text-2);font-weight:600">MKV</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom:1px solid var(--border)"><td style="padding:.5rem .75rem">Web browser (Chrome/Firefox/Safari)</td><td style="padding:.5rem .75rem">✅ Native</td><td style="padding:.5rem .75rem">❌ Not supported</td></tr>
+          <tr style="border-bottom:1px solid var(--border)"><td style="padding:.5rem .75rem">iPhone / iOS</td><td style="padding:.5rem .75rem">✅ Native</td><td style="padding:.5rem .75rem">❌ Not supported</td></tr>
+          <tr style="border-bottom:1px solid var(--border)"><td style="padding:.5rem .75rem">Android</td><td style="padding:.5rem .75rem">✅ Native</td><td style="padding:.5rem .75rem">⚠️ App-dependent</td></tr>
+          <tr style="border-bottom:1px solid var(--border)"><td style="padding:.5rem .75rem">Windows (File Explorer / Movies &amp; TV)</td><td style="padding:.5rem .75rem">✅ Native</td><td style="padding:.5rem .75rem">✅ Windows 10+</td></tr>
+          <tr style="border-bottom:1px solid var(--border)"><td style="padding:.5rem .75rem">macOS QuickTime</td><td style="padding:.5rem .75rem">✅ Native</td><td style="padding:.5rem .75rem">❌ Not supported</td></tr>
+          <tr style="border-bottom:1px solid var(--border)"><td style="padding:.5rem .75rem">VLC (desktop)</td><td style="padding:.5rem .75rem">✅</td><td style="padding:.5rem .75rem">✅</td></tr>
+          <tr style="border-bottom:1px solid var(--border)"><td style="padding:.5rem .75rem">Smart TV</td><td style="padding:.5rem .75rem">✅ Universal</td><td style="padding:.5rem .75rem">⚠️ Varies by brand</td></tr>
+          <tr><td style="padding:.5rem .75rem">YouTube / streaming upload</td><td style="padding:.5rem .75rem">✅</td><td style="padding:.5rem .75rem">✅</td></tr>
+        </tbody>
+      </table>
+
+      <h2>When to Use Each Format</h2>
+
+      <h3>Use MP4 when:</h3>
+      <ul>
+        <li>Sharing a video with someone and you do not know what device they will use</li>
+        <li>Publishing video on a website or embedding in a web page</li>
+        <li>Uploading to YouTube, Vimeo, Instagram, TikTok, or any social platform</li>
+        <li>Playing on a phone, tablet, smart TV, or any consumer device</li>
+        <li>You need a single-track video with AAC audio that plays everywhere</li>
+      </ul>
+
+      <h3>Use MKV when:</h3>
+      <ul>
+        <li>Archiving a film or TV show with multiple audio languages and subtitle tracks</li>
+        <li>Storing content with styled subtitles (anime, fansubs)</li>
+        <li>Using Plex, Jellyfin, Kodi, or another home media server that handles MKV well</li>
+        <li>The video has lossless audio (FLAC, TrueHD, DTS-HD) that MP4 does not officially support</li>
+        <li>You are comfortable with VLC or a media player that handles MKV reliably</li>
+      </ul>
+
+      <h2>Converting MKV to MP4</h2>
+      <p>If you have an MKV file that will not play on a device, converting to MP4 is usually the solution. If the MKV uses H.264 video and AAC audio, the conversion can be done as a stream copy — no re-encoding, instant, and no quality loss. If the MKV uses a codec not supported by MP4 (e.g. FLAC audio), re-encoding is required.</p>
+      <p>PDFWorks converts MKV to MP4 (H.264/AAC) online, free, with no account required.</p>
+      <p><a href="/video" class="btn btn-primary" style="display:inline-block;padding:.6rem 1.5rem;border-radius:8px;background:var(--accent);color:#fff;font-weight:600;text-decoration:none">Convert Video Free →</a></p>
+
+      <p style="margin-top:2rem"><strong>Related guides:</strong> <a href="/blog/how-to-reduce-video-file-size">How to Reduce Video File Size</a> · <a href="/blog/how-to-extract-audio-from-video">Extract Audio from Video</a></p>
+    </div>
+  </article>
+</div>
+{% endblock %}

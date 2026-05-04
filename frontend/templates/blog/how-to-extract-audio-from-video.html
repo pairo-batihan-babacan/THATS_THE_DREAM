@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}How to Extract Audio from a Video File — PDFWorks{% endblock %}
+{% block meta_description %}Step-by-step guide to pulling the audio track out of any video file and saving it as MP3, WAV, FLAC, or another audio format. Free, online, no software needed.{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","headline":"How to Extract Audio from a Video File","datePublished":"2024-05-05","dateModified":"2024-05-05","author":{"@type":"Organization","name":"PDFWorks"},"publisher":{"@type":"Organization","name":"PDFWorks","url":"https://pdfworks.io"},"description":"Step-by-step guide to pulling the audio track out of any video file and saving it as MP3, WAV, FLAC, or another format.","mainEntityOfPage":"https://pdfworks.io/blog/how-to-extract-audio-from-video"}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="blog-post-page">
+  <nav class="breadcrumb">
+    <a href="/">Home</a><span class="sep">›</span>
+    <a href="/blog">Blog</a><span class="sep">›</span>
+    <span>Extract Audio from Video</span>
+  </nav>
+  <article>
+    <header class="post-header">
+      <h1>How to Extract Audio from a Video File</h1>
+      <div class="post-meta">
+        <span>May 5, 2024</span>
+        <span>5 min read</span>
+      </div>
+    </header>
+    <div class="post-divider"></div>
+    <div class="prose">
+      <p>Whether you want to rip the soundtrack from a film, save a conference presentation as a podcast, extract music from a music video, or grab a voice recording from a video call — extracting audio from video is a common task. This guide explains how it works, which format to save the audio in, and how to do it in seconds without installing any software.</p>
+
+      <h2>How Does Audio Extraction Work?</h2>
+      <p>A video file is a container. Formats like MP4, MKV, MOV, and AVI each hold one or more streams of data: a video stream (the frames), one or more audio streams (the sound), and sometimes subtitles or chapter data. Extracting audio means reading the audio stream and saving it as a standalone audio file — the video stream is simply discarded.</p>
+      <p>There are two approaches:</p>
+      <ul>
+        <li><strong>Stream copy (lossless extraction):</strong> The audio data is copied out of the video container exactly as it is, with no re-encoding. This is instant and preserves the original audio quality perfectly. It only works if the audio codec in the video is already in a format you want (e.g. AAC inside an MP4 can be copied directly to an M4A file).</li>
+        <li><strong>Re-encoding:</strong> The audio is decoded and then re-encoded into a new format. This takes slightly longer and involves a small quality loss (since the audio is being re-encoded), but gives you full control over the output format and quality. Required when converting to a different codec (e.g. extracting AAC audio from a video and saving it as MP3 or FLAC).</li>
+      </ul>
+
+      <h2>Which Output Format Should You Choose?</h2>
+      <p>The right format depends on what you plan to do with the audio:</p>
+      <ul>
+        <li><strong>MP3</strong> — Use when you need universal compatibility. Plays on every device, app, and platform. Choose 192 kbps or higher for good quality.</li>
+        <li><strong>AAC / M4A</strong> — Better quality than MP3 at the same file size. The native format for Apple devices and the audio codec inside MP4 video. Good choice for podcast or streaming distribution.</li>
+        <li><strong>WAV</strong> — Uncompressed, lossless. Large files but perfect quality. Use when you plan to edit the audio further in a DAW (Digital Audio Workstation).</li>
+        <li><strong>FLAC</strong> — Lossless compression. Same quality as WAV but smaller files (roughly half the size). Ideal for archiving or critical listening. Not supported everywhere.</li>
+        <li><strong>OGG</strong> — Open-source, royalty-free, comparable quality to AAC. Good for web applications and games.</li>
+      </ul>
+
+      <h2>How to Extract Audio from a Video Using PDFWorks</h2>
+      <ol class="steps-list">
+        <li>Go to <a href="/audio">Audio Tools</a> and select <strong>Extract from Video</strong> in the sidebar.</li>
+        <li>Upload your video file. Supported formats: MP4, MOV, MKV, AVI, WebM.</li>
+        <li>Choose your output audio format and quality.</li>
+        <li>Click <strong>Convert</strong>. Processing typically takes 5–30 seconds depending on file length.</li>
+        <li>Download your audio file when the job completes.</li>
+      </ol>
+      <p>Your original video file and the extracted audio are both automatically deleted from our servers within 30 minutes.</p>
+
+      <h2>Common Use Cases</h2>
+
+      <h3>Extracting music from a music video</h3>
+      <p>Choose MP3 at 320 kbps or AAC at 256 kbps for good quality. If the video source is already compressed, re-encoding at a high bitrate will not recover quality that was lost in the original video compression — but it will preserve all the quality that remains.</p>
+
+      <h3>Saving a lecture, webinar, or meeting recording as a podcast</h3>
+      <p>Choose MP3 at 128 kbps or AAC at 96–128 kbps. Speech audio does not require high bitrates. After extracting, consider normalizing the loudness to −16 LUFS for consistent podcast playback.</p>
+
+      <h3>Extracting audio for editing in a DAW</h3>
+      <p>Choose WAV (uncompressed) or FLAC (lossless) to preserve full quality for editing. Avoid MP3 or AAC if you plan to process the audio further — decoding and re-encoding adds generation loss.</p>
+
+      <h3>Creating an audio version of a video essay or documentary</h3>
+      <p>Choose MP3 at 192 kbps for good quality and broad compatibility. Consider stripping any video-only elements and normalizing loudness before distributing.</p>
+
+      <h2>What If the Video Has Multiple Audio Tracks?</h2>
+      <p>Some video files — particularly MKV containers — contain multiple audio tracks (e.g. the original language track and a dubbed version, or a 5.1 surround track and a stereo track). PDFWorks extracts the first audio track by default. If you need to extract a specific track from a multi-track file, a desktop application like VLC or Handbrake gives you track selection control.</p>
+
+      <h2>Will Extracted Audio Sound Different from the Video?</h2>
+      <p>The extracted audio is identical to what you hear in the video — it is the same data. You will not gain or lose quality from the extraction itself (assuming you use the same codec, or a lossless target format). Any quality limitations in the audio were introduced when the video was originally encoded.</p>
+
+      <h2>Extract Audio From Your Video</h2>
+      <p>Free, online, no account required. Supports MP4, MOV, MKV, AVI, and WebM input. Output to MP3, AAC, WAV, FLAC, OGG, and M4A.</p>
+      <p><a href="/audio" class="btn btn-primary" style="display:inline-block;padding:.6rem 1.5rem;border-radius:8px;background:var(--accent);color:#fff;font-weight:600;text-decoration:none">Extract Audio Free →</a></p>
+
+      <p style="margin-top:2rem"><strong>Related guides:</strong> <a href="/blog/mp3-vs-aac">MP3 vs AAC</a> · <a href="/blog/how-to-reduce-audio-file-size">How to Reduce Audio File Size</a> · <a href="/blog/how-to-reduce-video-file-size">How to Reduce Video File Size</a></p>
+    </div>
+  </article>
+</div>
+{% endblock %}

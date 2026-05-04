@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block title %}JPEG vs PNG vs WebP: Which Image Format Should You Use? — PDFWorks{% endblock %}
+{% block meta_description %}A definitive guide to the three major web image formats — when to use each one, quality vs file size trade-offs, transparency support, and browser compatibility.{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","headline":"JPEG vs PNG vs WebP: Which Image Format Should You Use?","datePublished":"2024-05-15","dateModified":"2024-05-15","author":{"@type":"Organization","name":"PDFWorks"},"publisher":{"@type":"Organization","name":"PDFWorks","url":"https://pdfworks.io"},"description":"A definitive guide to the three major web image formats — when to use each one, quality vs file size trade-offs, and browser compatibility.","mainEntityOfPage":"https://pdfworks.io/blog/jpeg-vs-png-vs-webp"}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="blog-post-page">
+  <nav class="breadcrumb">
+    <a href="/">Home</a><span class="sep">›</span>
+    <a href="/blog">Blog</a><span class="sep">›</span>
+    <span>JPEG vs PNG vs WebP</span>
+  </nav>
+  <article>
+    <header class="post-header">
+      <h1>JPEG vs PNG vs WebP: Which Image Format Should You Use?</h1>
+      <div class="post-meta">
+        <span>May 15, 2024</span>
+        <span>7 min read</span>
+      </div>
+    </header>
+    <div class="post-divider"></div>
+    <div class="prose">
+      <p>JPEG, PNG, and WebP are the three formats you encounter on almost every website and in almost every workflow. They are not interchangeable — each was designed for a different purpose, and choosing the wrong format for the job creates unnecessarily large files or noticeable quality problems. This guide gives you the clear answer for every common situation.</p>
+
+      <h2>The Short Answer</h2>
+      <ul>
+        <li><strong>Photos and complex images:</strong> WebP (first choice) or JPEG (universal fallback)</li>
+        <li><strong>Logos, icons, screenshots, text-heavy images:</strong> PNG</li>
+        <li><strong>Images with transparency:</strong> WebP or PNG (JPEG cannot do transparency)</li>
+        <li><strong>Maximum compatibility everywhere:</strong> JPEG (photos) or PNG (graphics)</li>
+        <li><strong>Web performance:</strong> WebP for everything</li>
+      </ul>
+
+      <h2>JPEG (Joint Photographic Experts Group)</h2>
+      <p>JPEG was standardized in 1992 and remains the most widely used image format in the world. It is a lossy format designed specifically for photographic images.</p>
+
+      <h3>How JPEG compression works</h3>
+      <p>JPEG divides the image into 8×8 pixel blocks and uses a Discrete Cosine Transform (DCT) to represent each block's colour and brightness in frequency components. High-frequency detail (sharp edges, fine textures) is discarded more aggressively than low-frequency information (broad colour gradients). The quality setting (typically 0–100) controls how aggressively this discarding occurs.</p>
+
+      <h3>JPEG strengths</h3>
+      <ul>
+        <li>Excellent compression for photographs — a 5 MB photo at quality 80 compresses to 200–500 KB</li>
+        <li>Universal support — every device, browser, and application handles JPEG</li>
+        <li>Adjustable quality/size trade-off</li>
+      </ul>
+
+      <h3>JPEG weaknesses</h3>
+      <ul>
+        <li><strong>No transparency</strong> — JPEG does not support an alpha channel. All pixels are opaque.</li>
+        <li><strong>Lossy artefacts on sharp edges</strong> — The block-based compression creates "mosquito noise" around sharp edges and text, making JPEG unsuitable for logos, screenshots, and diagrams.</li>
+        <li><strong>Generation loss</strong> — Every time you save a JPEG, quality is lost. Never edit and re-save a JPEG repeatedly; keep an original in a lossless format.</li>
+        <li>Does not handle solid flat colours well</li>
+      </ul>
+
+      <h3>JPEG quality settings</h3>
+      <ul>
+        <li><strong>Quality 90–100:</strong> Near-lossless. Large files. Use for archiving or printing.</li>
+        <li><strong>Quality 75–85:</strong> High quality, good compression. The right range for web photos.</li>
+        <li><strong>Quality 60–75:</strong> Visible artefacts on close inspection but good for thumbnails and previews.</li>
+        <li><strong>Below 60:</strong> Noticeably degraded. Only appropriate for very small previews.</li>
+      </ul>
+
+      <h2>PNG (Portable Network Graphics)</h2>
+      <p>PNG was created in 1996 as a patent-free replacement for GIF. It is a lossless format designed for graphics, screenshots, and images with transparency.</p>
+
+      <h3>How PNG compression works</h3>
+      <p>PNG uses DEFLATE compression (the same algorithm as ZIP files) applied after a filtering step that increases compressibility. It is entirely lossless — a PNG decoded and re-encoded is bit-for-bit identical to the original. No quality is ever lost.</p>
+
+      <h3>PNG strengths</h3>
+      <ul>
+        <li><strong>Lossless:</strong> Perfect pixel-for-pixel preservation of the original image</li>
+        <li><strong>Full transparency support:</strong> 8-bit alpha channel for any level of opacity, including semi-transparent pixels</li>
+        <li><strong>No artefacts on sharp edges:</strong> Ideal for logos, icons, text, screenshots, and any image with flat areas of colour</li>
+        <li><strong>Universal support</strong></li>
+        <li>Supports very high bit depths (up to 16-bit per channel)</li>
+      </ul>
+
+      <h3>PNG weaknesses</h3>
+      <ul>
+        <li><strong>Large files for photographs:</strong> A PNG of a photograph is typically 5–10× larger than a JPEG at equivalent perceptual quality. Never use PNG for photographs on the web.</li>
+        <li>Slower to encode and decode than JPEG</li>
+      </ul>
+
+      <h3>When PNG file sizes surprise you</h3>
+      <p>If you have a PNG of a photograph that is unexpectedly large, that is by design — it is losslessly preserving every pixel of that photograph. Convert it to JPEG or WebP for web use and the file will shrink dramatically with minimal perceptual quality loss.</p>
+
+      <h2>WebP</h2>
+      <p>WebP was developed by Google and released in 2010. It supports both lossy and lossless compression, transparency, and animation — and consistently produces smaller files than JPEG and PNG for equivalent quality.</p>
+
+      <h3>WebP vs JPEG (lossy)</h3>
+      <p>WebP lossy compression is based on the VP8 video codec's intraframe encoding. It uses larger block sizes, more sophisticated prediction, and better entropy coding than JPEG's DCT approach. The result: WebP lossy files are typically 25–35% smaller than JPEG at equivalent visual quality, or equivalently, better quality at the same file size.</p>
+
+      <h3>WebP vs PNG (lossless)</h3>
+      <p>WebP lossless uses a different algorithm from lossy WebP. It is typically 26% smaller than PNG for the same image content.</p>
+
+      <h3>WebP strengths</h3>
+      <ul>
+        <li>Smaller files than both JPEG and PNG at equivalent quality</li>
+        <li>Supports transparency (unlike JPEG)</li>
+        <li>Supports animation (like GIF, but more efficient)</li>
+        <li>Both lossy and lossless modes in one format</li>
+        <li>Supported by all modern browsers (Chrome, Firefox, Safari 14+, Edge)</li>
+      </ul>
+
+      <h3>WebP weaknesses</h3>
+      <ul>
+        <li>Not supported in older browsers (Internet Explorer, Safari before 2020)</li>
+        <li>Not universally supported in image editors — some older tools cannot open or export WebP</li>
+        <li>Not ideal for print workflows; JPEG or TIFF are better for print</li>
+        <li>The lossy/lossless distinction is not always obvious from the file — you cannot tell by looking at the extension</li>
+      </ul>
+
+      <h2>File Size Comparison: Same Image, Different Formats</h2>
+      <p>For a typical 1920×1080 photograph:</p>
+      <table style="width:100%;border-collapse:collapse;margin:1rem 0;font-size:.9rem">
+        <thead>
+          <tr style="border-bottom:2px solid var(--border)">
+            <th style="text-align:left;padding:.5rem .75rem;color:var(--text-2);font-weight:600">Format</th>
+            <th style="text-align:left;padding:.5rem .75rem;color:var(--text-2);font-weight:600">Typical Size</th>
+            <th style="text-align:left;padding:.5rem .75rem;color:var(--text-2);font-weight:600">Quality</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom:1px solid var(--border)"><td style="padding:.5rem .75rem">PNG (lossless)</td><td style="padding:.5rem .75rem">4–8 MB</td><td style="padding:.5rem .75rem">Perfect</td></tr>
+          <tr style="border-bottom:1px solid var(--border)"><td style="padding:.5rem .75rem">JPEG quality 90</td><td style="padding:.5rem .75rem">600–900 KB</td><td style="padding:.5rem .75rem">Excellent</td></tr>
+          <tr style="border-bottom:1px solid var(--border)"><td style="padding:.5rem .75rem">WebP lossy (equiv. JPEG 90)</td><td style="padding:.5rem .75rem">400–650 KB</td><td style="padding:.5rem .75rem">Excellent</td></tr>
+          <tr style="border-bottom:1px solid var(--border)"><td style="padding:.5rem .75rem">JPEG quality 75</td><td style="padding:.5rem .75rem">200–350 KB</td><td style="padding:.5rem .75rem">Good</td></tr>
+          <tr><td style="padding:.5rem .75rem">WebP lossy (equiv. JPEG 75)</td><td style="padding:.5rem .75rem">130–240 KB</td><td style="padding:.5rem .75rem">Good</td></tr>
+        </tbody>
+      </table>
+
+      <h2>The Simple Decision Guide</h2>
+      <ul>
+        <li><strong>Photo for a website:</strong> WebP (with JPEG fallback if you need to support older browsers)</li>
+        <li><strong>Logo or icon with transparency:</strong> WebP or PNG</li>
+        <li><strong>Screenshot of an app or website:</strong> PNG (preserves text sharpness) or WebP lossless</li>
+        <li><strong>Photo to email to family:</strong> JPEG — universally supported, they will definitely be able to open it</li>
+        <li><strong>Image to edit further:</strong> Keep in PNG or TIFF for editing; export to JPEG/WebP for distribution</li>
+        <li><strong>Animation:</strong> WebP (smaller than GIF, supports true colour); or GIF if compatibility is critical</li>
+      </ul>
+
+      <h2>Convert Between Image Formats</h2>
+      <p>PDFWorks converts images between JPEG, PNG, WebP, and other formats — free, no account, files deleted automatically after 30 minutes.</p>
+      <p><a href="/image" class="btn btn-primary" style="display:inline-block;padding:.6rem 1.5rem;border-radius:8px;background:var(--accent);color:#fff;font-weight:600;text-decoration:none">Convert Images Free →</a></p>
+
+      <p style="margin-top:2rem"><strong>Related guides:</strong> <a href="/blog/how-to-compress-pdf-files">How to Compress PDF Files</a> · <a href="/blog/reduce-pdf-file-size">Reduce PDF File Size</a></p>
+    </div>
+  </article>
+</div>
+{% endblock %}

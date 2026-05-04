@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Normalize Audio Online Free — Fix Loudness Levels — PDFWorks{% endblock %}
+{% block meta_description %}Normalize audio loudness online to any LUFS target — -14 LUFS for streaming, -16 for podcasts, -23 for broadcast. Free, no account. Files deleted in 30 minutes.{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebApplication","name":"PDFWorks Audio Normalizer","url":"https://pdfworks.io/tools/normalize-audio","description":"Free online audio loudness normalizer. Target -14 LUFS for streaming, -16 for podcasts, or -23 for broadcast. Uses EBU R128 standard. No account required.","applicationCategory":"MultimediaApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="tool-detail-page">
+  <nav class="breadcrumb">
+    <a href="/">Home</a><span class="sep">›</span>
+    <a href="/audio">Audio Tools</a><span class="sep">›</span>
+    <span>Normalize Audio</span>
+  </nav>
+
+  <h1>Normalize Audio Loudness</h1>
+  <p class="tool-lead">Adjust the integrated loudness of your audio file to a target LUFS level using the industry-standard EBU R128 algorithm. Ideal for podcasts, music production, and streaming platform submissions. Free, no account required.</p>
+
+  <div class="tool-action-bar">
+    <p>Normalize your audio now — free, instant.</p>
+    <a href="/audio" class="btn btn-primary" style="padding:.55rem 1.25rem;border-radius:8px;background:var(--accent);color:#fff;font-weight:600;text-decoration:none;white-space:nowrap">Open Audio Normalizer →</a>
+  </div>
+
+  <div class="prose">
+    <h2>How to Normalize Audio</h2>
+    <ol class="steps-list">
+      <li>Go to <a href="/audio">Audio Tools</a> and select <strong>Normalize Audio</strong> in the sidebar.</li>
+      <li>Upload your audio file (MP3, WAV, FLAC, AAC, OGG, M4A, AIFF).</li>
+      <li>Enter your target loudness in LUFS (e.g. <code>-16</code>). The default is −16 LUFS.</li>
+      <li>Click <strong>Convert</strong> and download your normalized audio.</li>
+    </ol>
+
+    <h2>Which LUFS Target Should I Use?</h2>
+    <ul>
+      <li><strong>−14 LUFS</strong> — Spotify, YouTube, Amazon Music, Tidal. The standard target for music distribution on streaming platforms.</li>
+      <li><strong>−16 LUFS</strong> — Podcasts, general online audio, voice content. The recommended level for podcasting and spoken-word distribution.</li>
+      <li><strong>−23 LUFS</strong> — EBU R128 broadcast standard. Required for television and radio broadcast content in Europe.</li>
+      <li><strong>−24 LUFS</strong> — ATSC A/85 standard. Used for broadcast in North America.</li>
+    </ul>
+
+    <h2>What Is LUFS?</h2>
+    <p>LUFS (Loudness Units relative to Full Scale) is the standard unit for measuring integrated audio loudness. Unlike simple peak measurements, LUFS accounts for human hearing sensitivity across different frequencies and excludes silences — giving a reliable measure of how loud a programme actually sounds to a listener. <a href="/blog/what-is-audio-normalization">Read our full guide to audio normalization and LUFS.</a></p>
+
+    <h2>Does Normalization Change the Sound?</h2>
+    <p>Normalization applies a uniform gain adjustment across the entire file — it makes the whole file louder or quieter without changing the relative dynamics. The character, timbre, and dynamics of the audio are preserved. What changes is the absolute level. If the normalization requires a large gain increase and the file has loud peaks, a limiter is applied to prevent digital clipping.</p>
+
+    <p style="margin-top:2rem"><strong>Related tools:</strong></p>
+    <div class="related-tools">
+      <a href="/tools/audio-converter" class="related-tool-link">Audio Converter</a>
+      <a href="/tools/trim-audio" class="related-tool-link">Trim Audio</a>
+      <a href="/tools/compress-audio" class="related-tool-link">Compress Audio</a>
+      <a href="/tools/change-speed-audio" class="related-tool-link">Change Audio Speed</a>
+    </div>
+    <p style="margin-top:1.5rem"><strong>Related guide:</strong> <a href="/blog/what-is-audio-normalization">What Is Audio Normalization? LUFS and EBU R128 Explained</a></p>
+  </div>
+</div>
+{% endblock %}

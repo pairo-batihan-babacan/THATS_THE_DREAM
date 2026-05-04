@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}How to Reduce Video File Size: A Complete Guide — PDFWorks{% endblock %}
+{% block meta_description %}Everything you need to know about making video files smaller — codecs, CRF, resolution, bitrate, and the right settings for sharing, uploading, and archiving.{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","headline":"How to Reduce Video File Size: A Complete Guide","datePublished":"2024-05-11","dateModified":"2024-05-11","author":{"@type":"Organization","name":"PDFWorks"},"publisher":{"@type":"Organization","name":"PDFWorks","url":"https://pdfworks.io"},"description":"Everything you need to know about making video files smaller — codecs, CRF, resolution, bitrate, and the right settings for every use case.","mainEntityOfPage":"https://pdfworks.io/blog/how-to-reduce-video-file-size"}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="blog-post-page">
+  <nav class="breadcrumb">
+    <a href="/">Home</a><span class="sep">›</span>
+    <a href="/blog">Blog</a><span class="sep">›</span>
+    <span>Reduce Video File Size</span>
+  </nav>
+  <article>
+    <header class="post-header">
+      <h1>How to Reduce Video File Size: A Complete Guide</h1>
+      <div class="post-meta">
+        <span>May 11, 2024</span>
+        <span>8 min read</span>
+      </div>
+    </header>
+    <div class="post-divider"></div>
+    <div class="prose">
+      <p>Video files are large by nature. An hour of uncompressed 1080p video can be hundreds of gigabytes. Even modern camera footage can easily hit 10–50 GB per hour. Reducing video file size without destroying quality is one of the most practical skills in digital media. This guide explains exactly how video compression works and gives you concrete settings for every common use case.</p>
+
+      <h2>Why Are Video Files So Large?</h2>
+      <p>A video is a sequence of images (frames) played in rapid succession — typically 24, 30, or 60 frames per second — combined with audio. Each frame of 1080p video contains 2,073,600 pixels. At 30 fps for one hour, uncompressed, that is trillions of pixel values. The entire field of video codec engineering exists to reduce this to a manageable size.</p>
+      <p>Raw camera footage uses intraframe-only compression (each frame compressed independently, like a JPEG). This is high quality and easy to edit but still very large — formats like ProRes or AVCHD use this approach. Delivery codecs like H.264 use interframe compression: they only store the differences between frames, achieving dramatic size reductions at the cost of more processing power to decode.</p>
+
+      <h2>The Main Levers for Reducing Video File Size</h2>
+
+      <h3>1. Codec — the most important factor</h3>
+      <p>The codec is the algorithm that compresses the video. Choosing a better codec gives you a smaller file at the same quality, or better quality at the same file size.</p>
+      <ul>
+        <li><strong>H.264 (AVC)</strong> — The universal standard. Supported on every device. Excellent quality-to-file-size ratio. Use this for anything that needs to play everywhere.</li>
+        <li><strong>H.265 (HEVC)</strong> — The successor to H.264. Produces files roughly 40–50% smaller than H.264 at the same visual quality. Not universally supported (some older browsers and devices cannot play it). Good for archiving or Apple-ecosystem delivery.</li>
+        <li><strong>AV1</strong> — The newest generation. Even better than H.265 in compression efficiency. Royalty-free. Growing browser support. Still slow to encode on most hardware.</li>
+        <li><strong>VP9</strong> — Google's competitor to H.265. Used on YouTube. Good compression, decent compatibility.</li>
+      </ul>
+      <p>For maximum compatibility, use H.264. For maximum compression on modern devices, use H.265 or AV1.</p>
+
+      <h3>2. CRF — constant rate factor</h3>
+      <p>CRF is the quality setting for variable bitrate encoding in H.264 and H.265. Lower CRF = higher quality = larger file. The scale runs from 0 (lossless) to 51 (terrible).</p>
+      <ul>
+        <li><strong>CRF 18–22</strong> — Visually lossless for most content. Large files.</li>
+        <li><strong>CRF 23</strong> — The H.264 default. Good quality for general use.</li>
+        <li><strong>CRF 26–28</strong> — Noticeably compressed but acceptable for web delivery. Files are significantly smaller.</li>
+        <li><strong>CRF 30+</strong> — Visible quality loss. Only appropriate when file size is the absolute priority.</li>
+      </ul>
+      <p>For H.265, the same quality level corresponds to a CRF value roughly 6–8 points higher — so H.265 CRF 28 is approximately equivalent to H.264 CRF 22.</p>
+
+      <h3>3. Resolution</h3>
+      <p>Halving the resolution (e.g. from 1080p to 540p) reduces file size by approximately 75%. Resolution reduction is drastic — it permanently reduces the detail available in the video — but is sometimes appropriate:</p>
+      <ul>
+        <li>Content that will only ever be viewed on a phone screen (540p is indistinguishable from 1080p at phone sizes)</li>
+        <li>Archival footage of meetings or lectures where visual detail is not the point</li>
+        <li>Thumbnails and preview clips</li>
+      </ul>
+      <p>For anything you want to look good on a monitor or TV, keep the original resolution and use CRF compression instead.</p>
+
+      <h3>4. Frame rate</h3>
+      <p>Reducing from 60 fps to 30 fps halves the number of frames, which reduces file size by roughly 40–50%. For most content, 30 fps is perfectly smooth. 60 fps matters for high-motion content (sports, gaming, fast action). Reducing to 24 fps gives a "cinematic" look and smaller files; below that, motion starts to look choppy.</p>
+
+      <h3>5. Audio bitrate</h3>
+      <p>Audio is usually a small fraction of video file size (1–5%), so reducing audio bitrate rarely makes a significant difference. It is worth doing but should not be the primary focus. AAC at 128 kbps stereo is perfectly good for almost all video content.</p>
+
+      <h2>Settings for Common Use Cases</h2>
+
+      <h3>Sending via email or messaging app (under 25 MB)</h3>
+      <ul>
+        <li>Codec: H.264</li>
+        <li>CRF: 28–30</li>
+        <li>Resolution: 720p or lower</li>
+        <li>Audio: AAC 96 kbps</li>
+      </ul>
+      <p>A 2-minute clip at these settings should be well under 25 MB.</p>
+
+      <h3>Uploading to YouTube, Vimeo, or social media</h3>
+      <ul>
+        <li>Codec: H.264 (platforms re-encode anyway, so H.265 gives no benefit here)</li>
+        <li>CRF: 18–22 (upload quality; the platform will compress it further)</li>
+        <li>Resolution: Keep original (1080p or 4K)</li>
+        <li>Audio: AAC 192 kbps</li>
+      </ul>
+      <p>Upload the highest quality you can — the platform will compress it. Uploading a heavily compressed file means the platform's compression compounds your quality loss.</p>
+
+      <h3>Archiving home video</h3>
+      <ul>
+        <li>Codec: H.265 or H.264</li>
+        <li>CRF: 20–23</li>
+        <li>Resolution: Keep original</li>
+        <li>Audio: AAC 160 kbps</li>
+      </ul>
+
+      <h3>Screen recordings / tutorials</h3>
+      <ul>
+        <li>Codec: H.264</li>
+        <li>CRF: 23–26</li>
+        <li>Resolution: Keep original (text must be legible)</li>
+        <li>Audio: AAC 128 kbps</li>
+      </ul>
+      <p>Screen recordings compress very well because large areas of the frame are static between frames. CRF 26 on a screen recording often looks better than CRF 23 on live-action footage.</p>
+
+      <h2>The +faststart Flag: Not Size, But Speed</h2>
+      <p>When encoding H.264 MP4, the <code>+faststart</code> flag moves the video's index (moov atom) to the beginning of the file. This does not change the file size, but it allows web browsers and video players to begin playing the video before the entire file has downloaded. If you are putting video on a website, always use faststart.</p>
+
+      <h2>Compress Your Video</h2>
+      <p>PDFWorks compresses video files online using H.264 with quality-optimised settings. Free, no account, files deleted automatically after 30 minutes.</p>
+      <p><a href="/video" class="btn btn-primary" style="display:inline-block;padding:.6rem 1.5rem;border-radius:8px;background:var(--accent);color:#fff;font-weight:600;text-decoration:none">Compress Video Free →</a></p>
+
+      <p style="margin-top:2rem"><strong>Related guides:</strong> <a href="/blog/mp4-vs-mkv">MP4 vs MKV</a> · <a href="/blog/how-to-extract-audio-from-video">Extract Audio from Video</a></p>
+    </div>
+  </article>
+</div>
+{% endblock %}

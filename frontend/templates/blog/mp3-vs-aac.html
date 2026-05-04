@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}MP3 vs AAC: Which Audio Format Should You Use? — PDFWorks{% endblock %}
+{% block meta_description %}A clear comparison of MP3 and AAC audio formats — sound quality, file size, device compatibility, and when each format is the right choice.{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","headline":"MP3 vs AAC: Which Audio Format Should You Use?","datePublished":"2024-05-01","dateModified":"2024-05-01","author":{"@type":"Organization","name":"PDFWorks"},"publisher":{"@type":"Organization","name":"PDFWorks","url":"https://pdfworks.io"},"description":"A clear comparison of MP3 and AAC audio formats — sound quality, file size, device compatibility, and when each format is the right choice.","mainEntityOfPage":"https://pdfworks.io/blog/mp3-vs-aac"}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="blog-post-page">
+  <nav class="breadcrumb">
+    <a href="/">Home</a><span class="sep">›</span>
+    <a href="/blog">Blog</a><span class="sep">›</span>
+    <span>MP3 vs AAC</span>
+  </nav>
+  <article>
+    <header class="post-header">
+      <h1>MP3 vs AAC: Which Audio Format Should You Use?</h1>
+      <div class="post-meta">
+        <span>May 1, 2024</span>
+        <span>6 min read</span>
+      </div>
+    </header>
+    <div class="post-divider"></div>
+    <div class="prose">
+      <p>MP3 and AAC are the two dominant lossy audio formats. Both compress audio by discarding sound information your ears cannot easily perceive, and both are widely supported. But they are not equal — AAC generally sounds better than MP3 at the same bitrate, yet MP3 remains more universally compatible. This guide explains the difference clearly so you can choose the right format for your situation.</p>
+
+      <h2>A Brief History</h2>
+      <p><strong>MP3</strong> (MPEG-1 Audio Layer III) was introduced in 1993 and became the dominant format for digital audio throughout the late 1990s and 2000s. It was revolutionary for its time: it made it practical to store hundreds of songs on a hard drive and share them over the internet. Its patents expired in 2017, making it completely free to implement.</p>
+      <p><strong>AAC</strong> (Advanced Audio Coding) was designed in 1997 as the successor to MP3. It was part of the MPEG-4 standard and was adopted by Apple in 2003 when iTunes launched with AAC as its default format. AAC uses more sophisticated compression algorithms than MP3 and achieves better sound quality at any given bitrate.</p>
+
+      <h2>Sound Quality: Does AAC Actually Sound Better?</h2>
+      <p>Yes, measurably and audibly — particularly at lower bitrates. Both formats are <em>lossy</em>, meaning they permanently discard audio data to reduce file size. The question is how efficiently they discard it.</p>
+      <p>AAC uses more advanced psychoacoustic models: it better identifies which sounds the human ear cannot perceive in context and discards those preferentially. The result is that AAC at 128 kbps sounds noticeably better than MP3 at 128 kbps. Many audio engineers consider 128 kbps AAC to be roughly equivalent in quality to 192 kbps MP3.</p>
+
+      <h3>At high bitrates, the difference narrows</h3>
+      <p>At 256 kbps or higher, both formats produce audio that is effectively indistinguishable from the original source in double-blind listening tests. The quality difference only matters noticeably at lower bitrates (below 192 kbps), which is exactly where portable devices, streaming, and older downloads tend to operate.</p>
+      <p>For reference, these are the common quality tiers:</p>
+      <ul>
+        <li><strong>64–96 kbps</strong> — Noticeable compression artefacts in both formats. AAC has a clear edge.</li>
+        <li><strong>128 kbps</strong> — Good enough for casual listening. AAC sounds clearly better than MP3 here.</li>
+        <li><strong>192 kbps</strong> — High quality for both. Most people cannot tell MP3 from the original at this rate.</li>
+        <li><strong>256–320 kbps</strong> — Transparent for both formats. Choosing one over the other for quality reasons at this bitrate is not meaningful.</li>
+      </ul>
+
+      <h2>File Size</h2>
+      <p>At the same bitrate, MP3 and AAC produce files of nearly identical size — both encode at a fixed or variable bitrate measured in kilobits per second, and the output file size scales accordingly. The difference is that AAC achieves <em>better quality at the same size</em>, not a smaller file at the same quality.</p>
+      <p>If you encode both at 128 kbps, the files will be the same size — but the AAC file will sound better. If you want equivalent quality to a 192 kbps MP3, you can encode AAC at 128 kbps and get a smaller file.</p>
+
+      <h2>Compatibility: Where Each Format Works</h2>
+      <p>This is where MP3 still has a practical advantage.</p>
+
+      <h3>MP3 compatibility</h3>
+      <ul>
+        <li>Every device, app, and platform that handles audio supports MP3 without exception</li>
+        <li>Car stereos, smart TVs, Bluetooth speakers, old iPods, USB drives — all support MP3</li>
+        <li>No licensing fees since patent expiry in 2017</li>
+        <li>The universal safe choice when you don't know what will play the file</li>
+      </ul>
+
+      <h3>AAC compatibility</h3>
+      <ul>
+        <li>Supported natively by Apple devices, iTunes, and all Apple software</li>
+        <li>Supported by all modern smartphones (iOS and Android) and modern browsers</li>
+        <li>YouTube, Netflix, Spotify, and most streaming platforms encode audio in AAC</li>
+        <li>Not universally supported on older devices and some standalone hardware players</li>
+        <li>Some Linux distributions and open-source players require codec installation</li>
+      </ul>
+
+      <h2>Use Cases: Which Should You Choose?</h2>
+
+      <h3>Choose MP3 when:</h3>
+      <ul>
+        <li>You are sharing a file with someone and you don't know what device or software they will use</li>
+        <li>The file needs to play on older hardware (car stereo, standalone MP3 player, older speakers)</li>
+        <li>You are producing a podcast and need maximum compatibility across all podcast apps</li>
+        <li>You are burning audio to a CD or putting it on a USB drive for a car</li>
+      </ul>
+
+      <h3>Choose AAC when:</h3>
+      <ul>
+        <li>You are targeting Apple ecosystem (iPhone, Mac, AirPods, Apple TV)</li>
+        <li>You are uploading to a streaming platform — YouTube, Spotify, and Apple Music all prefer or require AAC</li>
+        <li>You want the best quality at a low bitrate (128 kbps AAC is noticeably better than 128 kbps MP3)</li>
+        <li>You are producing audio for video content — AAC is the standard audio codec inside MP4 containers</li>
+      </ul>
+
+      <h2>What About Other Formats?</h2>
+      <p>MP3 and AAC are not your only options:</p>
+      <ul>
+        <li><strong>FLAC</strong> — Lossless. No quality loss. Files are 3–5× larger than MP3. Use this for archiving or critical listening. <a href="/blog/flac-vs-mp3">Read our FLAC vs MP3 guide.</a></li>
+        <li><strong>OGG Vorbis</strong> — Open-source, royalty-free, comparable quality to AAC. Widely supported on Android and Linux, not on iOS. Common for game audio and open-source projects.</li>
+        <li><strong>Opus</strong> — The newest generation; outperforms both MP3 and AAC at low bitrates. Excellent for voice calls and streaming. Growing support but not yet universal.</li>
+      </ul>
+
+      <h2>Quick Reference: MP3 vs AAC</h2>
+      <table style="width:100%;border-collapse:collapse;margin:1rem 0;font-size:.9rem">
+        <thead>
+          <tr style="border-bottom:2px solid var(--border)">
+            <th style="text-align:left;padding:.5rem .75rem;color:var(--text-2);font-weight:600">Property</th>
+            <th style="text-align:left;padding:.5rem .75rem;color:var(--text-2);font-weight:600">MP3</th>
+            <th style="text-align:left;padding:.5rem .75rem;color:var(--text-2);font-weight:600">AAC</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom:1px solid var(--border)"><td style="padding:.5rem .75rem">Year introduced</td><td style="padding:.5rem .75rem">1993</td><td style="padding:.5rem .75rem">1997</td></tr>
+          <tr style="border-bottom:1px solid var(--border)"><td style="padding:.5rem .75rem">Quality at 128 kbps</td><td style="padding:.5rem .75rem">Good</td><td style="padding:.5rem .75rem">Better</td></tr>
+          <tr style="border-bottom:1px solid var(--border)"><td style="padding:.5rem .75rem">Quality at 256 kbps</td><td style="padding:.5rem .75rem">Excellent</td><td style="padding:.5rem .75rem">Excellent</td></tr>
+          <tr style="border-bottom:1px solid var(--border)"><td style="padding:.5rem .75rem">Universal compatibility</td><td style="padding:.5rem .75rem">Yes</td><td style="padding:.5rem .75rem">Mostly</td></tr>
+          <tr style="border-bottom:1px solid var(--border)"><td style="padding:.5rem .75rem">Streaming platforms</td><td style="padding:.5rem .75rem">Accepted</td><td style="padding:.5rem .75rem">Preferred</td></tr>
+          <tr style="border-bottom:1px solid var(--border)"><td style="padding:.5rem .75rem">Licence</td><td style="padding:.5rem .75rem">Free (expired patents)</td><td style="padding:.5rem .75rem">Licensing required</td></tr>
+          <tr><td style="padding:.5rem .75rem">Best for</td><td style="padding:.5rem .75rem">Universal sharing</td><td style="padding:.5rem .75rem">Streaming, Apple, video</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Convert Between Formats</h2>
+      <p>Need to convert an MP3 to AAC, or vice versa? PDFWorks converts between all major audio formats — MP3, AAC, WAV, FLAC, OGG, M4A, and AIFF — in seconds, free, with no account required.</p>
+      <p><a href="/audio" class="btn btn-primary" style="display:inline-block;padding:.6rem 1.5rem;border-radius:8px;background:var(--accent);color:#fff;font-weight:600;text-decoration:none">Convert Audio Free →</a></p>
+
+      <p style="margin-top:2rem"><strong>Related guides:</strong> <a href="/blog/flac-vs-mp3">FLAC vs MP3</a> · <a href="/blog/what-is-audio-normalization">What Is Audio Normalization?</a> · <a href="/blog/how-to-reduce-audio-file-size">How to Reduce Audio File Size</a></p>
+    </div>
+  </article>
+</div>
+{% endblock %}

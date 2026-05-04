@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Strip EXIF Data — Remove Metadata from Photos Free — PDFWorks{% endblock %}
+{% block meta_description %}Remove EXIF metadata from photos online — GPS location, camera model, date taken, and all hidden data. Free EXIF remover, no account needed. Files deleted in 30 min.{% endblock %}
+{% block og_title %}Strip EXIF Data from Photos Free — PDFWorks{% endblock %}
+{% block og_description %}Remove GPS location, camera info, and all EXIF metadata from your photos before sharing. Free online EXIF remover — no signup, auto-deleted in 30 min.{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebApplication","name":"PDFWorks EXIF Remover","url":"https://pdfworks.io/tools/strip-exif","description":"Free online tool to remove EXIF metadata from photos. Strips GPS location, camera info, and all hidden data from JPEG, PNG, and WebP images.","applicationCategory":"UtilitiesApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="tool-detail-page">
+  <nav class="breadcrumb">
+    <a href="/">Home</a><span class="sep">›</span>
+    <a href="/image">Image Tools</a><span class="sep">›</span>
+    <span>Strip EXIF Data</span>
+  </nav>
+
+  <h1>Strip EXIF Data — Remove Metadata from Photos</h1>
+  <p class="tool-lead">Remove all hidden EXIF metadata from your photos before sharing them online — including GPS location, camera model, date and time taken, and lens information. Free, instant, no account required. Your file is deleted within 30 minutes.</p>
+
+  <div class="tool-action-bar">
+    <p>Strip EXIF from your photo now — free, no signup.</p>
+    <a href="/image" class="btn btn-primary" style="padding:.55rem 1.25rem;border-radius:8px;background:var(--accent);color:#fff;font-weight:600;text-decoration:none;white-space:nowrap">Open EXIF Remover →</a>
+  </div>
+
+  <div class="prose">
+    <h2>What Is EXIF Data?</h2>
+    <p>EXIF stands for <strong>Exchangeable Image File Format</strong>. It is a standard that defines a set of metadata fields embedded into image files — primarily JPEG, PNG, TIFF, and RAW photos — by cameras, smartphones, and image editing software.</p>
+    <p>Every photo your phone or camera takes carries an invisible data payload. You cannot see it in the image itself, but anyone who downloads the file can read it using freely available tools. This data can include:</p>
+    <ul>
+      <li><strong>GPS coordinates</strong> — The exact latitude and longitude where the photo was taken, accurate to within a few metres</li>
+      <li><strong>Date and time</strong> — The precise timestamp when the photo was captured</li>
+      <li><strong>Camera make and model</strong> — e.g. "Apple iPhone 15 Pro" or "Canon EOS R6"</li>
+      <li><strong>Lens information</strong> — Focal length, aperture, and lens model</li>
+      <li><strong>Shutter speed and ISO</strong> — Camera exposure settings</li>
+      <li><strong>Software</strong> — The app or software that last edited the photo</li>
+      <li><strong>Orientation</strong> — Which way the camera was held when the photo was taken</li>
+      <li><strong>Copyright and artist fields</strong> — If set in your camera</li>
+    </ul>
+
+    <h2>Why Remove EXIF Data?</h2>
+
+    <h3>Privacy — especially GPS location</h3>
+    <p>The most serious concern is GPS data. If you post a photo taken at your home, workplace, or a private location with GPS EXIF data intact, anyone can determine precisely where you were. Journalists, activists, domestic abuse survivors, public figures, and anyone who values location privacy should strip EXIF before sharing photos publicly. This is not a hypothetical risk — there are well-documented cases of people being located through EXIF data embedded in photos posted online.</p>
+
+    <h3>Personal information exposure</h3>
+    <p>Your camera model can reveal information about your financial situation. The date field can confirm or deny your presence somewhere. The software field can reveal what apps you use. None of this is visible in the photo but is freely readable in the file.</p>
+
+    <h3>Professional context</h3>
+    <p>Photographers publishing work online may not want to reveal their equipment or shooting parameters. Stock photo contributors may want to strip copyright and contact details before uploading to certain platforms. Businesses sharing product photos do not need to reveal their photo studio location.</p>
+
+    <h2>How to Remove EXIF Data from a Photo</h2>
+    <ol class="steps-list">
+      <li>Go to <a href="/image">Image Tools</a> and select <strong>Strip Metadata</strong> in the sidebar.</li>
+      <li>Upload your image file. Supported formats: <strong>JPG, JPEG, PNG, WebP, TIFF, BMP</strong>.</li>
+      <li>Click <strong>Convert</strong>. Processing is near-instant.</li>
+      <li>Download the cleaned image. The visual content is completely unchanged — only the invisible metadata is removed.</li>
+    </ol>
+
+    <h2>What EXIF Removal Does NOT Change</h2>
+    <p>Stripping EXIF metadata only removes the invisible data header. The actual image content — every pixel, colour, and visual detail — is completely preserved and unchanged. The output file will look identical to the input. File size may be marginally smaller (by the size of the metadata, typically a few kilobytes).</p>
+
+    <h2>Does Social Media Remove EXIF Automatically?</h2>
+    <p>Most major platforms do strip EXIF data when you upload a photo — Facebook, Instagram, Twitter/X, and WhatsApp all remove metadata on their servers. However:</p>
+    <ul>
+      <li>The platform itself has access to the EXIF data before stripping it</li>
+      <li>Not all platforms strip it (some forums, file hosts, and messaging apps do not)</li>
+      <li>If you share the original file (via email, Dropbox, Google Drive, AirDrop), the EXIF is fully intact</li>
+      <li>Stripping EXIF yourself before uploading is the only way to guarantee the data is not sent at all</li>
+    </ul>
+
+    <h2>Supported Formats</h2>
+    <ul>
+      <li><strong>JPG / JPEG</strong> — The most common format for camera and phone photos</li>
+      <li><strong>PNG</strong> — Screenshots, graphics, and lossless exports</li>
+      <li><strong>WebP</strong> — Modern web image format</li>
+      <li><strong>TIFF</strong> — Professional photography and scanning format</li>
+      <li><strong>BMP</strong> — Windows bitmap format</li>
+    </ul>
+
+    <p style="margin-top:2rem"><strong>Related tools:</strong></p>
+    <div class="related-tools">
+      <a href="/tools/compress-image" class="related-tool-link">Compress Image</a>
+      <a href="/tools/convert-image" class="related-tool-link">Convert Image</a>
+      <a href="/tools/strip-pdf-metadata" class="related-tool-link">Strip PDF Metadata</a>
+    </div>
+    <p style="margin-top:1.5rem"><strong>Further reading:</strong> <a href="/blog/how-to-remove-exif-data-from-photos">How to Remove EXIF Data from Photos</a></p>
+  </div>
+</div>
+{% endblock %}

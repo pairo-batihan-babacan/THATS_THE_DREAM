@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Change Audio Speed Online Free — Speed Up or Slow Down Audio — PDFWorks{% endblock %}
+{% block meta_description %}Change audio playback speed without changing pitch. Speed up or slow down MP3, WAV, FLAC, and other audio files online. 0.25x to 4x. Free, no account needed.{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebApplication","name":"PDFWorks Audio Speed Changer","url":"https://pdfworks.io/tools/change-speed-audio","description":"Free online audio speed changer. Adjust playback speed from 0.25x to 4x without affecting pitch. No account required.","applicationCategory":"MultimediaApplication","operatingSystem":"Web Browser","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="tool-detail-page">
+  <nav class="breadcrumb">
+    <a href="/">Home</a><span class="sep">›</span>
+    <a href="/audio">Audio Tools</a><span class="sep">›</span>
+    <span>Change Audio Speed</span>
+  </nav>
+
+  <h1>Change Audio Speed</h1>
+  <p class="tool-lead">Speed up or slow down audio files without affecting pitch — the audio plays faster or slower but stays in the same key and at the same tone. Speed range: 0.25× to 4×. Free, no account required.</p>
+
+  <div class="tool-action-bar">
+    <p>Change audio speed now — free, instant.</p>
+    <a href="/audio" class="btn btn-primary" style="padding:.55rem 1.25rem;border-radius:8px;background:var(--accent);color:#fff;font-weight:600;text-decoration:none;white-space:nowrap">Open Speed Changer →</a>
+  </div>
+
+  <div class="prose">
+    <h2>How to Change Audio Speed</h2>
+    <ol class="steps-list">
+      <li>Go to <a href="/audio">Audio Tools</a> and select <strong>Change Speed</strong> in the sidebar.</li>
+      <li>Upload your audio file (MP3, WAV, FLAC, AAC, OGG, M4A, AIFF).</li>
+      <li>Enter a speed multiplier: <code>0.5</code> for half speed, <code>1.0</code> for normal, <code>1.5</code> for 1.5× speed, etc.</li>
+      <li>Click <strong>Convert</strong> and download your file.</li>
+    </ol>
+
+    <h2>Speed Reference</h2>
+    <ul>
+      <li><strong>0.25×</strong> — Quarter speed. Very slow, useful for detailed transcription or learning intricate passages.</li>
+      <li><strong>0.5×</strong> — Half speed. Slow enough to catch fast speech or complex music.</li>
+      <li><strong>0.75×</strong> — Slightly slow. Useful for transcription or careful listening.</li>
+      <li><strong>1.0×</strong> — Normal playback speed.</li>
+      <li><strong>1.25×</strong> — 25% faster. Common for podcast consumption. Saves time with minimal perceptual impact.</li>
+      <li><strong>1.5×</strong> — 50% faster. A popular lecture and podcast speed. Most speech remains clearly intelligible.</li>
+      <li><strong>2.0×</strong> — Double speed. Fast speech. Works well for familiar content or slow speakers.</li>
+      <li><strong>2.0×–4.0×</strong> — Very fast. Intelligibility varies by original speaking pace. Useful for scanning content.</li>
+    </ul>
+
+    <h2>Does It Change Pitch?</h2>
+    <p>No. PDFWorks uses <strong>time-stretching</strong> (the ffmpeg <code>atempo</code> filter), which changes the playback speed without altering the pitch. A podcast sped up to 1.5× will play faster but the voices will sound at their normal pitch — not chipmunk-high or artificially slow. This is different from simply speeding up a tape or playing a record at the wrong speed, which does change pitch.</p>
+
+    <h2>Common Use Cases</h2>
+    <ul>
+      <li><strong>Podcasts and lectures:</strong> Speed up to 1.5×–2× to consume content faster.</li>
+      <li><strong>Language learning:</strong> Slow down native-speaker audio to 0.7×–0.8× for easier comprehension.</li>
+      <li><strong>Transcription:</strong> Slow down fast speech to 0.5× for easier typing.</li>
+      <li><strong>Music practice:</strong> Slow down a fast passage to practice at tempo.</li>
+      <li><strong>Accessibility:</strong> Speed up or slow down content to match a listener's preference.</li>
+    </ul>
+
+    <p style="margin-top:2rem"><strong>Related tools:</strong></p>
+    <div class="related-tools">
+      <a href="/tools/trim-audio" class="related-tool-link">Trim Audio</a>
+      <a href="/tools/normalize-audio" class="related-tool-link">Normalize Audio</a>
+      <a href="/tools/audio-converter" class="related-tool-link">Audio Converter</a>
+    </div>
+  </div>
+</div>
+{% endblock %}
