@@ -2478,6 +2478,7 @@ type OrgPage = {
   originalIndex: number
   thumb: string
   rotation: number // user-added rotation: 0, 90, 180, 270
+  naturalLandscape: boolean
 }
 
 async function loadAllPageThumbs(
@@ -2496,7 +2497,7 @@ async function loadAllPageThumbs(
     canvas.width = vp.width
     canvas.height = vp.height
     await page.render({ canvasContext: canvas.getContext('2d')!, viewport: vp }).promise
-    pages.push({ originalIndex: i, thumb: canvas.toDataURL(), rotation: 0 })
+    pages.push({ originalIndex: i, thumb: canvas.toDataURL(), rotation: 0, naturalLandscape: vp.width > vp.height })
     onProgress(i + 1, doc.numPages)
   }
   return pages
@@ -2913,6 +2914,7 @@ interface CanvasPage {
   originalIndex: number
   thumb: string
   rotation: number   // user-added rotation 0/90/180/270
+  naturalLandscape: boolean
   marked: boolean    // delete mode: will be deleted; keep mode: will be kept
 }
 
@@ -2930,14 +2932,21 @@ function PageCanvasInterface({
     tool.id === 'rotate-pdf'    ? 'rotate' :
     tool.id === 'delete-pages'  ? 'delete' : 'keep'
 
-  const [file,          setFile]          = useState<File | null>(null)
-  const [pages,         setPages]         = useState<CanvasPage[]>([])
-  const [stage,         setStage]         = useState<'idle' | 'loading' | 'ready' | 'processing' | 'done' | 'error'>('idle')
-  const [loadProgress,  setLoadProgress]  = useState({ done: 0, total: 0 })
-  const [progress,      setProgress]      = useState(0)
-  const [outputBlob,    setOutputBlob]    = useState<Blob | null>(null)
-  const [outputUrl,     setOutputUrl]     = useState('')
-  const [errorMsg,      setErrorMsg]      = useState('')
+  const [file,           setFile]           = useState<File | null>(null)
+  const [pages,          setPages]          = useState<CanvasPage[]>([])
+  const [stage,          setStage]          = useState<'idle' | 'loading' | 'ready' | 'processing' | 'done' | 'error'>('idle')
+  const [loadProgress,   setLoadProgress]   = useState({ done: 0, total: 0 })
+  const [progress,       setProgress]       = useState(0)
+  const [outputBlob,     setOutputBlob]     = useState<Blob | null>(null)
+  const [outputUrl,      setOutputUrl]      = useState('')
+  const [errorMsg,       setErrorMsg]       = useState('')
+  // rotate-mode extras
+  const [selected,       setSelected]       = useState<Set<number>>(new Set())
+  const [showOrientPanel,setShowOrientPanel] = useState(false)
+  const [lasso,          setLasso]          = useState<{ l: number; t: number; w: number; h: number } | null>(null)
+  const lastSelRef = useRef<number>(-1)
+  const dragRef    = useRef<{ sx: number; sy: number; btn: 0 | 2; moved: boolean } | null>(null)
+  const gridRef    = useRef<HTMLDivElement>(null)
 
   const onDrop = useCallback(async (accepted: File[]) => {
     const f = accepted[0]
@@ -2945,13 +2954,15 @@ function PageCanvasInterface({
     setFile(f)
     setStage('loading')
     setLoadProgress({ done: 0, total: 0 })
+    setSelected(new Set())
     try {
       const raw = await loadAllPageThumbs(f, (done, total) => setLoadProgress({ done, total }))
       setPages(raw.map(p => ({
-        originalIndex: p.originalIndex,
-        thumb: p.thumb,
-        rotation: 0,
-        marked: mode === 'keep',  // keep mode: all selected by default
+        originalIndex:   p.originalIndex,
+        thumb:           p.thumb,
+        rotation:        0,
+        naturalLandscape: p.naturalLandscape,
+        marked:          mode === 'keep',
       })))
       setStage('ready')
     } catch (err) {
@@ -2972,29 +2983,145 @@ function PageCanvasInterface({
     setFile(null); setPages([]); setStage('idle')
     setOutputBlob(null); setOutputUrl(''); setErrorMsg('')
     setLoadProgress({ done: 0, total: 0 }); setProgress(0)
+    setSelected(new Set()); setShowOrientPanel(false)
   }, [outputUrl])
 
+  // ── per-page rotation ────────────────────────────────────────────────────────
   const rotatePage = (idx: number, dir: 1 | -1) =>
     setPages(prev => prev.map((p, i) =>
       i === idx ? { ...p, rotation: (p.rotation + dir * 90 + 360) % 360 } : p
     ))
 
-  const toggleMark = (idx: number) =>
-    setPages(prev => prev.map((p, i) => i === idx ? { ...p, marked: !p.marked } : p))
+  // ── bulk rotation ────────────────────────────────────────────────────────────
+  const rotateAll = (delta: number) =>
+    setPages(prev => prev.map(p => ({ ...p, rotation: (p.rotation + delta + 360) % 360 })))
 
+  const rotateSelected = (delta: number) =>
+    setPages(prev => prev.map((p, i) =>
+      selected.has(i) ? { ...p, rotation: (p.rotation + delta + 360) % 360 } : p
+    ))
+
+  // ── delete/keep mode selection ───────────────────────────────────────────────
+  const toggleMark  = (idx: number) =>
+    setPages(prev => prev.map((p, i) => i === idx ? { ...p, marked: !p.marked } : p))
   const selectAll   = () => setPages(prev => prev.map(p => ({ ...p, marked: true })))
   const deselectAll = () => setPages(prev => prev.map(p => ({ ...p, marked: false })))
 
-  const markedCount = pages.filter(p => p.marked).length
+  // ── orientation helpers ──────────────────────────────────────────────────────
+  const getEffectiveLandscape = (p: CanvasPage) =>
+    (p.rotation === 90 || p.rotation === 270) ? !p.naturalLandscape : p.naturalLandscape
+
+  const landCount = pages.filter(p => getEffectiveLandscape(p)).length
+  const portCount = pages.length - landCount
+
+  const selectByOrientation = (wantLand: boolean) => {
+    const next = new Set<number>()
+    pages.forEach((p, i) => {
+      if (getEffectiveLandscape(p) === wantLand) { next.add(i); lastSelRef.current = i }
+    })
+    setSelected(next)
+  }
+
+  const makeAllOrientation = (targetLand: boolean) =>
+    setPages(prev => prev.map(p =>
+      getEffectiveLandscape(p) === targetLand ? p : { ...p, rotation: (p.rotation + 90 + 360) % 360 }
+    ))
+
+  // ── rotate-mode page click (Shift / Ctrl / plain) ────────────────────────────
+  const handleRotateClick = (e: React.MouseEvent<HTMLDivElement>, i: number) => {
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (e.shiftKey && lastSelRef.current >= 0) {
+        const lo = Math.min(lastSelRef.current, i), hi = Math.max(lastSelRef.current, i)
+        for (let j = lo; j <= hi; j++) next.add(j)
+      } else if (e.ctrlKey || e.metaKey) {
+        if (next.has(i)) next.delete(i)
+        else { next.add(i); lastSelRef.current = i }
+      } else {
+        if (next.size === 1 && next.has(i)) next.delete(i)
+        else { next.clear(); next.add(i); lastSelRef.current = i }
+      }
+      return next
+    })
+  }
+
+  // ── lasso drag (rotate mode only) ───────────────────────────────────────────
+  useEffect(() => {
+    if (mode !== 'rotate' || stage !== 'ready') return
+
+    const onMD = (e: MouseEvent) => {
+      const grid = gridRef.current
+      if (!grid) return
+      const gr = grid.getBoundingClientRect()
+      const inGrid = e.clientX >= gr.left && e.clientX <= gr.right && e.clientY >= gr.top && e.clientY <= gr.bottom
+      if (!inGrid) return
+      if (e.button === 0) {
+        if ((e.target as HTMLElement).closest('[data-page-card]')) return
+        dragRef.current = { sx: e.clientX, sy: e.clientY, btn: 0, moved: false }
+        e.preventDefault()
+      } else if (e.button === 2) {
+        dragRef.current = { sx: e.clientX, sy: e.clientY, btn: 2, moved: false }
+        e.preventDefault()
+      }
+    }
+
+    const onMM = (e: MouseEvent) => {
+      const d = dragRef.current
+      if (!d) return
+      const dx = Math.abs(e.clientX - d.sx), dy = Math.abs(e.clientY - d.sy)
+      if (!d.moved && (dx > 5 || dy > 5)) d.moved = true
+      if (d.moved) setLasso({ l: Math.min(d.sx, e.clientX), t: Math.min(d.sy, e.clientY), w: dx, h: dy })
+    }
+
+    const onMU = (e: MouseEvent) => {
+      const d = dragRef.current
+      if (!d || e.button !== d.btn) return
+      const wasMoved = d.moved
+      dragRef.current = null
+      setLasso(null)
+      if (!wasMoved) return
+      const grid = gridRef.current
+      if (!grid) return
+      const bounds = {
+        left: Math.min(d.sx, e.clientX), right: Math.max(d.sx, e.clientX),
+        top:  Math.min(d.sy, e.clientY), bottom: Math.max(d.sy, e.clientY),
+      }
+      setSelected(prev => {
+        const next = d.btn === 2 ? new Set(prev) : new Set<number>()
+        grid.querySelectorAll('[data-page-card]').forEach(card => {
+          const r = card.getBoundingClientRect()
+          if (r.left < bounds.right && r.right > bounds.left && r.top < bounds.bottom && r.bottom > bounds.top) {
+            const idx = parseInt((card as HTMLElement).dataset.pageCard ?? '-1')
+            if (idx >= 0) { next.add(idx); lastSelRef.current = idx }
+          }
+        })
+        return next
+      })
+    }
+
+    const onCM = (e: MouseEvent) => { if (dragRef.current?.btn === 2) e.preventDefault() }
+
+    document.addEventListener('mousedown', onMD)
+    document.addEventListener('mousemove', onMM)
+    document.addEventListener('mouseup', onMU)
+    document.addEventListener('contextmenu', onCM)
+    return () => {
+      document.removeEventListener('mousedown', onMD)
+      document.removeEventListener('mousemove', onMM)
+      document.removeEventListener('mouseup', onMU)
+      document.removeEventListener('contextmenu', onCM)
+    }
+  }, [mode, stage])
+
+  const markedCount  = pages.filter(p => p.marked).length
   const rotatedCount = pages.filter(p => p.rotation !== 0).length
-  const totalCount  = pages.length
+  const totalCount   = pages.length
 
   const actionDisabled = () => {
     if (mode === 'rotate') return rotatedCount === 0
     if (mode === 'delete') return markedCount === 0 || markedCount >= totalCount
     return markedCount === 0
   }
-
 
   const applyChanges = useCallback(async () => {
     if (!file || pages.length === 0) return
@@ -3112,14 +3239,49 @@ function PageCanvasInterface({
             <motion.div key="ready" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
 
               {/* Toolbar */}
-              <div className="flex items-center justify-between mb-4 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl px-4 py-3 gap-3 flex-wrap">
+              <div className="flex items-center justify-between mb-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl px-4 py-3 gap-3 flex-wrap">
                 <div className="flex items-center gap-3 min-w-0">
                   <FileText className="w-4 h-4 flex-shrink-0" style={{ color: tool.color }} />
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate max-w-xs">{file?.name}</span>
                   <span className="text-xs text-gray-400 flex-shrink-0">{totalCount} pages</span>
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  {mode !== 'rotate' && (
+                <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap">
+                  {mode === 'rotate' ? (
+                    <>
+                      <button onClick={() => rotateAll(90)}
+                        title="Rotate all pages 90° clockwise"
+                        className="text-xs font-medium px-2.5 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors flex items-center gap-1">
+                        <RotateCw className="w-3 h-3" /> All CW
+                      </button>
+                      <button onClick={() => rotateAll(-90)}
+                        title="Rotate all pages 90° counter-clockwise"
+                        className="text-xs font-medium px-2.5 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors flex items-center gap-1">
+                        <RotateCcw className="w-3 h-3" /> All CCW
+                      </button>
+                      <button onClick={() => rotateAll(180)}
+                        title="Rotate all pages 180°"
+                        className="text-xs font-medium px-2.5 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors">
+                        All 180°
+                      </button>
+                      <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-0.5" />
+                      <button
+                        onClick={() => setShowOrientPanel(v => !v)}
+                        title="Auto-detect portrait and landscape pages"
+                        className={`text-xs font-medium px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1 ${
+                          showOrientPanel
+                            ? 'bg-indigo-500 text-white'
+                            : 'bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300'
+                        }`}>
+                        📐 Orientations
+                      </button>
+                      <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-0.5" />
+                      <button
+                        onClick={() => { setPages(prev => prev.map(p => ({ ...p, rotation: 0 }))); setSelected(new Set()) }}
+                        className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800">
+                        Reset
+                      </button>
+                    </>
+                  ) : (
                     <>
                       <button onClick={selectAll}
                         className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800">
@@ -3137,114 +3299,212 @@ function PageCanvasInterface({
                 </div>
               </div>
 
+              {/* Orientation panel (rotate mode only) */}
+              {mode === 'rotate' && showOrientPanel && (
+                <div className="mb-3 px-4 py-3 rounded-xl border border-indigo-200 dark:border-indigo-900/40 bg-indigo-50/50 dark:bg-indigo-950/20 flex items-center gap-3 flex-wrap">
+                  <span className="text-sm text-gray-700 dark:text-gray-200">
+                    <span className="font-semibold text-indigo-500">{portCount}</span> portrait&nbsp;&nbsp;·&nbsp;&nbsp;<span className="font-semibold text-indigo-500">{landCount}</span> landscape
+                  </span>
+                  <div className="w-px h-4 bg-indigo-200 dark:bg-indigo-800" />
+                  <button onClick={() => selectByOrientation(false)}
+                    className="text-xs font-medium px-2.5 py-1 rounded-lg bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 hover:border-indigo-400 text-gray-600 dark:text-gray-300 transition-colors">
+                    Select Portrait
+                  </button>
+                  <button onClick={() => selectByOrientation(true)}
+                    className="text-xs font-medium px-2.5 py-1 rounded-lg bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 hover:border-indigo-400 text-gray-600 dark:text-gray-300 transition-colors">
+                    Select Landscape
+                  </button>
+                  <div className="w-px h-4 bg-indigo-200 dark:bg-indigo-800" />
+                  <button onClick={() => makeAllOrientation(false)}
+                    className="text-xs font-medium px-2.5 py-1 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white transition-colors">
+                    Make All Portrait
+                  </button>
+                  <button onClick={() => makeAllOrientation(true)}
+                    className="text-xs font-medium px-2.5 py-1 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white transition-colors">
+                    Make All Landscape
+                  </button>
+                </div>
+              )}
+
               {/* Hint */}
               <p className="text-xs text-gray-400 dark:text-gray-500 mb-4 text-center">
-                {mode === 'rotate' && 'Use the arrows below each page to set its rotation — changes are applied together'}
+                {mode === 'rotate' && 'Click to select · Shift+Click range · Ctrl+Click toggle · Drag empty space or right-click drag to lasso · use arrows for individual pages'}
                 {mode === 'delete' && 'Click pages to mark them for deletion · red = will be removed'}
                 {mode === 'keep'   && 'Click pages to toggle selection · blue = will be kept in the output'}
               </p>
 
               {/* Page grid */}
-              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3 mb-28">
-                {pages.map((p, i) => (
-                  <div
-                    key={`${p.originalIndex}-${i}`}
-                    onClick={() => mode !== 'rotate' && toggleMark(i)}
-                    className={`group relative bg-white dark:bg-gray-900 border-2 rounded-xl overflow-hidden transition-all select-none ${
-                      mode !== 'rotate' ? 'cursor-pointer' : 'cursor-default'
-                    } ${
-                      mode === 'delete' && p.marked
-                        ? 'border-red-500'
-                        : mode === 'keep' && p.marked
-                        ? 'border-blue-500'
-                        : mode === 'keep' && !p.marked
-                        ? 'border-gray-300 dark:border-gray-700 opacity-40'
-                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-500'
-                    }`}
-                  >
-                    {/* Thumbnail */}
-                    <div className="relative bg-gray-50 dark:bg-gray-800 aspect-[3/4] overflow-hidden flex items-center justify-center">
-                      <img
-                        src={p.thumb}
-                        alt={`Page ${i + 1}`}
-                        style={{ transform: `rotate(${p.rotation}deg)`, maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
-                        className="transition-transform duration-200"
-                        draggable={false}
-                      />
-                      {/* Page number badge */}
-                      <div className="absolute top-1.5 left-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-gray-900/80 dark:bg-gray-950/90 text-white text-[9px] font-bold flex items-center justify-center">
-                        {i + 1}
-                      </div>
-                      {/* Delete overlay */}
-                      {mode === 'delete' && p.marked && (
-                        <div className="absolute inset-0 bg-red-500/15 flex items-center justify-center">
-                          <div className="w-8 h-8 rounded-full bg-red-500/90 flex items-center justify-center">
-                            <X className="w-4 h-4 text-white" />
-                          </div>
+              <div ref={gridRef} className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3 mb-28">
+                {pages.map((p, i) => {
+                  const isSel  = mode === 'rotate' && selected.has(i)
+                  const isLand = getEffectiveLandscape(p)
+                  return (
+                    <div
+                      key={`${p.originalIndex}-${i}`}
+                      data-page-card={i}
+                      onClick={(e) => {
+                        if (mode === 'rotate') handleRotateClick(e, i)
+                        else toggleMark(i)
+                      }}
+                      className={`group relative bg-white dark:bg-gray-900 border-2 rounded-xl overflow-hidden transition-all select-none cursor-pointer ${
+                        isSel
+                          ? 'border-indigo-500 ring-2 ring-indigo-500/20'
+                          : mode === 'delete' && p.marked
+                          ? 'border-red-500'
+                          : mode === 'keep' && p.marked
+                          ? 'border-blue-500'
+                          : mode === 'keep' && !p.marked
+                          ? 'border-gray-300 dark:border-gray-700 opacity-40'
+                          : 'border-gray-200 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-500'
+                      }`}
+                    >
+                      {/* Thumbnail */}
+                      <div className="relative bg-gray-50 dark:bg-gray-800 aspect-[3/4] overflow-hidden flex items-center justify-center">
+                        <img
+                          src={p.thumb}
+                          alt={`Page ${i + 1}`}
+                          style={{ transform: `rotate(${p.rotation}deg)`, maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                          className="transition-transform duration-200"
+                          draggable={false}
+                        />
+                        {/* Page number badge (top-left) */}
+                        <div className="absolute top-1.5 left-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-gray-900/80 dark:bg-gray-950/90 text-white text-[9px] font-bold flex items-center justify-center">
+                          {i + 1}
                         </div>
-                      )}
-                      {/* Keep checkmark */}
-                      {mode === 'keep' && p.marked && (
-                        <div className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center">
-                          <CheckCircle className="w-3.5 h-3.5 text-white" />
+                        {/* Orientation badge (top-right, rotate mode) */}
+                        {mode === 'rotate' && (
+                          <div className={`absolute top-1.5 right-1.5 min-w-[18px] h-[18px] px-1 rounded-full text-[9px] font-bold flex items-center justify-center pointer-events-none ${
+                            isLand ? 'bg-amber-500/90 text-white' : 'bg-gray-600/60 text-white'
+                          }`}>
+                            {isLand ? 'L' : 'P'}
+                          </div>
+                        )}
+                        {/* Selection overlay (rotate mode) */}
+                        {isSel && (
+                          <div className="absolute inset-0 bg-indigo-500/10 flex items-end justify-end p-1.5">
+                            <div className="w-5 h-5 rounded-full bg-indigo-500 flex items-center justify-center">
+                              <CheckCircle className="w-3 h-3 text-white" />
+                            </div>
+                          </div>
+                        )}
+                        {/* Delete overlay */}
+                        {mode === 'delete' && p.marked && (
+                          <div className="absolute inset-0 bg-red-500/15 flex items-center justify-center">
+                            <div className="w-8 h-8 rounded-full bg-red-500/90 flex items-center justify-center">
+                              <X className="w-4 h-4 text-white" />
+                            </div>
+                          </div>
+                        )}
+                        {/* Keep checkmark */}
+                        {mode === 'keep' && p.marked && (
+                          <div className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center">
+                            <CheckCircle className="w-3.5 h-3.5 text-white" />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Rotate controls */}
+                      {mode === 'rotate' ? (
+                        <div className="flex items-center justify-center gap-0.5 py-1.5 px-1 bg-white dark:bg-gray-900">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); rotatePage(i, -1) }}
+                            title="Rotate left 90°"
+                            className="p-1 rounded text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                            <RotateCcw className="w-3 h-3" />
+                          </button>
+                          <span className={`text-[10px] w-8 text-center tabular-nums font-medium ${p.rotation !== 0 ? 'text-indigo-400' : 'text-gray-400'}`}>
+                            {p.rotation}°
+                          </span>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); rotatePage(i, 1) }}
+                            title="Rotate right 90°"
+                            className="p-1 rounded text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                            <RotateCw className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="px-1.5 py-1 text-center bg-white dark:bg-gray-900">
+                          <span className="text-[9px] text-gray-400">p.{i + 1}</span>
                         </div>
                       )}
                     </div>
-
-                    {/* Rotate controls */}
-                    {mode === 'rotate' ? (
-                      <div className="flex items-center justify-center gap-0.5 py-1.5 px-1 bg-white dark:bg-gray-900">
-                        <button onClick={(e) => { e.stopPropagation(); rotatePage(i, -1) }}
-                          title="Rotate left 90°"
-                          className="p-1 rounded text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-                          <RotateCcw className="w-3 h-3" />
-                        </button>
-                        <span className={`text-[10px] w-8 text-center tabular-nums font-medium ${p.rotation !== 0 ? 'text-purple-400' : 'text-gray-400'}`}>
-                          {p.rotation}°
-                        </span>
-                        <button onClick={(e) => { e.stopPropagation(); rotatePage(i, 1) }}
-                          title="Rotate right 90°"
-                          className="p-1 rounded text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-                          <RotateCw className="w-3 h-3" />
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="px-1.5 py-1 text-center bg-white dark:bg-gray-900">
-                        <span className="text-[9px] text-gray-400">p.{i + 1}</span>
-                      </div>
-                    )}
-                  </div>
-                ))}
+                  )
+                })}
               </div>
+
+              {/* Lasso drag overlay */}
+              {lasso && (
+                <div
+                  className="fixed pointer-events-none z-50 border-2 border-indigo-500 bg-indigo-500/10 rounded-sm"
+                  style={{ left: lasso.l, top: lasso.t, width: lasso.w, height: lasso.h }}
+                />
+              )}
 
               {/* Sticky action bar */}
               <div className="fixed bottom-6 left-0 right-0 flex justify-center z-30 pointer-events-none">
                 <motion.div
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="pointer-events-auto bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-xl px-6 py-4 flex items-center gap-6"
+                  className="pointer-events-auto bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-xl px-6 py-4 flex items-center gap-4 flex-wrap justify-center"
                 >
-                  <div>
-                    <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                      {mode === 'rotate' && `${rotatedCount} page${rotatedCount !== 1 ? 's' : ''} rotated`}
-                      {mode === 'delete' && `${markedCount} of ${totalCount} pages marked for deletion`}
-                      {mode === 'keep'   && `${markedCount} of ${totalCount} pages selected`}
-                    </p>
-                    <p className="text-xs text-gray-400">
-                      {mode === 'rotate' && 'Rotate pages individually'}
-                      {mode === 'delete' && `${totalCount - markedCount} will remain`}
-                      {mode === 'keep'   && 'Unselected pages are discarded'}
-                    </p>
-                  </div>
-                  <button
-                    onClick={applyChanges}
-                    disabled={actionDisabled()}
-                    className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-white text-sm font-bold transition-opacity hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
-                    style={{ background: tool.color, boxShadow: `0 4px 16px rgba(${rgb}, 0.35)` }}
-                  >
-                    <Zap className="w-4 h-4" />
-                    {mode === 'rotate' ? 'Apply Rotations' : mode === 'delete' ? `Delete ${markedCount}` : `Extract ${markedCount}`}
-                  </button>
+                  {mode === 'rotate' && selected.size > 0 ? (
+                    <>
+                      <span className="text-sm text-gray-500 dark:text-gray-400 font-medium">
+                        <span className="font-bold text-gray-900 dark:text-white">{selected.size}</span> selected
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => rotateSelected(-90)}
+                          title="Rotate selection 90° counter-clockwise"
+                          className="flex items-center gap-1 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 text-xs font-semibold transition-colors">
+                          <RotateCcw className="w-3.5 h-3.5" /> 90°
+                        </button>
+                        <button onClick={() => rotateSelected(90)}
+                          title="Rotate selection 90° clockwise"
+                          className="flex items-center gap-1 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 text-xs font-semibold transition-colors">
+                          <RotateCw className="w-3.5 h-3.5" /> 90°
+                        </button>
+                        <button onClick={() => rotateSelected(180)}
+                          className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 text-xs font-semibold transition-colors">
+                          180°
+                        </button>
+                      </div>
+                      <button onClick={() => setSelected(new Set())}
+                        className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors px-2 py-1">
+                        Deselect all
+                      </button>
+                      <div className="w-px h-6 bg-gray-200 dark:bg-gray-700" />
+                      <button
+                        onClick={applyChanges}
+                        disabled={actionDisabled()}
+                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-sm font-bold transition-opacity hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+                        style={{ background: tool.color, boxShadow: `0 4px 16px rgba(${rgb}, 0.35)` }}>
+                        <Zap className="w-4 h-4" /> Apply Rotations
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                          {mode === 'rotate' && `${rotatedCount} page${rotatedCount !== 1 ? 's' : ''} rotated`}
+                          {mode === 'delete' && `${markedCount} of ${totalCount} pages marked for deletion`}
+                          {mode === 'keep'   && `${markedCount} of ${totalCount} pages selected`}
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          {mode === 'rotate' && (rotatedCount === 0 ? 'Select pages or use All CW / CCW buttons' : 'Ready to apply')}
+                          {mode === 'delete' && `${totalCount - markedCount} will remain`}
+                          {mode === 'keep'   && 'Unselected pages are discarded'}
+                        </p>
+                      </div>
+                      <button
+                        onClick={applyChanges}
+                        disabled={actionDisabled()}
+                        className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-white text-sm font-bold transition-opacity hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+                        style={{ background: tool.color, boxShadow: `0 4px 16px rgba(${rgb}, 0.35)` }}>
+                        <Zap className="w-4 h-4" />
+                        {mode === 'rotate' ? 'Apply Rotations' : mode === 'delete' ? `Delete ${markedCount}` : `Extract ${markedCount}`}
+                      </button>
+                    </>
+                  )}
                 </motion.div>
               </div>
             </motion.div>
