@@ -4,7 +4,7 @@ import React, { Fragment, useState, useRef, useMemo, useEffect } from 'react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
-import { motion, useScroll, useTransform } from 'framer-motion'
+import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion'
 import type { LucideIcon } from 'lucide-react'
 import {
   FileArchive,
@@ -13,6 +13,7 @@ import {
   FileOutput,
   PenLine,
   ArrowRight,
+  LayoutGrid,
   Zap,
   Search,
   X,
@@ -108,7 +109,7 @@ function HeroSection() {
   }
 
   return (
-    <section className="relative min-h-[92vh] flex items-center justify-center overflow-x-hidden bg-gray-50 dark:bg-gray-950 px-4 py-20">
+    <section data-section="hero" className="relative min-h-[92vh] flex items-center justify-center overflow-x-hidden bg-gray-50 dark:bg-gray-950 px-4 py-20">
       {/* Dot grid */}
       <div
         className="absolute inset-0 opacity-[0.06] dark:opacity-[0.035]"
@@ -343,6 +344,55 @@ function HeroSection() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// STICKY BROWSE BAR (mobile / tablet only — hidden on lg+)
+// Appears only after the hero section has fully scrolled out of the viewport,
+// preventing overlap with the "JUMP RIGHT IN" quick-action chips.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function StickyBrowseBar() {
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    const check = () => {
+      const hero = document.querySelector<HTMLElement>('[data-section="hero"]')
+      if (!hero) return
+      // Show only after the entire hero (including chips at its bottom) is gone
+      setVisible(hero.getBoundingClientRect().bottom <= 0)
+    }
+
+    check()
+    window.addEventListener('scroll', check, { passive: true })
+    return () => window.removeEventListener('scroll', check)
+  }, [])
+
+  return (
+    <AnimatePresence>
+      {visible && (
+        <motion.div
+          key="sticky-browse-bar"
+          initial={{ y: '100%', opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: '100%', opacity: 0 }}
+          transition={{ duration: 0.22, ease: 'easeOut' }}
+          className="fixed bottom-0 left-0 right-0 z-40 lg:hidden"
+          style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+        >
+          <div className="mx-3 mb-3">
+            <Link
+              href="/tools"
+              className="flex items-center justify-center gap-2 w-full py-3.5 rounded-xl text-sm font-semibold text-white shadow-lg bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 transition-all"
+            >
+              <LayoutGrid className="w-4 h-4" />
+              Browse All Tools
+            </Link>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // PAGE
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -350,7 +400,11 @@ export default function HomePage() {
   return (
     <>
       <HeroSection />
-      <BelowFold />
+      {/* pb-14 reserves space for the fixed sticky bar on mobile/tablet */}
+      <div className="pb-14 lg:pb-0">
+        <BelowFold />
+      </div>
+      <StickyBrowseBar />
     </>
   )
 }
