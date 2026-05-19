@@ -2,6 +2,7 @@ import os
 import json
 import markdown
 import pytesseract
+from pytesseract import Output
 import pandas as pd
 from PIL import Image
 from weasyprint import HTML
@@ -13,10 +14,14 @@ def _output_path(job_id: str, filename: str) -> str:
     return os.path.join(settings.OUTPUT_DIR, filename)
 
 
+_OCR_CONFIDENCE_THRESHOLD = 60
+_OCR_MIN_WORDS = 3
+
+
 def ocr_image(input_path: str, job_id: str) -> str:
     try:
         img = Image.open(input_path)
-        text = pytesseract.image_to_string(img)
+        data = pytesseract.image_to_data(img, output_type=Output.DICT)
     except pytesseract.TesseractNotFoundError:
         raise RuntimeError(
             "Tesseract OCR engine is not installed or not in PATH. "
@@ -24,6 +29,19 @@ def ocr_image(input_path: str, job_id: str) -> str:
         )
     except Exception as e:
         raise RuntimeError(f"OCR failed: {e}")
+
+    # Keep only words with a real confidence score and non-empty text
+    confident_words = [
+        data["text"][i]
+        for i in range(len(data["text"]))
+        if int(data["conf"][i]) >= _OCR_CONFIDENCE_THRESHOLD
+        and data["text"][i].strip()
+    ]
+
+    if len(confident_words) < _OCR_MIN_WORDS:
+        text = "No readable text was found in this image."
+    else:
+        text = " ".join(confident_words)
 
     output_filename = f"{job_id}_ocr.txt"
     output_path = _output_path(job_id, output_filename)
