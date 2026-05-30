@@ -11,7 +11,6 @@ celery_app = Celery(
         "app.workers.audio_tasks",
         "app.workers.video_tasks",
         "app.workers.document_tasks",
-        "app.workers.ai_tasks",
     ],
 )
 
@@ -27,7 +26,6 @@ celery_app.conf.update(
         "app.workers.audio_tasks.*": {"queue": "heavy"},
         "app.workers.video_tasks.*": {"queue": "heavy"},
         "app.workers.document_tasks.*": {"queue": "default"},
-        "app.workers.ai_tasks.*": {"queue": "default"},
     },
     task_time_limit=3600,        # hard kill after 60 min (large video/audio files)
     task_soft_time_limit=3300,   # SoftTimeLimitExceeded at 55 min
