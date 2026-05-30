@@ -14,8 +14,8 @@ async def image_to_text(
     session: AsyncSession = Depends(get_session),
 ):
     """Extract text from image using OCR (Tesseract)."""
-    if not allowed_file(file.filename, ["jpg", "jpeg", "png", "tiff", "bmp"]):
-        raise HTTPException(400, "Unsupported format. Use jpg, png, tiff, or bmp")
+    if not allowed_file(file.filename, ["jpg", "jpeg", "png", "webp", "tiff", "bmp"]):
+        raise HTTPException(400, "Unsupported format. Use jpg, png, webp, tiff, or bmp")
     job_id, saved_path = await save_upload_file(file)
     await create_job(session, job_id, "ocr", file.filename)
     celery_app.send_task(

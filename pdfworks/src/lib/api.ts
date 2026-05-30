@@ -28,14 +28,15 @@ interface StatusResponse {
 async function pollJob(job_id: string, onProgress: ProgressFn): Promise<void> {
   let pct = 20
   let elapsed = 0 // seconds elapsed
+  let errorStreak = 0 // consecutive network/rate-limit errors
 
-  // Variable interval: fast at first, backs off for large files
-  // Total budget: ~30 minutes
+  // Variable interval: starts at 3s to avoid triggering rate limiters,
+  // backs off further for large files. Total budget: ~30 minutes.
   const intervalFor = (secs: number): number => {
-    if (secs < 60)  return 1000   // first minute:  every 1s
-    if (secs < 180) return 2000   // 1–3 min:       every 2s
-    if (secs < 600) return 5000   // 3–10 min:      every 5s
-    return 10000                  // 10–30 min:     every 10s
+    if (secs < 60)  return 3000   // first minute:  every 3s
+    if (secs < 180) return 4000   // 1–3 min:       every 4s
+    if (secs < 600) return 6000   // 3–10 min:      every 6s
+    return 12000                  // 10–30 min:     every 12s
   }
 
   const msgFor = (secs: number): string => {
@@ -54,10 +55,23 @@ async function pollJob(job_id: string, onProgress: ProgressFn): Promise<void> {
     let data: StatusResponse
     try {
       const res = await fetch(`${API_BASE}/api/jobs/${job_id}`)
-      if (!res.ok) continue
+      if (!res.ok) {
+        // 429 rate-limited or 5xx: back off exponentially (cap at 30s)
+        errorStreak++
+        const backoff = Math.min(30000, 3000 * Math.pow(2, errorStreak - 1))
+        await new Promise<void>((r) => setTimeout(r, backoff))
+        elapsed += backoff / 1000
+        continue
+      }
+      errorStreak = 0
       data = (await res.json()) as StatusResponse
     } catch {
-      continue // network hiccup — retry
+      // CORS block / network hiccup: back off before retrying
+      errorStreak++
+      const backoff = Math.min(30000, 3000 * Math.pow(2, errorStreak - 1))
+      await new Promise<void>((r) => setTimeout(r, backoff))
+      elapsed += backoff / 1000
+      continue
     }
 
     if (data.status === 'done') return
