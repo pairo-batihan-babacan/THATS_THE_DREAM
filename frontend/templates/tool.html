@@ -24,7 +24,7 @@
 
         <!-- Upload zone -->
         <div class="upload-zone" id="uploadZone">
-          <input type="file" id="fileInput" class="file-input" />
+          <input type="file" id="fileInput" class="file-input" multiple />
           <div class="upload-content" id="uploadContent">
             <div class="upload-icon">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -33,17 +33,17 @@
                 <line x1="12" y1="3" x2="12" y2="15"/>
               </svg>
             </div>
-            <p class="upload-primary">Drop your file here</p>
+            <p class="upload-primary">Drop your files here</p>
             <p class="upload-secondary">or <span class="upload-link">click to browse</span></p>
             <p class="upload-hint" id="uploadHint">Supports PDF files up to 50MB</p>
           </div>
           <div class="upload-file-info hidden" id="fileInfo">
-            <div class="file-icon">📄</div>
-            <div class="file-details">
-              <p class="file-name" id="fileName"></p>
-              <p class="file-size" id="fileSize"></p>
+            <div class="file-list-header">
+              <span class="file-list-count" id="fileListCount"></span>
+              <span class="file-list-size" id="fileListSize"></span>
+              <button class="file-clear" id="fileClear" title="Remove all">✕</button>
             </div>
-            <button class="file-clear" id="fileClear" title="Remove file">✕</button>
+            <div class="file-list-scroll" id="fileList"></div>
           </div>
         </div>
 
@@ -86,19 +86,31 @@
           <button class="btn btn-cancel" id="cancelBtn">✕ Cancel</button>
         </div>
 
-        <!-- Result area -->
+        <!-- Result area (single file) -->
         <div class="result-area hidden" id="resultArea">
           <div class="result-success">
             <div class="result-icon">✓</div>
             <div class="result-info">
-              <p class="result-title">Conversion complete</p>
+              <p class="result-title">Done!</p>
               <p class="result-sub">File will be deleted from server in 30 minutes</p>
             </div>
           </div>
-          <a class="btn btn-download" id="downloadBtn" href="#" download>
-            ↓ Download file
-          </a>
+          <div class="rename-wrap">
+            <label class="rename-label" for="renameInput">Save as</label>
+            <input type="text" class="rename-input" id="renameInput" placeholder="output.pdf" spellcheck="false" autocomplete="off" />
+          </div>
+          <a class="btn btn-download" id="downloadBtn" href="#" download>↓ Download</a>
           <button class="btn btn-ghost" id="convertAnotherBtn">Convert another file</button>
+        </div>
+
+        <!-- Batch result area (multiple files) -->
+        <div class="batch-result-area hidden" id="batchResultArea">
+          <div class="batch-header">
+            <div class="result-icon">✓</div>
+            <p class="batch-title" id="batchTitle">Processing files…</p>
+          </div>
+          <div class="batch-list" id="batchList"></div>
+          <button class="btn btn-ghost" id="convertAnotherBatchBtn">Convert more files</button>
         </div>
 
         <!-- Error area -->
