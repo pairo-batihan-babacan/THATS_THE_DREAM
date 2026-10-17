@@ -1,7 +1,7 @@
 import stripe
 from fastapi import APIRouter, Request, HTTPException, Depends
 from sqlmodel.ext.asyncio.session import AsyncSession
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from app.core.config import settings
 from app.core.security import create_pro_token
 from app.core.database import get_session
@@ -50,7 +50,7 @@ async def payment_success(session_id: str, session: AsyncSession = Depends(get_s
         raise HTTPException(400, "Payment not completed")
 
     token = create_pro_token(session_id, days=30)
-    expires_at = datetime.utcnow() + timedelta(days=30)
+    expires_at = datetime.now(timezone.utc) + timedelta(days=30)
     await db_create_pro_token(session, token, session_id, expires_at)
 
     return {

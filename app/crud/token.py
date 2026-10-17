@@ -2,7 +2,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
 from app.models.token import ProToken
 from app.core.security import hash_token
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 async def get_token_by_session_id(session: AsyncSession, stripe_session_id: str) -> ProToken | None:
@@ -34,7 +34,7 @@ async def validate_pro_token(session: AsyncSession, token: str) -> ProToken | No
         select(ProToken).where(
             ProToken.token_hash == token_hash,
             ProToken.is_active == True,
-            ProToken.expires_at > datetime.utcnow(),
+            ProToken.expires_at > datetime.now(timezone.utc),
         )
     )
     return result.first()

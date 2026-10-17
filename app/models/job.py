@@ -1,7 +1,7 @@
 from sqlmodel import SQLModel, Field, Relationship
 from typing import Optional, TYPE_CHECKING
 from enum import Enum
-from datetime import datetime
+from datetime import datetime, timezone
 
 if TYPE_CHECKING:
     from app.models.user import User
@@ -22,7 +22,7 @@ class Job(SQLModel, table=True):
     input_filename: str
     output_filename: Optional[str] = None
     error_message: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     expires_at: Optional[datetime] = None
 
     user_id: Optional[int] = Field(default=None, foreign_key="user.id")

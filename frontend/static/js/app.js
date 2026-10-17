@@ -341,6 +341,7 @@ function initToolPage(category) {
 
   // Wire up reset buttons
   document.getElementById('convertAnotherBtn')?.addEventListener('click', resetUI);
+  document.getElementById('convertAnotherBatchBtn')?.addEventListener('click', resetUI);
   document.getElementById('retryBtn')?.addEventListener('click', resetUI);
   document.getElementById('cancelBtn')?.addEventListener('click', cancelConversion);
   document.getElementById('fileClear')?.addEventListener('click', (e) => {
@@ -364,9 +365,9 @@ function selectTool(tool, btn) {
   document.querySelectorAll('.tool-nav-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
 
-  // Update file input accept
+  // Update file input accept (always allow multiple for batch support)
   const fileInput = document.getElementById('fileInput');
-  fileInput.multiple = !!tool.multiple;
+  fileInput.multiple = true;
   fileInput.accept = tool.accept;
 
   // Update upload hint
@@ -417,33 +418,37 @@ let _pollTimer = null;
 
 async function handleFileSelect(files) {
   selectedFiles = files;
-  const file = files[0];
 
   const zone = document.getElementById('uploadZone');
   const uploadContent = document.getElementById('uploadContent');
   const fileInfo = document.getElementById('fileInfo');
-  const fileNameEl = document.getElementById('fileName');
-  const fileSizeEl = document.getElementById('fileSize');
+  const countEl = document.getElementById('fileListCount');
+  const sizeEl = document.getElementById('fileListSize');
+  const listEl = document.getElementById('fileList');
 
   zone.classList.add('has-file');
   uploadContent.classList.add('hidden');
   fileInfo.classList.remove('hidden');
 
-  if (files.length === 1) {
-    fileNameEl.textContent = file.name;
-    fileSizeEl.textContent = formatBytes(file.size);
-  } else {
-    fileNameEl.textContent = `${files.length} files selected`;
-    let total = 0;
-    for (const f of files) total += f.size;
-    fileSizeEl.textContent = formatBytes(total) + ' total';
+  let total = 0;
+  for (const f of files) total += f.size;
+
+  countEl.textContent = files.length === 1 ? '1 file selected' : `${files.length} files selected`;
+  sizeEl.textContent = formatBytes(total) + ' total';
+
+  listEl.innerHTML = '';
+  for (const f of files) {
+    const item = document.createElement('div');
+    item.className = 'file-list-item';
+    item.innerHTML = `<span class="fli-icon">📄</span><span class="fli-name">${escapeHtml(f.name)}</span><span class="fli-size">${formatBytes(f.size)}</span>`;
+    listEl.appendChild(item);
   }
 
   document.getElementById('convertBtn').disabled = false;
 
   // For strip-metadata tools, auto-fetch and show existing metadata
   if (currentTool?.inspectEndpoint && files.length === 1) {
-    await fetchAndShowMetadata(file, currentTool.inspectEndpoint);
+    await fetchAndShowMetadata(files[0], currentTool.inspectEndpoint);
   }
 }
 
@@ -562,6 +567,15 @@ function cancelConversion() {
 async function handleConvert(tool) {
   if (!selectedFiles) return;
 
+  const files = Array.from(selectedFiles);
+
+  // Batch mode: multiple files on a single-output tool
+  if (!tool.multiple && files.length > 1) {
+    document.getElementById('convertBtn').disabled = true;
+    await handleBatch(tool, files);
+    return;
+  }
+
   _abortCtrl = new AbortController();
 
   const btn = document.getElementById('convertBtn');
@@ -574,11 +588,11 @@ async function handleConvert(tool) {
   const formData = new FormData();
 
   if (tool.multiple) {
-    for (const file of selectedFiles) {
+    for (const file of files) {
       formData.append('files', file);
     }
   } else {
-    formData.append('file', selectedFiles[0]);
+    formData.append('file', files[0]);
   }
 
   // Collect extra options
@@ -600,7 +614,8 @@ async function handleConvert(tool) {
 
     const data = await res.json();
     _abortCtrl = null;
-    pollJob(data.job_id);
+    const suggested = getSuggestedName(tool, files[0]);
+    pollJob(data.job_id, suggested);
 
   } catch (err) {
     if (err.name === 'AbortError') return; // user cancelled — resetUI already called
@@ -610,7 +625,7 @@ async function handleConvert(tool) {
 }
 
 /* ─── Job Polling ────────────────────────────────────────── */
-function pollJob(jobId) {
+function pollJob(jobId, suggestedName) {
   showProgress('Processing…');
   setProgress(30);
 
@@ -623,7 +638,7 @@ function pollJob(jobId) {
       if (data.status === 'done') {
         clearInterval(_pollTimer); _pollTimer = null;
         setProgress(100);
-        setTimeout(() => showResult(data.download_url || `/api/jobs/${jobId}/download`), 300);
+        setTimeout(() => showResult(data.download_url || `/api/jobs/${jobId}/download`, suggestedName), 300);
         resetBtn();
       } else if (data.status === 'failed') {
         clearInterval(_pollTimer); _pollTimer = null;
@@ -653,12 +668,20 @@ function setProgress(pct) {
   document.getElementById('progressBar').style.width = pct + '%';
 }
 
-function showResult(downloadUrl) {
+function showResult(downloadUrl, suggestedName) {
   hide('progressArea');
   hide('errorArea');
   show('resultArea');
+
   const dlBtn = document.getElementById('downloadBtn');
   dlBtn.href = downloadUrl;
+  dlBtn.download = suggestedName || '';
+
+  const renameInput = document.getElementById('renameInput');
+  renameInput.value = suggestedName || '';
+  renameInput.oninput = () => {
+    dlBtn.download = renameInput.value.trim() || suggestedName || '';
+  };
 }
 
 function showError(msg) {
@@ -672,6 +695,7 @@ function resetUI() {
   if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
   hide('progressArea');
   hide('resultArea');
+  hide('batchResultArea');
   hide('errorArea');
   hide('metadataPanel');
   document.getElementById('metadataBody').innerHTML = '';
@@ -690,6 +714,181 @@ function resetBtn() {
 
 function show(id) { document.getElementById(id)?.classList.remove('hidden'); }
 function hide(id) { document.getElementById(id)?.classList.add('hidden'); }
+
+/* ─── Batch Processing ───────────────────────────────────── */
+let _batchDone = 0;
+let _batchTotal = 0;
+
+async function handleBatch(tool, files) {
+  _batchDone = 0;
+  _batchTotal = files.length;
+
+  showBatchArea(files);
+
+  // Collect options once (same for all files in batch)
+  const extraOptions = [];
+  document.querySelectorAll('#optionsGrid [name]').forEach(el => {
+    if (el.value) extraOptions.push([el.name, el.value]);
+  });
+
+  // Submit all files concurrently
+  const submissions = files.map((file, i) => submitSingleFile(tool, file, extraOptions, i));
+  const results = await Promise.allSettled(submissions);
+
+  results.forEach((result, i) => {
+    if (result.status === 'fulfilled') {
+      const suggested = getSuggestedName(tool, files[i]);
+      pollBatchJob(result.value, i, suggested);
+    } else {
+      markBatchRow(i, 'failed', null, null, result.reason.message);
+      tickBatch();
+    }
+  });
+}
+
+async function submitSingleFile(tool, file, extraOptions, index) {
+  setBatchRowStatus(index, 'processing', 'Uploading…');
+  const formData = new FormData();
+  formData.append('file', file);
+  extraOptions.forEach(([k, v]) => formData.append(k, v));
+
+  const res = await fetch(tool.endpoint, { method: 'POST', body: formData });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Upload failed' }));
+    throw new Error(err.detail || `HTTP ${res.status}`);
+  }
+  const data = await res.json();
+  setBatchRowStatus(index, 'processing', 'Converting…');
+  return data.job_id;
+}
+
+function showBatchArea(files) {
+  hide('progressArea');
+  hide('resultArea');
+  hide('errorArea');
+  show('batchResultArea');
+
+  document.getElementById('batchTitle').textContent = `Processing ${files.length} files…`;
+
+  const list = document.getElementById('batchList');
+  list.innerHTML = '';
+
+  files.forEach((file, i) => {
+    const row = document.createElement('div');
+    row.className = 'batch-row';
+    row.id = `batchRow_${i}`;
+    row.innerHTML = `
+      <div class="batch-row-top">
+        <span class="batch-row-name">${escapeHtml(file.name)}</span>
+        <span class="batch-row-status pending" id="batchStatus_${i}">Queued…</span>
+      </div>
+      <div class="batch-row-actions hidden" id="batchActions_${i}">
+        <input type="text" class="rename-input-sm" id="batchRename_${i}" spellcheck="false" autocomplete="off" />
+        <a class="btn-dl-sm" id="batchDl_${i}" href="#" download="">↓ Save</a>
+      </div>
+      <div class="batch-row-error hidden" id="batchError_${i}"></div>
+    `;
+    list.appendChild(row);
+  });
+}
+
+function setBatchRowStatus(index, cls, label) {
+  const el = document.getElementById(`batchStatus_${index}`);
+  if (!el) return;
+  el.className = `batch-row-status ${cls}`;
+  el.textContent = label;
+}
+
+function pollBatchJob(jobId, index, suggestedName) {
+  setBatchRowStatus(index, 'processing', 'Converting…');
+
+  const timer = setInterval(async () => {
+    try {
+      const res = await fetch(`/api/jobs/${jobId}`);
+      if (!res.ok) throw new Error('Check failed');
+      const data = await res.json();
+
+      if (data.status === 'done') {
+        clearInterval(timer);
+        const dlUrl = data.download_url || `/api/jobs/${jobId}/download`;
+        markBatchRow(index, 'done', dlUrl, suggestedName, null);
+        tickBatch();
+      } else if (data.status === 'failed') {
+        clearInterval(timer);
+        markBatchRow(index, 'failed', null, null, data.error_message || 'Failed');
+        tickBatch();
+      }
+    } catch (_) {
+      clearInterval(timer);
+      markBatchRow(index, 'failed', null, null, 'Lost connection');
+      tickBatch();
+    }
+  }, 2000);
+}
+
+function markBatchRow(index, status, dlUrl, suggestedName, errorMsg) {
+  const actionsEl = document.getElementById(`batchActions_${index}`);
+  const errorEl = document.getElementById(`batchError_${index}`);
+  const renameEl = document.getElementById(`batchRename_${index}`);
+  const dlEl = document.getElementById(`batchDl_${index}`);
+
+  if (status === 'done') {
+    setBatchRowStatus(index, 'done', '✓ Done');
+    actionsEl.classList.remove('hidden');
+    renameEl.value = suggestedName || 'output';
+    dlEl.href = dlUrl;
+    dlEl.download = suggestedName || 'output';
+    renameEl.oninput = () => {
+      dlEl.download = renameEl.value.trim() || suggestedName || 'output';
+    };
+  } else {
+    setBatchRowStatus(index, 'failed', '✕ Failed');
+    if (errorEl) {
+      errorEl.textContent = errorMsg || 'Conversion failed';
+      errorEl.classList.remove('hidden');
+    }
+  }
+}
+
+function tickBatch() {
+  _batchDone++;
+  const titleEl = document.getElementById('batchTitle');
+  if (!titleEl) return;
+  if (_batchDone >= _batchTotal) {
+    titleEl.textContent = `${_batchTotal} file${_batchTotal !== 1 ? 's' : ''} processed`;
+  } else {
+    titleEl.textContent = `${_batchDone} of ${_batchTotal} done…`;
+  }
+}
+
+/* ─── Output Filename Helpers ────────────────────────────── */
+function getOutputExt(tool, file) {
+  // Convert tools: use the selected target format option
+  const fmtEl = document.getElementById('opt_target_format') || document.getElementById('opt_format');
+  if (fmtEl) return fmtEl.value;
+
+  // Known fixed output extensions
+  const fixed = {
+    'to-word': 'docx',
+    'word-to-pdf': 'pdf',
+    'svg-to-png': 'png',
+    'to-images': 'zip',
+    'from-images': 'pdf',
+    'merge': 'pdf',
+    'split': 'zip',
+  };
+  if (fixed[tool.id]) return fixed[tool.id];
+
+  // Fallback: preserve input extension
+  const m = file.name.match(/\.([^.]+)$/);
+  return m ? m[1].toLowerCase() : 'bin';
+}
+
+function getSuggestedName(tool, file) {
+  const stem = file.name.replace(/\.[^.]+$/, '');
+  const ext = getOutputExt(tool, file);
+  return `${stem}.${ext}`;
+}
 
 /* ─── Metadata Inspect ───────────────────────────────────── */
 async function fetchAndShowMetadata(file, endpoint) {
