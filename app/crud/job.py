@@ -1,7 +1,7 @@
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
 from app.models.job import Job, JobStatus
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from app.core.config import settings
 
 
@@ -17,7 +17,7 @@ async def create_job(
         conversion_type=conversion_type,
         input_filename=input_filename,
         user_id=user_id,
-        expires_at=datetime.utcnow() + timedelta(minutes=settings.FILE_TTL_MINUTES),
+        expires_at=datetime.now(timezone.utc) + timedelta(minutes=settings.FILE_TTL_MINUTES),
     )
     session.add(job)
     await session.commit()
@@ -51,6 +51,6 @@ async def update_job_status(
 
 async def get_expired_jobs(session: AsyncSession) -> list[Job]:
     result = await session.exec(
-        select(Job).where(Job.expires_at < datetime.utcnow())
+        select(Job).where(Job.expires_at < datetime.now(timezone.utc))
     )
     return list(result.all())
