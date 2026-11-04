@@ -1,23 +1,46 @@
 #!/bin/bash
-# Hetzner VPS: 4 CPUs, 8 GB RAM
+# Two deploy profiles, picked with DEPLOY_PROFILE:
+#   vps  (default) — Hetzner-class box: 4 CPUs, 8 GB RAM, separate queues.
+#   free           — one small container: Redis in-process, a single lean worker.
+set -e
 
-# Default queue: PDF, image, document tasks — 3 concurrent slots
-(sleep 5 && celery -A app.core.celery_app worker \
-  --loglevel=info \
-  -Q default \
-  --concurrency=3 \
-  --max-tasks-per-child=20 || true) &
+PROFILE="${DEPLOY_PROFILE:-vps}"
 
-# Heavy queue: video and audio tasks — 1 concurrent (ffmpeg is CPU-bound)
-(sleep 5 && celery -A app.core.celery_app worker \
-  --loglevel=info \
-  -Q heavy \
-  --concurrency=1 \
-  --max-tasks-per-child=5 || true) &
+if [ "$PROFILE" = "free" ]; then
+  # Free plans come with no managed Redis, so run one in the container. Nothing
+  # is persisted: the broker only holds in-flight jobs and uploads expire in
+  # 30 minutes anyway.
+  redis-server --daemonize yes --port 6379 \
+    --save '' --appendonly no \
+    --maxmemory 64mb --maxmemory-policy noeviction
 
-# Beat scheduler
-(sleep 10 && celery -A app.core.celery_app beat \
-  --loglevel=info || true) &
+  # One worker takes both queues with beat embedded (-B), so the whole stack is
+  # two processes instead of four — 512 MB of RAM does not stretch further.
+  (sleep 5 && celery -A app.core.celery_app worker \
+    --loglevel=info \
+    -Q default,heavy \
+    --concurrency=1 \
+    --max-tasks-per-child=5 \
+    -B -s /tmp/celerybeat-schedule || true) &
+else
+  # Default queue: PDF, image, document tasks.
+  (sleep 5 && celery -A app.core.celery_app worker \
+    --loglevel=info \
+    -Q default \
+    --concurrency="${CELERY_DEFAULT_CONCURRENCY:-3}" \
+    --max-tasks-per-child=20 || true) &
 
-# FastAPI — foreground process Coolify monitors
+  # Heavy queue: video and audio tasks — ffmpeg is CPU-bound.
+  (sleep 5 && celery -A app.core.celery_app worker \
+    --loglevel=info \
+    -Q heavy \
+    --concurrency="${CELERY_HEAVY_CONCURRENCY:-1}" \
+    --max-tasks-per-child=5 || true) &
+
+  # Beat scheduler.
+  (sleep 10 && celery -A app.core.celery_app beat \
+    --loglevel=info -s /tmp/celerybeat-schedule || true) &
+fi
+
+# FastAPI — foreground process the platform monitors.
 exec uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-8000}"
