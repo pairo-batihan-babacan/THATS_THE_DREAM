@@ -25,3 +25,6 @@ __pycache__/
 *.log
 # Celery beat writes this at runtime
 celerybeat-schedule
+
+# Local run of the prod stack
+.env.local

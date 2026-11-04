@@ -1,0 +1,22 @@
+# Runs docker-compose.prod.yml on a laptop: same six containers, same Postgres,
+# same shared volume — so what you see here is what the VPS will serve.
+#
+#   docker compose --env-file .env.local \
+#     -f docker-compose.prod.yml -f docker-compose.local.yml up -d --build
+#
+# Secrets come from .env.local (gitignored) instead of .env, and the memory
+# limits from the prod file are dropped so a laptop is not held to the VPS's
+# 8.5 GB budget.
+services:
+  api:
+    env_file: [.env.local]
+    mem_limit: 0
+  worker-default:
+    env_file: [.env.local]
+    mem_limit: 0
+  worker-heavy:
+    env_file: [.env.local]
+    mem_limit: 0
+  scheduler:
+    env_file: [.env.local]
+    mem_limit: 0
