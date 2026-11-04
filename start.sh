@@ -1,6 +1,9 @@
 #!/bin/bash
 # Two deploy profiles, picked with DEPLOY_PROFILE:
-#   vps  (default) — Hetzner-class box: 4 CPUs, 8 GB RAM, separate queues.
+#   vps  (default) — a real VPS in one container: separate queues, concurrency
+#                    from CELERY_DEFAULT_CONCURRENCY / CELERY_HEAVY_CONCURRENCY.
+#                    Expects an external Redis via REDIS_URL. For the split
+#                    container layout use docker-compose.prod.yml instead.
 #   free           — one small container: Redis in-process, a single lean worker.
 set -e
 

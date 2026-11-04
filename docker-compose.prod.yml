@@ -1,0 +1,102 @@
+# Production stack for the Contabo VPS (6 vCPU / 12 GB), deployed by Coolify.
+#
+# Unlike docker-compose.yml this builds the image once and runs it as four
+# processes in separate containers, so a wedged worker cannot take the web
+# process down with it. api and the workers share one volume for /tmp/fileconvert
+# because a worker writes the output file that api later streams on download.
+#
+# Memory limits add up to ~8.5 GB, leaving room for the host and Coolify. They
+# exist so one runaway libreoffice cannot OOM the box.
+
+x-app: &app
+  build:
+    context: .
+  image: pdfworks:latest
+  env_file:
+    - .env
+  restart: unless-stopped
+  depends_on:
+    redis:
+      condition: service_healthy
+    postgres:
+      condition: service_healthy
+
+services:
+
+  api:
+    <<: *app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    volumes:
+      - fileconvert_tmp:/tmp/fileconvert
+    mem_limit: 1g
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # PDF, image and document tasks. LibreOffice peaks near 400 MB per
+  # conversion, so three slots is the limit worth giving it here.
+  worker-default:
+    <<: *app
+    command: >
+      celery -A app.core.celery_app worker
+      --loglevel=info -Q default
+      --concurrency=3 --max-tasks-per-child=20
+    volumes:
+      - fileconvert_tmp:/tmp/fileconvert
+    mem_limit: 3g
+
+  # Video and audio. ffmpeg threads internally and Contabo's shared cores see
+  # steal time, so more than one slot here just makes every job slower.
+  worker-heavy:
+    <<: *app
+    command: >
+      celery -A app.core.celery_app worker
+      --loglevel=info -Q heavy
+      --concurrency=1 --max-tasks-per-child=5
+    volumes:
+      - fileconvert_tmp:/tmp/fileconvert
+    mem_limit: 3g
+
+  # Runs cleanup_expired_files every 15 minutes (see core/celery_app.py).
+  scheduler:
+    <<: *app
+    command: >
+      celery -A app.core.celery_app beat
+      --loglevel=info -s /tmp/celerybeat-schedule
+    mem_limit: 256m
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --save '' --appendonly no --maxmemory 384mb --maxmemory-policy noeviction
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-pdfworks}
+      POSTGRES_USER: ${POSTGRES_USER:-pdfworks}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    mem_limit: 1g
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pdfworks} -d ${POSTGRES_DB:-pdfworks}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  fileconvert_tmp:
+  postgres_data:
