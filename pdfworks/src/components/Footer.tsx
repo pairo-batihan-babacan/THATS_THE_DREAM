@@ -12,8 +12,12 @@ const toolCategories = [
 const quickLinks = [
   { label: 'Home', href: '/' },
   { label: 'All Tools', href: '/tools' },
+  { label: 'Blog', href: '/blog' },
+  { label: 'FAQ', href: '/faq' },
   { label: 'About', href: '/about' },
+  { label: 'Contact', href: '/contact' },
   { label: 'Privacy Policy', href: '/privacy' },
+  { label: 'Terms of Service', href: '/terms' },
 ]
 
 const privacyPoints = [

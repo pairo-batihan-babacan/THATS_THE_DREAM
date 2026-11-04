@@ -1,0 +1,22 @@
+[
+  {
+    "title": "📧 General Support",
+    "email": "support@pdfworks.io",
+    "note": "For questions about how to use PDFWorks, conversion issues, or anything related to the tools, email us at:"
+  },
+  {
+    "title": "🐛 Bug Reports",
+    "email": "bugs@pdfworks.io",
+    "note": "If you've found a bug or a conversion that produces unexpected results, please send details to:"
+  },
+  {
+    "title": "💼 Business & Press",
+    "email": "hello@pdfworks.io",
+    "note": "For partnership enquiries, advertising questions, or press / media requests, please contact:"
+  },
+  {
+    "title": "🔒 Privacy & GDPR",
+    "email": "privacy@pdfworks.io",
+    "note": "For questions about our data handling practices, to make a Subject Access Request, or to exercise your GDPR rights, contact our privacy team:"
+  }
+]

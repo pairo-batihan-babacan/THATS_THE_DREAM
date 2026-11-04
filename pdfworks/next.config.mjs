@@ -10,6 +10,18 @@ const nextConfig = {
       { source: '/tools/convert-pdf',    destination: '/tools/pdf-converter',    permanent: true  },
       // Legacy / externally-linked routes that had no matching page
       { source: '/pdf',                  destination: '/tools/pdf',              permanent: true  },
+      // Category shortcuts the old Jinja site served at the root, still linked
+      // from the ported blog posts.
+      { source: '/image',                destination: '/tools/image',            permanent: true  },
+      { source: '/audio',                destination: '/tools/audio',            permanent: true  },
+      { source: '/video',                destination: '/tools/video',            permanent: true  },
+      { source: '/document',             destination: '/tools/document',         permanent: true  },
+      // Tool slugs that differ between the two frontends.
+      { source: '/tools/compress-image',     destination: '/tools/image-compress',    permanent: false },
+      { source: '/tools/convert-image',      destination: '/tools/image-convert',     permanent: false },
+      { source: '/tools/ocr',                destination: '/tools/ocr-image-to-text', permanent: false },
+      { source: '/tools/pdf-to-images',      destination: '/tools/pdf-to-jpg',        permanent: false },
+      { source: '/tools/strip-pdf-metadata', destination: '/tools/strip-metadata',    permanent: false },
       { source: '/tools/pdf-scanner',    destination: '/tools/pdf-ocr',          permanent: false },
       { source: '/tools/crop-pdf',       destination: '/tools/edit-pdf',         permanent: false },
       { source: '/tools/image-cropper',  destination: '/tools/image-convert',    permanent: false },
