@@ -6289,13 +6289,18 @@ function RedactPdfInterface({ tool, category }: { tool: Tool; category: ToolCate
               >
                 <img src={src} alt={`Page ${pageIdx + 1}`} className="w-full block" draggable={false} />
                 {/* Existing boxes */}
-                {boxes.filter(b => b.pageIndex === pageIdx).map((box, bi) => {
+                {boxes.filter(b => b.pageIndex === pageIdx).map(box => {
                   const globalIdx = boxes.indexOf(box)
                   return (
-                    <div key={bi} className="absolute bg-black group"
+                    <div key={globalIdx} className="absolute bg-black group"
                       style={{ left: `${box.xFrac*100}%`, top: `${box.yFrac*100}%`, width: `${box.wFrac*100}%`, height: `${box.hFrac*100}%` }}>
                       <button
-                        onClick={() => removeBox(globalIdx)}
+                        // The page wrapper calls setPointerCapture on pointerdown to track
+                        // drawing. Capture retargets the following pointerup to the wrapper,
+                        // so down and up no longer share a target and no click is ever
+                        // dispatched here. Keep pointerdown from reaching it.
+                        onPointerDown={e => e.stopPropagation()}
+                        onClick={e => { e.stopPropagation(); removeBox(globalIdx) }}
                         className="absolute -top-3 -right-3 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
                       >
                         <X className="w-3 h-3" />
